@@ -4,9 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cuadrocorrocalle/shared": "workspace:*"
+    "@cuadrocorrocalle/shared": "workspace:*",
+    "fastify": "^5.12.0",
+    "tsx": "^4.23.0"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.0"
   }
 }

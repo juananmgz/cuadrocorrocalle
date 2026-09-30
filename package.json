@@ -9,7 +9,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @cuadrocorrocalle/web dev",
+    "dev": "pnpm -r --parallel --if-present dev",
     "build": "pnpm -r --if-present build",
     "test": "pnpm -r --if-present test",
     "lint": "pnpm lint:eslint && pnpm lint:styles && pnpm format:check",

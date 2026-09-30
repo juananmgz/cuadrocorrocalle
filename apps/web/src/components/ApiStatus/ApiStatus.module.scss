@@ -1,0 +1,28 @@
+.root {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: var(--space-3) 0 0;
+  font-weight: 700;
+}
+
+.dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  background: var(--ctl);
+  border: var(--border-width) solid var(--ink);
+  border-radius: 50%;
+}
+
+.root[data-state='connected'] .dot {
+  background: var(--ok);
+}
+
+.root[data-state='disconnected'] {
+  color: var(--danger);
+
+  .dot {
+    background: var(--danger);
+  }
+}
