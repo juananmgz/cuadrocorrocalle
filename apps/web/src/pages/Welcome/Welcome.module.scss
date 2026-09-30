@@ -55,6 +55,10 @@
   border-top: var(--border-width) solid var(--line);
 }
 
+.version {
+  margin: 0;
+}
+
 .mono {
   font-family: var(--font-mono);
 }

@@ -1,5 +1,6 @@
 import { APP_NAME } from '@cuadrocorrocalle/shared';
 
+import { ApiStatus } from '../../components/ApiStatus/ApiStatus';
 import { GridBackground } from '../../components/GridBackground/GridBackground';
 import styles from './Welcome.module.scss';
 
@@ -14,9 +15,12 @@ export function Welcome() {
           <p className={styles.lead}>
             Organigramas de actuaciones para tu grupo, desde el móvil, la tablet o el PC.
           </p>
-          <p className={styles.status}>
-            Versión <span className={styles.mono}>0.2</span> · en construcción
-          </p>
+          <div className={styles.status}>
+            <p className={styles.version}>
+              Versión <span className={styles.mono}>0.3</span> · en construcción
+            </p>
+            <ApiStatus />
+          </div>
         </section>
       </main>
     </>
