@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: cuadrocorrocalle-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    buildCommand: npx --yes pnpm@12.8.1 install --frozen-lockfile && npx --yes pnpm@12.8.1 --filter @cuadrocorrocalle/api db:deploy
+    startCommand: cd apps/api && node --import tsx src/server.ts
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.20.0
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
