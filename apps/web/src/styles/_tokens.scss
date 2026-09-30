@@ -1,0 +1,97 @@
+// Tiza design tokens, exposed as CSS custom properties.
+@mixin tiza-base {
+  --font-heading: 'Barlow Condensed', system-ui, sans-serif;
+  --font-body: 'Atkinson Hyperlegible Next Variable', system-ui, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono Variable', ui-monospace, monospace;
+
+  --radius: 4px;
+  --border-width: 2px;
+  --grid-cell: 48px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 40px;
+
+  --progress: #f5c400;
+  --stage-warn: #c77700;
+  --topbar: #16181b;
+  --topbar-ink: #f2f3f4;
+}
+
+@mixin tiza-light {
+  --bg: #eceef1;
+  --surface: #fff;
+  --ink: #16181b;
+  --ink-soft: #4e555e;
+  --ctl: #737b85;
+  --line: #d3d8de;
+  --accent: #1f4fa3;
+  --on-accent: #fff;
+  --focus: #1f4fa3;
+  --sel-bg: #e3ebf7;
+  --danger: #b3301f;
+  --on-danger: #fff;
+  --ok: #1e7a4f;
+  --stage: #c9cdd3;
+  --stage-edge: #6f7780;
+  --grid: rgb(30 40 55 / 16%);
+  --music: rgb(22 24 27 / 12%);
+  --link: #16181b;
+  --token-stroke: #16181b;
+  --hole: #4e555e;
+
+  --u1: #1f4fa3;
+  --u2: #d23c2a;
+  --u3: #f5c400;
+  --u4: #1e7a4f;
+  --u5: #e46f1c;
+  --u6: #6b3fa0;
+
+  --sky-top: #f7f8f9;
+  --sky-bottom: #e1e5e9;
+  --floor: #eceef1;
+  --grid-minor: rgb(30 40 55 / 13%);
+  --grid-major: rgb(30 40 55 / 34%);
+
+  color-scheme: light;
+}
+
+@mixin tiza-dark {
+  --bg: #15171a;
+  --surface: #1f2124;
+  --ink: #f2efe9;
+  --ink-soft: #aaa49b;
+  --ctl: #80878f;
+  --line: #3c4046;
+  --accent: #8fb8ff;
+  --on-accent: #101418;
+  --focus: #f5c542;
+  --sel-bg: #23324d;
+  --danger: #ff8a7a;
+  --on-danger: #15171a;
+  --ok: #5cc28e;
+  --stage: #2b2e33;
+  --stage-edge: #737a84;
+  --grid: rgb(255 255 255 / 12%);
+  --music: rgb(0 0 0 / 30%);
+  --link: #d8d2c8;
+  --token-stroke: #0a0b0d;
+  --hole: #aaa49b;
+
+  --u1: #7fa8ff;
+  --u2: #ff8a7a;
+  --u3: #f5c542;
+  --u4: #5cc28e;
+  --u5: #ffa45c;
+  --u6: #b894f0;
+
+  --sky-top: #0a0b0d;
+  --sky-bottom: #1c1e22;
+  --floor: #15171a;
+  --grid-minor: rgb(255 255 255 / 7%);
+  --grid-major: rgb(255 255 255 / 20%);
+
+  color-scheme: dark;
+}
