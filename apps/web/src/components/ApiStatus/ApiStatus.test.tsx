@@ -18,18 +18,31 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('shows connected when the API answers ok', async () => {
+test('shows API and database connected when both answer', async () => {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => Response.json({ status: 'ok' })),
+    vi.fn(async () => Response.json({ status: 'ok', database: 'connected' })),
   );
 
   renderApiStatus();
 
   expect(await screen.findByText('API conectada')).toBeInTheDocument();
+  expect(screen.getByText('Base de datos conectada')).toBeInTheDocument();
 });
 
-test('shows disconnected when the API cannot be reached', async () => {
+test('shows the database disconnected when only the API answers', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => Response.json({ status: 'ok', database: 'disconnected' })),
+  );
+
+  renderApiStatus();
+
+  expect(await screen.findByText('API conectada')).toBeInTheDocument();
+  expect(screen.getByText('Sin conexión con la base de datos')).toBeInTheDocument();
+});
+
+test('shows everything disconnected when the API cannot be reached', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => {
@@ -40,4 +53,5 @@ test('shows disconnected when the API cannot be reached', async () => {
   renderApiStatus();
 
   expect(await screen.findByText('Sin conexión con la API')).toBeInTheDocument();
+  expect(screen.getByText('Sin conexión con la base de datos')).toBeInTheDocument();
 });

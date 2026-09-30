@@ -11,7 +11,7 @@ afterEach(() => {
 test('shows the app name as the main heading', async () => {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => Response.json({ status: 'ok' })),
+    vi.fn(async () => Response.json({ status: 'ok', database: 'connected' })),
   );
 
   render(

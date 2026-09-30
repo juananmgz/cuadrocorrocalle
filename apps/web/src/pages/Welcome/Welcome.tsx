@@ -17,7 +17,7 @@ export function Welcome() {
           </p>
           <div className={styles.status}>
             <p className={styles.version}>
-              Versión <span className={styles.mono}>0.3</span> · en construcción
+              Versión <span className={styles.mono}>0.4</span> · en construcción
             </p>
             <ApiStatus />
           </div>
