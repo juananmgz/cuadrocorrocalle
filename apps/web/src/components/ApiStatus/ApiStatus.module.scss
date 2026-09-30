@@ -1,8 +1,15 @@
 .root {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: var(--space-3) 0 0;
+  list-style: none;
+}
+
+.item {
   display: flex;
   gap: var(--space-2);
   align-items: center;
-  margin: var(--space-3) 0 0;
   font-weight: 700;
 }
 
@@ -15,11 +22,11 @@
   border-radius: 50%;
 }
 
-.root[data-state='connected'] .dot {
+.item[data-state='connected'] .dot {
   background: var(--ok);
 }
 
-.root[data-state='disconnected'] {
+.item[data-state='disconnected'] {
   color: var(--danger);
 
   .dot {

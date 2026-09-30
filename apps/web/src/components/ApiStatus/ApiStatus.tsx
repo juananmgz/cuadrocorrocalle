@@ -1,19 +1,31 @@
-import { useApiHealth } from './useApiHealth';
 import styles from './ApiStatus.module.scss';
+import { type ConnectionState, useApiHealth } from './useApiHealth';
 
-const LABELS = {
+const API_LABELS: Record<ConnectionState, string> = {
   checking: 'Comprobando la API…',
   connected: 'API conectada',
   disconnected: 'Sin conexión con la API',
-} as const;
+};
+
+const DATABASE_LABELS: Record<ConnectionState, string> = {
+  checking: 'Comprobando la base de datos…',
+  connected: 'Base de datos conectada',
+  disconnected: 'Sin conexión con la base de datos',
+};
 
 export function ApiStatus() {
-  const state = useApiHealth();
+  const { api, database } = useApiHealth();
 
   return (
-    <p className={styles.root} data-state={state} role="status">
-      <span className={styles.dot} aria-hidden="true" />
-      {LABELS[state]}
-    </p>
+    <ul className={styles.root} role="status">
+      <li className={styles.item} data-state={api}>
+        <span className={styles.dot} aria-hidden="true" />
+        {API_LABELS[api]}
+      </li>
+      <li className={styles.item} data-state={database}>
+        <span className={styles.dot} aria-hidden="true" />
+        {DATABASE_LABELS[database]}
+      </li>
+    </ul>
   );
 }

@@ -1,7 +1,12 @@
 import { HEALTH_PATH, healthResponseSchema } from '@cuadrocorrocalle/shared';
 import { useQuery } from '@tanstack/react-query';
 
-export type ApiHealthState = 'checking' | 'connected' | 'disconnected';
+export type ConnectionState = 'checking' | 'connected' | 'disconnected';
+
+export interface ApiHealth {
+  api: ConnectionState;
+  database: ConnectionState;
+}
 
 const REFRESH_MS = 5000;
 
@@ -15,15 +20,16 @@ async function fetchHealth() {
   return healthResponseSchema.parse(await response.json());
 }
 
-export function useApiHealth(): ApiHealthState {
-  const { isPending, isError } = useQuery({
+export function useApiHealth(): ApiHealth {
+  const { data, isPending, isError } = useQuery({
     queryKey: ['health'],
     queryFn: fetchHealth,
     refetchInterval: REFRESH_MS,
     retry: false,
   });
 
-  if (isPending) return 'checking';
+  if (isPending) return { api: 'checking', database: 'checking' };
+  if (isError) return { api: 'disconnected', database: 'disconnected' };
 
-  return isError ? 'disconnected' : 'connected';
+  return { api: 'connected', database: data.database };
 }
