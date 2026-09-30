@@ -1,0 +1,10 @@
+name: main-from-devel
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  source-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - if: github.head_ref != 'devel'
+        run: echo "Only devel can be merged into main" && exit 1
