@@ -1,0 +1,64 @@
+@use '../../styles/mixins';
+
+.root {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: var(--space-3);
+
+  @include mixins.from-tablet {
+    padding: var(--space-5);
+  }
+}
+
+.card {
+  @include mixins.panel;
+
+  width: 100%;
+  max-width: 560px;
+  padding: var(--space-4);
+
+  @include mixins.from-tablet {
+    padding: var(--space-5);
+  }
+}
+
+.brand {
+  @include mixins.heading;
+
+  margin: 0 0 var(--space-2);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: clamp(2.25rem, 9vw, 4rem);
+  overflow-wrap: anywhere;
+}
+
+.lead {
+  margin: var(--space-3) 0 0;
+  font-size: 1.125rem;
+}
+
+.status {
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-3);
+  color: var(--ink-soft);
+  border-top: var(--border-width) solid var(--line);
+}
+
+.version {
+  margin: 0;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
