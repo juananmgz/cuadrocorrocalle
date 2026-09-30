@@ -17,6 +17,9 @@ Plataforma accesible desde móvil, tablet y PC para hacer organigramas de actuac
 
 ```bash
 pnpm install     # instala las dependencias
+pnpm dev         # abre la web en http://localhost:5173
+pnpm test        # pruebas
+pnpm build       # compila la web
 pnpm lint        # ESLint, Stylelint y Prettier
 pnpm typecheck   # comprueba los tipos
 pnpm format      # da formato al código

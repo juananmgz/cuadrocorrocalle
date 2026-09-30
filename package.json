@@ -9,6 +9,9 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "dev": "pnpm --filter @cuadrocorrocalle/web dev",
+    "build": "pnpm -r --if-present build",
+    "test": "pnpm -r --if-present test",
     "lint": "pnpm lint:eslint && pnpm lint:styles && pnpm format:check",
     "lint:eslint": "eslint .",
     "lint:styles": "stylelint \"**/*.{css,scss}\" --allow-empty-input",
@@ -21,6 +24,8 @@
     "@types/node": "^22.0.0",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.12.0",
     "prettier": "^3.9.9",
     "stylelint": "^17.15.0",
