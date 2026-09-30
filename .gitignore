@@ -141,3 +141,12 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Claude
+.claude/
+.claude.json
+.claudeignore
+.mcp.json
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
