@@ -20,10 +20,15 @@ const auth =
       })
     : undefined;
 
-const app = buildApp({ logger: true, database, auth });
+const proxySecret = process.env.PROXY_SECRET;
+const app = buildApp({ logger: true, database, auth, proxySecret });
 
 if (!databaseUrl) {
   app.log.warn('DATABASE_URL is not set: the API runs without a database');
+}
+
+if (!proxySecret) {
+  app.log.warn('PROXY_SECRET is not set: the API accepts requests that skip the web proxy');
 }
 
 if (!auth) {

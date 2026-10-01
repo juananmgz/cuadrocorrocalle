@@ -14,10 +14,11 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 
 ## v0.2.0 (en curso: fase 1)
 
-| PR                                                                | Commit                                                                    | Cambio                                                         |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| [CCC-0013](https://github.com/juananmgz/cuadrocorrocalle/pull/13) | [72814e8](https://github.com/juananmgz/cuadrocorrocalle/commit/72814e8)   | ✨ Add cookie consent banner and GA4 behind consent (paso 1.1) |
-| [CCC-0014](https://github.com/juananmgz/cuadrocorrocalle/pull/14) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/14/commits) | ✨ Add email and password accounts with Better Auth (paso 1.2) |
+| PR                                                                | Commit                                                                    | Cambio                                                                        |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [CCC-0013](https://github.com/juananmgz/cuadrocorrocalle/pull/13) | [72814e8](https://github.com/juananmgz/cuadrocorrocalle/commit/72814e8)   | ✨ Add cookie consent banner and GA4 behind consent (paso 1.1)                |
+| [CCC-0014](https://github.com/juananmgz/cuadrocorrocalle/pull/14) | [bcd74b8](https://github.com/juananmgz/cuadrocorrocalle/commit/bcd74b8)   | ✨ Add email and password accounts with Better Auth (paso 1.2)                |
+| [CCC-0015](https://github.com/juananmgz/cuadrocorrocalle/pull/15) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/15/commits) | 🔒️ Lock the API to the web proxy and add a Content Security Policy (paso 1.2) |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 
