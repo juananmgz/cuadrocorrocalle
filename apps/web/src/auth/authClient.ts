@@ -5,12 +5,16 @@ export const authClient = createAuthClient();
 
 export const MIN_PASSWORD_LENGTH = 8;
 
+// Where the confirmation link sends the visitor once the email is verified.
+export const VERIFIED_CALLBACK = '/inicio?correo=confirmado';
+
 const ERROR_MESSAGES: [match: string, message: string][] = [
   ['USER_ALREADY_EXISTS', 'Ya hay una cuenta con ese correo. Prueba a entrar.'],
   ['INVALID_EMAIL_OR_PASSWORD', 'El correo o la contraseña no son correctos.'],
   ['PASSWORD_TOO_SHORT', `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`],
   ['PASSWORD_TOO_LONG', 'La contraseña es demasiado larga.'],
   ['INVALID_EMAIL', 'Revisa el correo: no parece válido.'],
+  ['INVALID_TOKEN', 'El enlace ha caducado o ya se ha usado. Pide uno nuevo.'],
   [
     'PASSWORD_COMPROMISED',
     'Esa contraseña aparece en filtraciones de datos conocidas. Elige otra que no uses en otros sitios.',

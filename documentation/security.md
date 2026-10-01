@@ -30,7 +30,14 @@ Cómo se protegen las contraseñas y las sesiones (paso 1.2).
 - Las peticiones que cambian algo solo se aceptan desde el origen de la web (`trustedOrigins`), lo que frena el CSRF.
 - Los registros de la API (Fastify) guardan método, ruta y estado, nunca el cuerpo de la petición, así que la contraseña no aparece en ellos.
 
+## Correo (paso 1.3)
+
+- **Confirmar el correo:** al crear la cuenta se envía un enlace que caduca en 24 horas. Se puede usar la cuenta antes de confirmarlo; `/inicio` recuerda que falta y permite reenviarlo.
+- **Recuperar la contraseña:** `/recuperar` envía un enlace que caduca en 1 hora y sirve una sola vez. La respuesta es la misma exista o no la cuenta, para que nadie pueda averiguar qué correos están registrados.
+- **Al cambiar la contraseña** se cierran las sesiones en todos los dispositivos, por si alguien más la conocía.
+- **Límites:** 3 peticiones de recuperar contraseña y 3 reenvíos de confirmación por minuto y por IP.
+- Los correos salen por la API HTTPS de Brevo (`BREVO_API_KEY`); en local, sin clave, se escriben en la consola de la API.
+
 ## Pendiente
 
 - `style-src` permite estilos en línea (`'unsafe-inline'`) porque los componentes de Radix y algunos colores se aplican con el atributo `style`. El riesgo es bajo: los estilos no ejecutan código.
-- **Confirmar el correo y recuperar la contraseña:** paso 1.3.

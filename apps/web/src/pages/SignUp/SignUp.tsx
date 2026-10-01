@@ -1,7 +1,12 @@
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 
-import { authClient, authErrorMessage, MIN_PASSWORD_LENGTH } from '../../auth/authClient';
+import {
+  authClient,
+  authErrorMessage,
+  MIN_PASSWORD_LENGTH,
+  VERIFIED_CALLBACK,
+} from '../../auth/authClient';
 import styles from '../../auth/authForm.module.scss';
 import { AuthLayout } from '../../components/AuthLayout/AuthLayout';
 import { Button } from '../../components/ui/Button/Button';
@@ -25,6 +30,7 @@ export function SignUp() {
       name: String(form.get('name')).trim(),
       email: String(form.get('email')).trim(),
       password: String(form.get('password')),
+      callbackURL: VERIFIED_CALLBACK,
     });
     setPending(false);
 

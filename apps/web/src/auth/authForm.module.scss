@@ -10,3 +10,20 @@
   border-left: 6px solid var(--danger);
   border-radius: var(--radius);
 }
+
+.notice {
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+  background: var(--ok-bg);
+  border-left: 6px solid var(--ok);
+  border-radius: var(--radius);
+}
+
+.secondaryLink {
+  justify-self: start;
+  color: var(--ink-soft);
+}
+
+.text {
+  margin: 0;
+}

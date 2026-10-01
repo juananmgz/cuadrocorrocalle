@@ -63,6 +63,9 @@ export function SignIn() {
           autoComplete="current-password"
           required
         />
+        <Link to="/recuperar" className={styles.secondaryLink}>
+          ¿Has olvidado la contraseña?
+        </Link>
         {error && (
           <p className={styles.error} role="alert">
             {error}
