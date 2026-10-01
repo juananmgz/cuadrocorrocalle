@@ -1,0 +1,37 @@
+@use '../../../styles/mixins';
+
+.root {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  @include mixins.label;
+}
+
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.swatch {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  cursor: pointer;
+  border: var(--border-width) solid var(--token-stroke);
+  border-radius: 50%;
+
+  &[data-state='checked'] {
+    box-shadow:
+      0 0 0 3px var(--surface),
+      0 0 0 5px var(--ink);
+  }
+}
+
+.indicator {
+  font-weight: 700;
+}

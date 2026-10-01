@@ -1,4 +1,5 @@
 import { APP_NAME } from '@cuadrocorrocalle/shared';
+import { Link } from 'react-router';
 
 import { ApiStatus } from '../../components/ApiStatus/ApiStatus';
 import { GridBackground } from '../../components/GridBackground/GridBackground';
@@ -17,10 +18,13 @@ export function Welcome() {
           </p>
           <div className={styles.status}>
             <p className={styles.version}>
-              Versión <span className={styles.mono}>0.4</span> · en construcción
+              Versión <span className={styles.mono}>0.7</span> · en construcción
             </p>
             <ApiStatus />
           </div>
+          <Link to="/componentes" className={styles.link}>
+            Ver componentes
+          </Link>
         </section>
       </main>
     </>

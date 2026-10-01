@@ -59,6 +59,15 @@
   margin: 0;
 }
 
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: var(--space-3);
+  font-weight: 700;
+  color: var(--accent);
+}
+
 .mono {
   font-family: var(--font-mono);
 }
