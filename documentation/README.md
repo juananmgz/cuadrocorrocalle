@@ -18,6 +18,7 @@ Documentación técnica de la herramienta. Se actualiza con cada commit. Las ide
 - [Base de datos](database.md): esquema y migraciones.
 - [Publicación](deployment.md): Neon, Render y Cloudflare Pages.
 - [Analítica y cookies](analytics.md): Google Analytics 4 con consentimiento.
+- [Seguridad de las cuentas](security.md): contraseñas, sesiones y límites de intentos.
 
 ## Cómo se escribe
 

@@ -25,14 +25,15 @@ flowchart TD
   AW --> UI["components/ui: componentes sobre Radix (radix-ui), cada uno con su SCSS<br>Button, TextField, Select, Dialog, Menu, Tabs, Toast (información, éxito, peligro, error),<br>Card, PersonChip, ColorPicker (20 colores de persona)"]
   AW --> TB["components/TopBar con menú de usuario y tema (Claro, Oscuro, Sistema)<br>página /componentes (carga diferida)"]
   AW --> TH["src/theme: preferencia de tema guardada en el dispositivo<br>script en index.html que la aplica antes de pintar"]
+  AW --> AU["src/auth: cliente de Better Auth y RequireAuth<br>páginas /registro, /entrar e /inicio (protegida)"]
   AW --> CO["src/consent y components/CookieBanner: aviso de cookies<br>src/analytics: carga de GA4 tras aceptar"]
   AW --> EP[".env.production: VITE_GA_MEASUREMENT_ID (público)"]
   AW --> GB["components/GridBackground: cuadrícula esférica en canvas<br>líneas gruesas cada 5 casillas (bloques de 5x5)"]
   AW --> PF["functions/api/[[path]].ts: proxy /api en Cloudflare Pages"]
-  AA --> FA["Fastify con tsx; src/app.ts, src/server.ts, src/modules/health"]
+  AA --> FA["Fastify con tsx; src/app.ts, src/server.ts<br>src/modules/health y src/modules/auth (Better Auth)"]
   AA --> VA["Vitest con app.inject"]
   AA --> PRI["Prisma 7: prisma/schema.prisma, prisma/migrations, prisma.config.ts<br>cliente generado en src/generated (fuera de git)"]
-  AA --> ENV[".env local con DATABASE_URL y DIRECT_URL (fuera de git); .env.example de plantilla"]
+  AA --> ENV[".env local con DATABASE_URL, DIRECT_URL, BETTER_AUTH_SECRET y BETTER_AUTH_URL (fuera de git)<br>.env.example de plantilla"]
   R --> RY["render.yaml: API en Render (Frankfurt), migraciones al publicar"]
   PS --> Z["Zod 4"]
 ```
@@ -41,7 +42,7 @@ flowchart TD
 
 1. Node 22.13 o superior y pnpm 12.8.1 (`npm i -g pnpm@12.8.1`).
 2. `pnpm install`.
-3. Copia `apps/api/.env.example` a `apps/api/.env` y pon la cadena de conexión de la rama `dev` de Neon. La web funciona sin ella.
+3. Copia `apps/api/.env.example` a `apps/api/.env`, pon la cadena de conexión de la rama `dev` de Neon y un `BETTER_AUTH_SECRET` propio (`openssl rand -base64 32`). La web funciona sin ellos, pero sin cuentas.
 
 ## Comandos
 

@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router';
 
+import { RequireAuth } from './auth/RequireAuth';
 import { Welcome } from './pages/Welcome/Welcome';
 
 export const router = createBrowserRouter([
@@ -9,5 +10,26 @@ export const router = createBrowserRouter([
     lazy: async () => ({
       Component: (await import('./pages/Components/Components')).Components,
     }),
+  },
+  {
+    path: '/entrar',
+    lazy: async () => ({ Component: (await import('./pages/SignIn/SignIn')).SignIn }),
+  },
+  {
+    path: '/registro',
+    lazy: async () => ({ Component: (await import('./pages/SignUp/SignUp')).SignUp }),
+  },
+  {
+    path: '/inicio',
+    lazy: async () => {
+      const { Home } = await import('./pages/Home/Home');
+      return {
+        Component: () => (
+          <RequireAuth>
+            <Home />
+          </RequireAuth>
+        ),
+      };
+    },
   },
 ]);

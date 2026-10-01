@@ -1,0 +1,53 @@
+@use '../../styles/mixins';
+
+.root {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: var(--space-3);
+}
+
+.card {
+  @include mixins.panel;
+
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 440px;
+  padding: var(--space-4);
+
+  @include mixins.from-tablet {
+    padding: var(--space-5);
+  }
+}
+
+.brand {
+  @include mixins.heading;
+
+  justify-self: start;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 2.75rem);
+}
+
+.footer {
+  padding-top: var(--space-3);
+  color: var(--ink-soft);
+  border-top: var(--border-width) solid var(--line);
+
+  a {
+    font-weight: 700;
+    color: var(--accent);
+  }
+}

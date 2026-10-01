@@ -16,7 +16,8 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 
 | PR                                                                | Commit                                                                    | Cambio                                                         |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| [CCC-0013](https://github.com/juananmgz/cuadrocorrocalle/pull/13) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/13/commits) | ✨ Add cookie consent banner and GA4 behind consent (paso 1.1) |
+| [CCC-0013](https://github.com/juananmgz/cuadrocorrocalle/pull/13) | [72814e8](https://github.com/juananmgz/cuadrocorrocalle/commit/72814e8)   | ✨ Add cookie consent banner and GA4 behind consent (paso 1.1) |
+| [CCC-0014](https://github.com/juananmgz/cuadrocorrocalle/pull/14) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/14/commits) | ✨ Add email and password accounts with Better Auth (paso 1.2) |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 
