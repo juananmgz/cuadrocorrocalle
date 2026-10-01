@@ -8,6 +8,10 @@ Plataforma accesible desde móvil, tablet y PC para hacer organigramas de actuac
 - `apps/api`: la API (Fastify).
 - `packages/shared`: código compartido entre la web y la API.
 
+## Documentación
+
+La documentación técnica está en [`documentation/`](documentation/README.md).
+
 ## Requisitos
 
 - Node 22 (`nvm use 22.20.0`).
