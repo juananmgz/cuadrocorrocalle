@@ -1,0 +1,79 @@
+@use '../../styles/mixins';
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 54;
+  background: rgb(0 0 0 / 30%);
+}
+
+.root {
+  @include mixins.popover;
+
+  position: fixed;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  left: var(--space-3);
+  z-index: 55;
+  display: grid;
+  gap: var(--space-2);
+  max-width: 560px;
+  padding: var(--space-3);
+  margin: 0 auto;
+  cursor: default;
+  user-select: none;
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  &[data-nudge] {
+    animation: pop 320ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &[data-nudge] {
+      animation: flash 320ms linear;
+    }
+  }
+}
+
+// Short bounce that tells the visitor the notice needs an answer.
+@keyframes pop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  40% {
+    transform: scale(1.04);
+  }
+
+  70% {
+    transform: scale(0.98);
+  }
+}
+
+@keyframes flash {
+  50% {
+    border-color: var(--accent);
+    box-shadow: 4px 4px 0 var(--accent);
+  }
+}
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.text {
+  margin: 0;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}

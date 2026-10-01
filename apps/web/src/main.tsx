@@ -9,6 +9,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router';
 
+import { CookieBanner } from './components/CookieBanner/CookieBanner';
 import { ToastProvider } from './components/ui/Toast/Toast';
 import { router } from './router';
 
@@ -25,6 +26,7 @@ createRoot(root).render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <RouterProvider router={router} />
+        <CookieBanner />
       </ToastProvider>
     </QueryClientProvider>
   </StrictMode>,

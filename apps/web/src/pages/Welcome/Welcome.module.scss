@@ -59,13 +59,31 @@
   margin: 0;
 }
 
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  align-items: center;
+  margin-top: var(--space-3);
+}
+
 .link {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  margin-top: var(--space-3);
   font-weight: 700;
   color: var(--accent);
+}
+
+.textButton {
+  min-height: 44px;
+  padding: 0;
+  font: inherit;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  cursor: pointer;
+  background: none;
+  border: 0;
 }
 
 .mono {
