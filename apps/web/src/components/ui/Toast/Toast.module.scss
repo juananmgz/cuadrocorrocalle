@@ -1,0 +1,67 @@
+@use '../../../styles/mixins';
+
+.viewport {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(100vw, 400px);
+  max-width: 100vw;
+  padding: var(--space-3);
+  margin: 0;
+  list-style: none;
+  outline: none;
+}
+
+.root {
+  @include mixins.popover;
+
+  position: relative;
+  padding: var(--space-3) var(--space-5) var(--space-3) var(--space-3);
+  border-left-width: 8px;
+
+  &[data-tone='success'] {
+    border-left-color: var(--ok);
+  }
+
+  &[data-tone='error'] {
+    border-left-color: var(--danger);
+  }
+
+  &[data-swipe='move'] {
+    transform: translateX(var(--radix-toast-swipe-move-x));
+  }
+
+  &[data-swipe='end'] {
+    transform: translateX(var(--radix-toast-swipe-end-x));
+  }
+}
+
+.title {
+  font-weight: 700;
+}
+
+.description {
+  margin-top: var(--space-1);
+  color: var(--ink-soft);
+}
+
+.close {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  width: 40px;
+  height: 40px;
+  color: var(--ink);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  &:hover {
+    background: var(--sel-bg);
+  }
+}

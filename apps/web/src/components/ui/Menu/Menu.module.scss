@@ -1,0 +1,22 @@
+@use '../../../styles/mixins';
+
+.content {
+  @include mixins.popover;
+
+  z-index: 50;
+  min-width: 200px;
+  padding: var(--space-1);
+}
+
+.item {
+  @include mixins.option;
+
+  &[data-danger] {
+    color: var(--danger);
+
+    &[data-highlighted] {
+      color: var(--on-danger);
+      background: var(--danger);
+    }
+  }
+}

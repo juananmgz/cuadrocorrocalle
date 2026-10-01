@@ -1,0 +1,32 @@
+@use '../../../styles/mixins';
+
+.root {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  @include mixins.label;
+}
+
+.input {
+  @include mixins.control;
+
+  &::placeholder {
+    color: var(--ctl);
+  }
+
+  &[aria-invalid='true'] {
+    border-color: var(--danger);
+  }
+}
+
+.message {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+
+  &[data-error] {
+    color: var(--danger);
+  }
+}

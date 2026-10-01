@@ -1,0 +1,48 @@
+@use '../../../styles/mixins';
+
+.root {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  @include mixins.label;
+}
+
+.trigger {
+  @include mixins.control;
+
+  justify-content: space-between;
+  cursor: pointer;
+
+  &[data-placeholder] {
+    color: var(--ctl);
+  }
+}
+
+.icon {
+  color: var(--ink);
+}
+
+.content {
+  @include mixins.popover;
+
+  z-index: 50;
+  min-width: var(--radix-select-trigger-width);
+  max-height: var(--radix-select-content-available-height);
+  overflow: hidden;
+}
+
+.viewport {
+  padding: var(--space-1);
+}
+
+.item {
+  @include mixins.option;
+
+  justify-content: space-between;
+}
+
+.indicator {
+  font-weight: 700;
+}
