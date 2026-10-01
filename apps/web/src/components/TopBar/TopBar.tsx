@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 
+import { THEME_OPTIONS, type ThemePreference, useThemePreference } from '../../theme/theme';
 import { Menu, type MenuItem } from '../ui/Menu/Menu';
 import styles from './TopBar.module.scss';
 
@@ -11,6 +12,8 @@ interface TopBarProps {
 }
 
 export function TopBar({ groupName, onGroupClick, userName, userMenuItems }: TopBarProps) {
+  const [theme, setTheme] = useThemePreference();
+
   return (
     <header className={styles.root}>
       <Link to="/" className={styles.brand}>
@@ -25,6 +28,14 @@ export function TopBar({ groupName, onGroupClick, userName, userMenuItems }: Top
         )}
         <Menu
           items={userMenuItems}
+          radioGroups={[
+            {
+              label: 'Tema',
+              value: theme,
+              options: THEME_OPTIONS,
+              onValueChange: (value) => setTheme(value as ThemePreference),
+            },
+          ]}
           trigger={
             <button type="button" className={styles.user} aria-label={`Menú de ${userName}`}>
               {userName.slice(0, 1).toUpperCase()}
