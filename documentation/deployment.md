@@ -23,8 +23,9 @@ flowchart LR
 1. New > Blueprint y elegir el repositorio `juananmgz/cuadrocorrocalle`: Render lee `render.yaml`.
 2. Rellenar `DATABASE_URL` (cadena con `-pooler`) y `DIRECT_URL` (cadena sin `-pooler`) de la rama principal de Neon.
 3. `PROXY_SECRET`: la misma clave larga y aleatoria que en Cloudflare Pages (`openssl rand -hex 32`). Con ella, la API solo atiende peticiones que llegan por la web.
-4. `BETTER_AUTH_SECRET` lo genera Render (`generateValue`) y `BETTER_AUTH_URL` es la dirección pública de la web (`https://cuadrocorrocalle.pages.dev`), porque la sesión vive en una cookie de esa dirección. Si el Blueprint no se sincroniza solo, se añaden a mano en Environment.
-5. Al terminar, anotar la dirección del servicio (`https://….onrender.com`).
+4. `BREVO_API_KEY` (clave de API de Brevo) y `EMAIL_FROM` (remitente verificado en Brevo) para los correos de confirmación y de recuperar la contraseña.
+5. `BETTER_AUTH_SECRET` lo genera Render (`generateValue`) y `BETTER_AUTH_URL` es la dirección pública de la web (`https://cuadrocorrocalle.pages.dev`), porque la sesión vive en una cookie de esa dirección. Si el Blueprint no se sincroniza solo, se añaden a mano en Environment.
+6. Al terminar, anotar la dirección del servicio (`https://….onrender.com`).
 
 En cada publicación se aplican las migraciones pendientes (`prisma migrate deploy`). La comprobación de salud es `/api/health`.
 

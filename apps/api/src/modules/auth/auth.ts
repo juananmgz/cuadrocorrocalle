@@ -2,6 +2,9 @@ import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
 import { haveIBeenPwned } from 'better-auth/plugins';
 
+import type { SendEmail } from '../email/mailer';
+import { resetPasswordMessage, verifyEmailMessage } from '../email/templates';
+
 export const AUTH_BASE_PATH = '/api/auth';
 export const MIN_PASSWORD_LENGTH = 8;
 
@@ -13,11 +16,19 @@ interface AuthConfig {
   secret: string;
   /** Public origin of the web, which proxies /api to this server. */
   baseURL: string;
+  /** Delivers confirmation and password reset emails. */
+  sendEmail: SendEmail;
   /** Rejects passwords found in known data breaches (needs internet access). */
   checkLeakedPasswords?: boolean;
 }
 
-export function createAuth({ database, secret, baseURL, checkLeakedPasswords = true }: AuthConfig) {
+export function createAuth({
+  database,
+  secret,
+  baseURL,
+  sendEmail,
+  checkLeakedPasswords = true,
+}: AuthConfig) {
   return betterAuth({
     database,
     secret,
@@ -28,6 +39,17 @@ export function createAuth({ database, secret, baseURL, checkLeakedPasswords = t
       enabled: true,
       minPasswordLength: MIN_PASSWORD_LENGTH,
       autoSignIn: true,
+      // Reset links last 1 hour, and a reset signs out every other device.
+      resetPasswordTokenExpiresIn: 60 * 60,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: ({ user, url }) => sendEmail(resetPasswordMessage(user, url)),
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      // Confirmation links last 24 hours.
+      expiresIn: 60 * 60 * 24,
+      sendVerificationEmail: ({ user, url }) => sendEmail(verifyEmailMessage(user, url)),
     },
     session: {
       // Sessions last 30 days and renew once a day while in use.
@@ -42,6 +64,8 @@ export function createAuth({ database, secret, baseURL, checkLeakedPasswords = t
       customRules: {
         '/sign-in/email': { window: 60, max: 5 },
         '/sign-up/email': { window: 60, max: 3 },
+        '/request-password-reset': { window: 60, max: 3 },
+        '/send-verification-email': { window: 60, max: 3 },
       },
     },
     advanced: {

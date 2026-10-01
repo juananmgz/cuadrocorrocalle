@@ -20,6 +20,18 @@ export const router = createBrowserRouter([
     lazy: async () => ({ Component: (await import('./pages/SignUp/SignUp')).SignUp }),
   },
   {
+    path: '/recuperar',
+    lazy: async () => ({
+      Component: (await import('./pages/ForgotPassword/ForgotPassword')).ForgotPassword,
+    }),
+  },
+  {
+    path: '/restablecer',
+    lazy: async () => ({
+      Component: (await import('./pages/ResetPassword/ResetPassword')).ResetPassword,
+    }),
+  },
+  {
     path: '/inicio',
     lazy: async () => {
       const { Home } = await import('./pages/Home/Home');
