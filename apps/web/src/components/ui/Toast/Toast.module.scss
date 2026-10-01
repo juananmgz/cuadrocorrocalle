@@ -23,11 +23,23 @@
   padding: var(--space-3) var(--space-5) var(--space-3) var(--space-3);
   border-left-width: 8px;
 
+  &[data-tone='info'] {
+    background: var(--info-bg);
+    border-left-color: var(--accent);
+  }
+
   &[data-tone='success'] {
+    background: var(--ok-bg);
     border-left-color: var(--ok);
   }
 
+  &[data-tone='warning'] {
+    background: var(--warn-bg);
+    border-left-color: var(--warn);
+  }
+
   &[data-tone='error'] {
+    background: var(--danger-bg);
     border-left-color: var(--danger);
   }
 
@@ -62,6 +74,6 @@
   border-radius: var(--radius);
 
   &:hover {
-    background: var(--sel-bg);
+    background: color-mix(in srgb, var(--ink) 10%, transparent);
   }
 }

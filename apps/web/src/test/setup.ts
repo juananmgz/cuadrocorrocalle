@@ -14,3 +14,4 @@ globalThis.ResizeObserver ??= class {
 Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.releasePointerCapture ??= () => {};
 Element.prototype.scrollIntoView ??= () => {};
+HTMLCanvasElement.prototype.getContext = () => null;

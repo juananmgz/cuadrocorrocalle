@@ -146,6 +146,17 @@ export function Components() {
               <Button
                 onClick={() =>
                   toast.show({
+                    title: 'Faltan personas',
+                    description: 'Hay 3 huecos sin asignar en «Jota de la Vera».',
+                    tone: 'warning',
+                  })
+                }
+              >
+                Aviso de peligro
+              </Button>
+              <Button
+                onClick={() =>
+                  toast.show({
                     title: 'Sin conexión',
                     description: 'Se guardará al volver la cobertura.',
                     tone: 'error',
