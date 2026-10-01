@@ -8,6 +8,7 @@ Cómo se protegen las contraseñas y las sesiones (paso 1.2).
 
 - **HTTPS en todo el recorrido de producción:** navegador → Cloudflare Pages → Render (`API_ORIGIN` es `https://…onrender.com`) → Neon (TLS con `sslmode=require`). La contraseña nunca viaja sin cifrar fuera del propio equipo; en local va por `localhost`, que no sale a la red.
 - **HSTS:** `apps/web/public/_headers` obliga al navegador a usar siempre HTTPS durante un año, para que nadie pueda forzar una conexión sin cifrar en una wifi pública.
+- **Content Security Policy:** el navegador solo ejecuta scripts de la propia web, el script del tema (por su hash) y Google Tag Manager; solo se conecta a la propia web y a Google Analytics; no admite plugins, marcos ajenos ni formularios hacia otros sitios. Un script inyectado por un fallo no podría enviar la contraseña a otro servidor. La prueba `src/security/csp.test.ts` falla si el script del tema cambia sin actualizar su hash en `_headers`.
 - **Otras cabeceras:** `nosniff`, sin incrustar la web en marcos ajenos (`X-Frame-Options: DENY`), referer recortado y sin acceso a cámara, micrófono ni ubicación.
 
 ## Guardadas (base de datos)
@@ -20,6 +21,7 @@ Cómo se protegen las contraseñas y las sesiones (paso 1.2).
 
 - **Límite de intentos por visitante:** 5 intentos de entrar y 3 registros por minuto y por IP; el resto de rutas de cuentas, 100 por minuto. Pasado el límite, la API responde 429 y la web pide esperar.
 - **IP del visitante:** el proxy de Cloudflare la pasa en la cabecera `x-client-ip` (desde `cf-connecting-ip`).
+- **Solo a través de la web:** el proxy añade `x-proxy-secret` con `PROXY_SECRET`, y la API responde 403 a cualquier petición sin esa clave (comparada en tiempo constante). Así nadie puede llamar directamente a `onrender.com` para falsear su IP y esquivar el límite. La única excepción es `/api/health`, que Render necesita para comprobar que la API está viva.
 - Los contadores viven en memoria de la API: se reinician si Render la reinicia.
 
 ## Sesión
@@ -30,6 +32,5 @@ Cómo se protegen las contraseñas y las sesiones (paso 1.2).
 
 ## Pendiente
 
-- **Llamadas directas a Render:** la API también responde en su dirección de `onrender.com`, saltándose Cloudflare; ahí alguien podría falsear `x-client-ip` para esquivar el límite de intentos. Se cierra con una clave compartida entre el proxy y la API.
-- **Content Security Policy:** pendiente de ajustar con Google Analytics y el script del tema.
+- `style-src` permite estilos en línea (`'unsafe-inline'`) porque los componentes de Radix y algunos colores se aplican con el atributo `style`. El riesgo es bajo: los estilos no ejecutan código.
 - **Confirmar el correo y recuperar la contraseña:** paso 1.3.

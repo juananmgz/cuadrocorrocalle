@@ -13,3 +13,7 @@ flowchart LR
   S["packages/shared<br>Zod: healthResponseSchema"] -.-> W
   S -.-> A
 ```
+
+**Acceso a la API:** solo a través de la web. El proxy añade la clave `PROXY_SECRET` y la IP del visitante; la API rechaza lo demás salvo `/api/health`.
+
+**Sesión:** Better Auth guarda la sesión en la cookie `better-auth.session_token` (HttpOnly, SameSite=Lax, 30 días que se renuevan con el uso). Como la web y la API comparten dirección gracias al proxy, la cookie es de la propia web y funciona igual en el móvil y en el PC. Más detalle en [Seguridad de las cuentas](security.md).
