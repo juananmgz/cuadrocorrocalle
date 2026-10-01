@@ -1,8 +1,10 @@
 import { APP_NAME } from '@cuadrocorrocalle/shared';
 import { Link } from 'react-router';
 
+import { isAnalyticsEnabled } from '../../analytics/analytics';
 import { ApiStatus } from '../../components/ApiStatus/ApiStatus';
 import { GridBackground } from '../../components/GridBackground/GridBackground';
+import { resetConsent } from '../../consent/consent';
 import styles from './Welcome.module.scss';
 
 export function Welcome() {
@@ -18,13 +20,20 @@ export function Welcome() {
           </p>
           <div className={styles.status}>
             <p className={styles.version}>
-              Versión <span className={styles.mono}>0.7</span> · en construcción
+              Versión <span className={styles.mono}>1.1</span> · en construcción
             </p>
             <ApiStatus />
           </div>
-          <Link to="/componentes" className={styles.link}>
-            Ver componentes
-          </Link>
+          <div className={styles.links}>
+            <Link to="/componentes" className={styles.link}>
+              Ver componentes
+            </Link>
+            {isAnalyticsEnabled() && (
+              <button type="button" className={styles.textButton} onClick={resetConsent}>
+                Preferencias de cookies
+              </button>
+            )}
+          </div>
         </section>
       </main>
     </>

@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 
+import { resetConsent } from '../../consent/consent';
 import { THEME_OPTIONS, type ThemePreference, useThemePreference } from '../../theme/theme';
 import { Menu, type MenuItem } from '../ui/Menu/Menu';
 import styles from './TopBar.module.scss';
@@ -27,7 +28,7 @@ export function TopBar({ groupName, onGroupClick, userName, userMenuItems }: Top
           </button>
         )}
         <Menu
-          items={userMenuItems}
+          items={[...userMenuItems, { label: 'Preferencias de cookies', onSelect: resetConsent }]}
           radioGroups={[
             {
               label: 'Tema',

@@ -145,6 +145,9 @@ vite.config.ts.timestamp-*
 # Env example files are committed
 !.env.example
 
+# Public build settings for the web (no secrets)
+!apps/web/.env.production
+
 # Prisma generated client
 apps/api/src/generated/
 

@@ -25,6 +25,8 @@ flowchart TD
   AW --> UI["components/ui: componentes sobre Radix (radix-ui), cada uno con su SCSS<br>Button, TextField, Select, Dialog, Menu, Tabs, Toast (información, éxito, peligro, error),<br>Card, PersonChip, ColorPicker (20 colores de persona)"]
   AW --> TB["components/TopBar con menú de usuario y tema (Claro, Oscuro, Sistema)<br>página /componentes (carga diferida)"]
   AW --> TH["src/theme: preferencia de tema guardada en el dispositivo<br>script en index.html que la aplica antes de pintar"]
+  AW --> CO["src/consent y components/CookieBanner: aviso de cookies<br>src/analytics: carga de GA4 tras aceptar"]
+  AW --> EP[".env.production: VITE_GA_MEASUREMENT_ID (público)"]
   AW --> GB["components/GridBackground: cuadrícula esférica en canvas<br>líneas gruesas cada 5 casillas (bloques de 5x5)"]
   AW --> PF["functions/api/[[path]].ts: proxy /api en Cloudflare Pages"]
   AA --> FA["Fastify con tsx; src/app.ts, src/server.ts, src/modules/health"]
@@ -57,7 +59,7 @@ pnpm format      # da formato al código
 
 - `feat/<nombre>` para funciones nuevas y `fix/<nombre>` para arreglos, con PR hacia `devel`.
 - `devel` se fusiona en `main` al terminar un paso completo del plan.
-- Commits y títulos de PR en inglés con gitmoji y el número de paso delante: `0.7 💄 Add Radix-based UI components`.
+- Commits en inglés con gitmoji y texto breve: `✨ Add cookie consent banner`. Pull requests con el título `CCC-XXXX / nombre` (número de la PR con cuatro cifras) y, en la descripción, la versión arriba y un resumen en viñetas. Ver [Versiones](changelog.md).
 
 ```mermaid
 flowchart LR
