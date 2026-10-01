@@ -1,0 +1,21 @@
+@use '../../../styles/mixins';
+
+.root {
+  @include mixins.panel;
+
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  padding: var(--space-3);
+
+  @include mixins.from-tablet {
+    padding: var(--space-4);
+  }
+}
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: 1.375rem;
+}

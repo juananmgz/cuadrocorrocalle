@@ -26,3 +26,59 @@ $breakpoint-desktop: 1024px;
   border: var(--border-width) solid var(--ink);
   border-radius: var(--radius);
 }
+
+// Floating layer for dialogs, menus, selects and toasts.
+@mixin popover {
+  @include panel;
+
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+// Shared look for text inputs and select triggers.
+@mixin control {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--border-width) solid var(--ctl);
+  border-radius: var(--radius);
+
+  &:hover {
+    border-color: var(--ink);
+  }
+
+  &:focus-visible {
+    border-color: var(--accent);
+  }
+}
+
+@mixin label {
+  font-weight: 700;
+}
+
+// List item inside menus and select dropdowns.
+@mixin option {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  cursor: pointer;
+  user-select: none;
+  border-radius: calc(var(--radius) / 2);
+  outline: none;
+
+  &[data-highlighted] {
+    color: var(--on-accent);
+    background: var(--accent);
+  }
+
+  &[data-disabled] {
+    color: var(--ctl);
+    cursor: not-allowed;
+  }
+}

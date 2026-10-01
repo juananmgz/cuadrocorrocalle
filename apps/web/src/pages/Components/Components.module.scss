@@ -1,0 +1,47 @@
+@use '../../styles/mixins';
+
+.root {
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+.main {
+  max-width: 1200px;
+  padding: var(--space-3);
+  margin: 0 auto;
+
+  @include mixins.from-tablet {
+    padding: var(--space-5);
+  }
+}
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3rem);
+}
+
+.lead {
+  margin: var(--space-2) 0 var(--space-4);
+  color: var(--ink-soft);
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-3);
+
+  @include mixins.from-tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include mixins.from-desktop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
