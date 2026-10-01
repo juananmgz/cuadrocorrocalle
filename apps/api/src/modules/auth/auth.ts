@@ -1,0 +1,59 @@
+import { betterAuth } from 'better-auth';
+import type { BetterAuthOptions } from 'better-auth';
+import { haveIBeenPwned } from 'better-auth/plugins';
+
+export const AUTH_BASE_PATH = '/api/auth';
+export const MIN_PASSWORD_LENGTH = 8;
+
+// Header set by the Cloudflare Pages proxy with the visitor's IP (see apps/web/functions).
+export const CLIENT_IP_HEADER = 'x-client-ip';
+
+interface AuthConfig {
+  database: BetterAuthOptions['database'];
+  secret: string;
+  /** Public origin of the web, which proxies /api to this server. */
+  baseURL: string;
+  /** Rejects passwords found in known data breaches (needs internet access). */
+  checkLeakedPasswords?: boolean;
+}
+
+export function createAuth({ database, secret, baseURL, checkLeakedPasswords = true }: AuthConfig) {
+  return betterAuth({
+    database,
+    secret,
+    baseURL,
+    basePath: AUTH_BASE_PATH,
+    trustedOrigins: [baseURL],
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: MIN_PASSWORD_LENGTH,
+      autoSignIn: true,
+    },
+    session: {
+      // Sessions last 30 days and renew once a day while in use.
+      expiresIn: 60 * 60 * 24 * 30,
+      updateAge: 60 * 60 * 24,
+    },
+    // Always on: Better Auth only enables it when NODE_ENV is production.
+    rateLimit: {
+      enabled: true,
+      window: 60,
+      max: 100,
+      customRules: {
+        '/sign-in/email': { window: 60, max: 5 },
+        '/sign-up/email': { window: 60, max: 3 },
+      },
+    },
+    advanced: {
+      ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER, 'x-forwarded-for'] },
+    },
+    plugins: [
+      haveIBeenPwned({
+        enabled: checkLeakedPasswords,
+        customPasswordCompromisedMessage: 'This password appears in a known data breach',
+      }),
+    ],
+  });
+}
+
+export type Auth = ReturnType<typeof createAuth>;

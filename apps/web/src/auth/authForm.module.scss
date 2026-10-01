@@ -1,0 +1,12 @@
+.form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.error {
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+  background: var(--danger-bg);
+  border-left: 6px solid var(--danger);
+  border-radius: var(--radius);
+}

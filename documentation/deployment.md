@@ -22,7 +22,8 @@ flowchart LR
 
 1. New > Blueprint y elegir el repositorio `juananmgz/cuadrocorrocalle`: Render lee `render.yaml`.
 2. Rellenar `DATABASE_URL` (cadena con `-pooler`) y `DIRECT_URL` (cadena sin `-pooler`) de la rama principal de Neon.
-3. Al terminar, anotar la dirección del servicio (`https://….onrender.com`).
+3. `BETTER_AUTH_SECRET` lo genera Render (`generateValue`) y `BETTER_AUTH_URL` es la dirección pública de la web (`https://cuadrocorrocalle.pages.dev`), porque la sesión vive en una cookie de esa dirección. Si el Blueprint no se sincroniza solo, se añaden a mano en Environment.
+4. Al terminar, anotar la dirección del servicio (`https://….onrender.com`).
 
 En cada publicación se aplican las migraciones pendientes (`prisma migrate deploy`). La comprobación de salud es `/api/health`.
 
@@ -41,4 +42,4 @@ El proyecto se crea desde el enlace «Continue to Pages», no desde el flujo de 
    - `PNPM_VERSION`: `12.8.1`
    - `API_ORIGIN`: la dirección de Render, sin barra final
 
-La función `apps/web/functions/api/[[path]].ts` reenvía `/api/*` a la API, así que el navegador solo habla con la dirección de la web.
+La función `apps/web/functions/api/[[path]].ts` reenvía `/api/*` a la API, así que el navegador solo habla con la dirección de la web. Añade la cabecera `x-client-ip` con la IP del visitante para el límite de intentos. Las cabeceras de seguridad de la web están en `apps/web/public/_headers`.

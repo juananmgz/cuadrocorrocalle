@@ -17,6 +17,7 @@
     "@cuadrocorrocalle/shared": "workspace:*",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "better-auth": "^1.7.6",
     "fastify": "^5.12.0",
     "prisma": "^7.10.0",
     "tsx": "^4.23.0"

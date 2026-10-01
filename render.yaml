@@ -15,3 +15,7 @@ services:
         sync: false
       - key: DIRECT_URL
         sync: false
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_URL
+        value: https://cuadrocorrocalle.pages.dev

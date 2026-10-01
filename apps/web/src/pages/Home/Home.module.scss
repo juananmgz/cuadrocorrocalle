@@ -1,0 +1,29 @@
+@use '../../styles/mixins';
+
+.root {
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+.main {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 720px;
+  padding: var(--space-3);
+  margin: 0 auto;
+
+  @include mixins.from-tablet {
+    padding: var(--space-5);
+  }
+}
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3rem);
+}
+
+.text {
+  margin: 0;
+}
