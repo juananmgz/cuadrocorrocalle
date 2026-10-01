@@ -21,13 +21,17 @@
   background: transparent;
   border: 0;
   border-bottom: var(--border-width) solid transparent;
+  border-radius: var(--radius) var(--radius) 0 0;
 
   &:hover {
     color: var(--ink);
+    background: var(--sel-bg);
   }
 
+  // Same filled look as the highlighted menu option.
   &[data-state='active'] {
-    color: var(--ink);
+    color: var(--on-accent);
+    background: var(--accent);
     border-bottom-color: var(--accent);
   }
 }

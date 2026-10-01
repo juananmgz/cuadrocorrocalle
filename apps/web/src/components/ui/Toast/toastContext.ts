@@ -1,6 +1,6 @@
 import { createContext, use } from 'react';
 
-export type ToastTone = 'info' | 'success' | 'error';
+export type ToastTone = 'info' | 'success' | 'warning' | 'error';
 
 export interface ToastMessage {
   title: string;
