@@ -83,18 +83,19 @@ model Verification {
 
 // Folk group directed by one user (step 1.5). Licences arrive in phase 5.
 model Group {
-  id            String    @id @default(cuid())
-  ownerId       String    @map("owner_id")
-  owner         User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id            String        @id @default(cuid())
+  ownerId       String        @map("owner_id")
+  owner         User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name          String
-  gridColor     String    @map("grid_color")
+  gridColor     String        @map("grid_color")
   // The prebuilt "Grupo de Prueba" every account gets.
-  isTrial       Boolean   @default(false) @map("is_trial")
+  isTrial       Boolean       @default(false) @map("is_trial")
   // Set when a licence migrates away; the group is deleted a month later unless recovered.
-  inactiveSince DateTime? @map("inactive_since")
+  inactiveSince DateTime?     @map("inactive_since")
   people        Person[]
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  performances  Performance[]
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
   @@index([ownerId])
   @@map("groups")
@@ -116,4 +117,23 @@ model Person {
 
   @@index([groupId])
   @@map("people")
+}
+
+// A performance of a group (step 1.8). Stage settings arrive in phase 2.
+model Performance {
+  id         String    @id @default(cuid())
+  groupId    String    @map("group_id")
+  group      Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title      String
+  place      String?
+  // Day of the performance, without time zone.
+  date       DateTime? @db.Date
+  minMinutes Int?      @map("min_minutes")
+  maxMinutes Int?      @map("max_minutes")
+  notes      String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@index([groupId])
+  @@map("performances")
 }

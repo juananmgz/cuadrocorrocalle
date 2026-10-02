@@ -21,7 +21,7 @@ function readColor(name: string) {
 }
 
 /** Projects grid coordinates (u across, w forward from the pole) onto the screen. */
-function project(scene: Scene, u: number, w: number, width: number, horizon: number) {
+function project(scene: Scene, u: number, w: number, centerX: number, horizon: number) {
   const dist = Math.hypot(u, w);
   const theta = dist / scene.radius;
   const ratio = dist === 0 ? 0 : (scene.radius * Math.sin(theta)) / dist;
@@ -36,10 +36,11 @@ function project(scene: Scene, u: number, w: number, width: number, horizon: num
 
   if (depth < 1) return null;
 
-  return { x: width / 2 + (scene.focal * x) / depth, y: horizon - (scene.focal * up) / depth };
+  return { x: centerX + (scene.focal * x) / depth, y: horizon - (scene.focal * up) / depth };
 }
 
-function draw(canvas: HTMLCanvasElement) {
+/** Draws the grid centred in the space right of leftInset (e.g. the performances list). */
+function draw(canvas: HTMLCanvasElement, leftInset: number) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -58,15 +59,17 @@ function draw(canvas: HTMLCanvasElement) {
     distance: 0,
     height: cell * 7,
     tilt: 0,
-    focal: width * 0.9,
+    focal: (width - leftInset) * 0.9,
   };
+  // Centre of the free space: (W - wl) / 2 + wl.
+  const centerX = (width - leftInset) / 2 + leftInset;
   const horizon = height * 0.3;
   // Stop at the sphere's visible horizon so the far side is never drawn.
   const horizonAngle = Math.acos(scene.radius / (scene.radius + scene.height));
   // Tilt the camera down so the curved horizon sits near the top of the screen.
   scene.tilt = horizonAngle;
   const extent = Math.min(CELLS * cell, horizonAngle * scene.radius * 0.995);
-  const toScreen = (u: number, w: number) => project(scene, u, w, width, horizon);
+  const toScreen = (u: number, w: number) => project(scene, u, w, centerX, horizon);
 
   // Sphere cap as the floor surface.
   ctx.beginPath();
@@ -115,14 +118,19 @@ function draw(canvas: HTMLCanvasElement) {
   }
 }
 
-export function GridBackground() {
+interface GridBackgroundProps {
+  /** Width in px covered on the left (the performances list); the grid centres on the rest. */
+  leftInset?: number;
+}
+
+export function GridBackground({ leftInset = 0 }: GridBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const redraw = () => draw(canvas);
+    const redraw = () => draw(canvas, leftInset);
     redraw();
 
     // Redraw on resize and whenever the theme changes.
@@ -138,7 +146,7 @@ export function GridBackground() {
       theme.disconnect();
       scheme?.removeEventListener('change', redraw);
     };
-  }, []);
+  }, [leftInset]);
 
   return (
     <div className={styles.root} aria-hidden="true">

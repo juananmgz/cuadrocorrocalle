@@ -26,17 +26,17 @@ flowchart TD
   AW --> TB["components/TopBar: logo CuadroCorroCalle; en tablet y PC recuadro del grupo (GroupBox) y menú de usuario,<br>en móvil menú hamburguesa (components/SideMenu): usuario, grupo, Actuaciones, Ajustes y Mi cuenta<br>components/AppLayout: marco de las páginas con sesión (barra, cuadrícula y grupo activo)<br>página /componentes (carga diferida)"]
   AW --> TH["src/theme: preferencia de tema guardada en el dispositivo<br>script en index.html que la aplica antes de pintar"]
   AW --> GR["src/groups: grupo activo (7 días), API de grupos, colores de cuadrícula<br>components/GroupChooser: diálogo «Elegir grupo»"]
-  AW --> AU["src/auth: cliente de Better Auth y RequireAuth<br>páginas /registro, /entrar, /recuperar y /restablecer; con sesión /inicio, /actuaciones, /grupo (Mi grupo), /ajustes (tema y cookies) y /cuenta (datos y cerrar sesión)"]
+  AW --> AU["src/auth: cliente de Better Auth y RequireAuth<br>páginas /registro, /entrar, /recuperar y /restablecer; con sesión /inicio (próxima actuación), /actuaciones y /actuaciones/:id, /grupo (Mi grupo), /ajustes (tema y cookies) y /cuenta (datos y cerrar sesión)"]
   AW --> CO["src/consent y components/CookieBanner: aviso de cookies<br>src/analytics: carga de GA4 tras aceptar"]
   AW --> EP[".env.production: VITE_GA_MEASUREMENT_ID (público)"]
   AW --> GB["components/GridBackground: cuadrícula esférica en canvas<br>líneas gruesas cada 5 casillas (bloques de 5x5)"]
   AW --> PF["functions/api/[[path]].ts: proxy /api en Cloudflare Pages"]
-  AA --> FA["Fastify con tsx; src/app.ts, src/server.ts<br>src/modules/health, auth (Better Auth), proxy, email (Brevo)<br>groups y people (rutas, servicio y repositorio)"]
+  AA --> FA["Fastify con tsx; src/app.ts, src/server.ts<br>src/modules/health, auth (Better Auth), proxy, email (Brevo)<br>groups, people y performances (rutas, servicio y repositorio)"]
   AA --> VA["Vitest con app.inject"]
   AA --> PRI["Prisma 7: prisma/schema.prisma, prisma/migrations, prisma.config.ts<br>cliente generado en src/generated (fuera de git)"]
   AA --> ENV[".env local con DATABASE_URL, DIRECT_URL, BETTER_AUTH_SECRET y BETTER_AUTH_URL (fuera de git)<br>.env.example de plantilla"]
   R --> RY["render.yaml: API en Render (Frankfurt), migraciones al publicar"]
-  PS --> Z["Zod 4: esquemas de salud, grupos y personas"]
+  PS --> Z["Zod 4: esquemas de salud, grupos, personas y actuaciones"]
 ```
 
 ## Puesta en marcha

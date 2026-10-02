@@ -24,7 +24,8 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0018](https://github.com/juananmgz/cuadrocorrocalle/pull/18) | [db22032](https://github.com/juananmgz/cuadrocorrocalle/commit/db22032)   | ✨ Add groups with chooser dialog and grid colours (paso 1.5)                 |
 | [CCC-0019](https://github.com/juananmgz/cuadrocorrocalle/pull/19) | [a1a996d](https://github.com/juananmgz/cuadrocorrocalle/commit/a1a996d)   | ✨ Add group deletion with confirmation (paso 1.6)                            |
 | [CCC-0019](https://github.com/juananmgz/cuadrocorrocalle/pull/19) | [4d1c8c2](https://github.com/juananmgz/cuadrocorrocalle/commit/4d1c8c2)   | 💄 Show the full name as logo and a side menu on phones                       |
-| [CCC-0020](https://github.com/juananmgz/cuadrocorrocalle/pull/20) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/20/commits) | ✨ Add people to groups with a pasted list and the Mi grupo page (paso 1.7)   |
+| [CCC-0020](https://github.com/juananmgz/cuadrocorrocalle/pull/20) | [0192acb](https://github.com/juananmgz/cuadrocorrocalle/commit/0192acb)   | ✨ Add people to groups with a pasted list and the Mi grupo page (paso 1.7)   |
+| [CCC-0021](https://github.com/juananmgz/cuadrocorrocalle/pull/21) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/21/commits) | ✨ Add performances with create, edit, duplicate and delete (paso 1.8)        |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 

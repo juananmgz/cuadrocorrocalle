@@ -1,12 +1,131 @@
 @use '../../styles/mixins';
 
-.title {
+// Floating list over the grid: in the flow on phones, pinned to the left on tablets and PCs.
+.column {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+
+  @include mixins.from-tablet {
+    position: fixed;
+    top: calc(56px + var(--space-4));
+    bottom: var(--space-4);
+    left: var(--space-4);
+    z-index: 2;
+    width: 380px;
+    overflow-y: auto;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.panel {
+  @include mixins.panel;
+
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.featuredTitle {
   @include mixins.heading;
 
   margin: 0;
-  font-size: clamp(2rem, 8vw, 3rem);
+  font-size: clamp(2rem, 7vw, 2.75rem);
+  overflow-wrap: anywhere;
 }
 
+.details,
 .text {
   margin: 0;
+  color: var(--ink-soft);
+}
+
+.open {
+  @include mixins.label;
+
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  margin-top: var(--space-2);
+  color: var(--on-accent);
+  text-decoration: none;
+  background: var(--accent);
+  border-radius: var(--radius);
+}
+
+.others {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+// Each performance is its own floating element, like the prototype.
+.item {
+  @include mixins.panel;
+
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  color: var(--ink);
+  text-decoration: none;
+
+  &:hover {
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+}
+
+.itemTitle {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.itemDate {
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.create {
+  @include mixins.panel;
+
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-self: start;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+
+  span {
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+
+  &:hover {
+    box-shadow: 4px 4px 0 var(--ink);
+  }
 }
