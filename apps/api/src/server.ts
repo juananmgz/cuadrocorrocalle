@@ -11,6 +11,8 @@ const databaseUrl = process.env.DATABASE_URL;
 const authSecret = process.env.BETTER_AUTH_SECRET;
 const authUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:5173';
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const brevoApiKey = process.env.BREVO_API_KEY;
 const senderEmail = process.env.EMAIL_FROM;
 
@@ -28,6 +30,10 @@ const auth =
         secret: authSecret,
         baseURL: authUrl,
         sendEmail,
+        google:
+          googleClientId && googleClientSecret
+            ? { clientId: googleClientId, clientSecret: googleClientSecret }
+            : undefined,
       })
     : undefined;
 
@@ -44,6 +50,10 @@ if (!proxySecret) {
 
 if (!brevoApiKey || !senderEmail) {
   app.log.warn('BREVO_API_KEY or EMAIL_FROM is not set: emails are printed to the console');
+}
+
+if (!googleClientId || !googleClientSecret) {
+  app.log.warn('GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is not set: Google sign-in is disabled');
 }
 
 if (!auth) {

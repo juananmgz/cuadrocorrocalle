@@ -14,6 +14,13 @@ const ERROR_MESSAGES: [match: string, message: string][] = [
   ['PASSWORD_TOO_SHORT', `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`],
   ['PASSWORD_TOO_LONG', 'La contraseña es demasiado larga.'],
   ['INVALID_EMAIL', 'Revisa el correo: no parece válido.'],
+  ['PROVIDER_NOT_FOUND', 'Entrar con Google aún no está disponible.'],
+  [
+    'account_not_linked',
+    'Ya hay una cuenta con ese correo sin confirmar. Entra con tu contraseña y confirma el correo, o recupera la contraseña.',
+  ],
+  ['access_denied', 'Has cancelado la entrada con Google.'],
+  ['STATE_', 'No se ha podido entrar con Google. Vuelve a intentarlo.'],
   ['INVALID_TOKEN', 'El enlace ha caducado o ya se ha usado. Pide uno nuevo.'],
   [
     'PASSWORD_COMPROMISED',
@@ -23,8 +30,8 @@ const ERROR_MESSAGES: [match: string, message: string][] = [
 
 /** Turns a Better Auth error into a message in Spanish. */
 export function authErrorMessage(error: { code?: string; status?: number } | null | undefined) {
-  const code = error?.code ?? '';
-  const known = ERROR_MESSAGES.find(([match]) => code.includes(match));
+  const code = (error?.code ?? '').toUpperCase();
+  const known = ERROR_MESSAGES.find(([match]) => code.includes(match.toUpperCase()));
 
   if (known) return known[1];
   if (error?.status === 429) return 'Demasiados intentos. Espera un momento y vuelve a probar.';

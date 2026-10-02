@@ -38,6 +38,13 @@ Cómo se protegen las contraseñas y las sesiones (paso 1.2).
 - **Límites:** 3 peticiones de recuperar contraseña y 3 reenvíos de confirmación por minuto y por IP.
 - Los correos salen por la API HTTPS de Brevo (`BREVO_API_KEY`); en local, sin clave, se escriben en la consola de la API.
 
+## Entrar con Google (paso 1.4)
+
+- Google confirma el correo, así que las cuentas creadas con Google ya nacen con el correo confirmado.
+- **Enlazar cuentas:** si ya hay una cuenta con el mismo correo, Google se enlaza a ella solo si esa cuenta tiene el correo confirmado. Así nadie puede registrar tu correo con una contraseña antes que tú y quedarse con tu cuenta cuando entres con Google. Si no está confirmada, `/entrar` explica cómo resolverlo.
+- Se pide a Google solo nombre, correo y foto, y siempre se muestra el selector de cuenta.
+- Si algo falla o la persona cancela en Google, vuelve a `/entrar` con un mensaje en español (`onAPIError.errorURL`), nunca a la página de error en inglés de Better Auth.
+
 ## Pendiente
 
 - `style-src` permite estilos en línea (`'unsafe-inline'`) porque los componentes de Radix y algunos colores se aplican con el atributo `style`. El riesgo es bajo: los estilos no ejecutan código.

@@ -18,6 +18,8 @@ interface AuthConfig {
   baseURL: string;
   /** Delivers confirmation and password reset emails. */
   sendEmail: SendEmail;
+  /** Google OAuth client; without it, "Entrar con Google" is disabled. */
+  google?: { clientId: string; clientSecret: string };
   /** Rejects passwords found in known data breaches (needs internet access). */
   checkLeakedPasswords?: boolean;
 }
@@ -27,6 +29,7 @@ export function createAuth({
   secret,
   baseURL,
   sendEmail,
+  google,
   checkLeakedPasswords = true,
 }: AuthConfig) {
   return betterAuth({
@@ -51,12 +54,21 @@ export function createAuth({
       expiresIn: 60 * 60 * 24,
       sendVerificationEmail: ({ user, url }) => sendEmail(verifyEmailMessage(user, url)),
     },
+    socialProviders: google ? { google: { ...google, prompt: 'select_account' } } : undefined,
+    // Google accounts link to an existing account with the same email only when that
+    // account has confirmed its email (Better Auth's default), which blocks pre-registration takeovers.
+    account: {
+      accountLinking: { enabled: true },
+    },
     session: {
       // Sessions last 30 days and renew once a day while in use.
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,
     },
     // Always on: Better Auth only enables it when NODE_ENV is production.
+    // Errors on browser redirects (e.g. a cancelled Google sign-in) land on the web's sign-in
+    // page with ?error=<code> instead of Better Auth's English error page.
+    onAPIError: { errorURL: `${baseURL}/entrar` },
     rateLimit: {
       enabled: true,
       window: 60,
