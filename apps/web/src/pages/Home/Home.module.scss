@@ -2,10 +2,11 @@
 
 .root {
   min-height: 100dvh;
-  background: var(--bg);
 }
 
 .main {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: var(--space-4);
   max-width: 720px;

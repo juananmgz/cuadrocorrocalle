@@ -25,17 +25,18 @@ flowchart TD
   AW --> UI["components/ui: componentes sobre Radix (radix-ui), cada uno con su SCSS<br>Button, TextField, Select, Dialog, Menu, Tabs, Toast (información, éxito, peligro, error),<br>Card, PersonChip, ColorPicker (20 colores de persona)"]
   AW --> TB["components/TopBar con menú de usuario y tema (Claro, Oscuro, Sistema)<br>página /componentes (carga diferida)"]
   AW --> TH["src/theme: preferencia de tema guardada en el dispositivo<br>script en index.html que la aplica antes de pintar"]
+  AW --> GR["src/groups: grupo activo (7 días), API de grupos, colores de cuadrícula<br>components/GroupChooser: diálogo «Elegir grupo»"]
   AW --> AU["src/auth: cliente de Better Auth y RequireAuth<br>páginas /registro, /entrar, /recuperar, /restablecer e /inicio (protegida)"]
   AW --> CO["src/consent y components/CookieBanner: aviso de cookies<br>src/analytics: carga de GA4 tras aceptar"]
   AW --> EP[".env.production: VITE_GA_MEASUREMENT_ID (público)"]
   AW --> GB["components/GridBackground: cuadrícula esférica en canvas<br>líneas gruesas cada 5 casillas (bloques de 5x5)"]
   AW --> PF["functions/api/[[path]].ts: proxy /api en Cloudflare Pages"]
-  AA --> FA["Fastify con tsx; src/app.ts, src/server.ts<br>src/modules/health, auth (Better Auth), proxy y email (Brevo)"]
+  AA --> FA["Fastify con tsx; src/app.ts, src/server.ts<br>src/modules/health, auth (Better Auth), proxy, email (Brevo)<br>y groups (rutas, servicio y repositorio)"]
   AA --> VA["Vitest con app.inject"]
   AA --> PRI["Prisma 7: prisma/schema.prisma, prisma/migrations, prisma.config.ts<br>cliente generado en src/generated (fuera de git)"]
   AA --> ENV[".env local con DATABASE_URL, DIRECT_URL, BETTER_AUTH_SECRET y BETTER_AUTH_URL (fuera de git)<br>.env.example de plantilla"]
   R --> RY["render.yaml: API en Render (Frankfurt), migraciones al publicar"]
-  PS --> Z["Zod 4"]
+  PS --> Z["Zod 4: esquemas de salud y de grupos"]
 ```
 
 ## Puesta en marcha

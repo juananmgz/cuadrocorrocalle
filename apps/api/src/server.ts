@@ -3,6 +3,8 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { buildApp } from './app';
 import { createDatabase, unavailableDatabase } from './database/database';
 import { createAuth } from './modules/auth/auth';
+import { createPrismaGroupRepository } from './modules/groups/groups.repository';
+import { createGroupService } from './modules/groups/groups.service';
 import { createBrevoMailer, createConsoleMailer, type SendEmail } from './modules/email/mailer';
 
 const port = Number(process.env.PORT ?? 3000);
@@ -23,6 +25,10 @@ const sendEmail: SendEmail =
     ? createBrevoMailer({ apiKey: brevoApiKey, senderEmail, senderName: 'CuadroCorroCalle' })
     : createConsoleMailer(console.info);
 
+const groups = database.prisma
+  ? createGroupService(createPrismaGroupRepository(database.prisma))
+  : undefined;
+
 const auth =
   database.prisma && authSecret
     ? createAuth({
@@ -30,6 +36,7 @@ const auth =
         secret: authSecret,
         baseURL: authUrl,
         sendEmail,
+        onUserCreated: (userId) => groups!.ensureTrialGroup(userId),
         google:
           googleClientId && googleClientSecret
             ? { clientId: googleClientId, clientSecret: googleClientSecret }
@@ -38,7 +45,7 @@ const auth =
     : undefined;
 
 const proxySecret = process.env.PROXY_SECRET;
-const app = buildApp({ logger: true, database, auth, proxySecret });
+const app = buildApp({ logger: true, database, auth, groups, proxySecret });
 
 if (!databaseUrl) {
   app.log.warn('DATABASE_URL is not set: the API runs without a database');

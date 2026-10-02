@@ -20,6 +20,8 @@ interface AuthConfig {
   sendEmail: SendEmail;
   /** Google OAuth client; without it, "Entrar con Google" is disabled. */
   google?: { clientId: string; clientSecret: string };
+  /** Runs after an account is created, e.g. to give it its "Grupo de Prueba". */
+  onUserCreated?: (userId: string) => Promise<unknown>;
   /** Rejects passwords found in known data breaches (needs internet access). */
   checkLeakedPasswords?: boolean;
 }
@@ -30,6 +32,7 @@ export function createAuth({
   baseURL,
   sendEmail,
   google,
+  onUserCreated,
   checkLeakedPasswords = true,
 }: AuthConfig) {
   return betterAuth({
@@ -66,6 +69,15 @@ export function createAuth({
       updateAge: 60 * 60 * 24,
     },
     // Always on: Better Auth only enables it when NODE_ENV is production.
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            await onUserCreated?.(user.id);
+          },
+        },
+      },
+    },
     // Errors on browser redirects (e.g. a cancelled Google sign-in) land on the web's sign-in
     // page with ?error=<code> instead of Better Auth's English error page.
     onAPIError: { errorURL: `${baseURL}/entrar` },
