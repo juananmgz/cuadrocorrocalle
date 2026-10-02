@@ -19,7 +19,8 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0013](https://github.com/juananmgz/cuadrocorrocalle/pull/13) | [72814e8](https://github.com/juananmgz/cuadrocorrocalle/commit/72814e8)   | ✨ Add cookie consent banner and GA4 behind consent (paso 1.1)                |
 | [CCC-0014](https://github.com/juananmgz/cuadrocorrocalle/pull/14) | [bcd74b8](https://github.com/juananmgz/cuadrocorrocalle/commit/bcd74b8)   | ✨ Add email and password accounts with Better Auth (paso 1.2)                |
 | [CCC-0015](https://github.com/juananmgz/cuadrocorrocalle/pull/15) | [c1ceacb](https://github.com/juananmgz/cuadrocorrocalle/commit/c1ceacb)   | 🔒️ Lock the API to the web proxy and add a Content Security Policy (paso 1.2) |
-| [CCC-0016](https://github.com/juananmgz/cuadrocorrocalle/pull/16) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/16/commits) | ✨ Add email confirmation and password reset with Brevo (paso 1.3)            |
+| [CCC-0016](https://github.com/juananmgz/cuadrocorrocalle/pull/16) | [4bac534](https://github.com/juananmgz/cuadrocorrocalle/commit/4bac534)   | ✨ Add email confirmation and password reset with Brevo (paso 1.3)            |
+| [CCC-0017](https://github.com/juananmgz/cuadrocorrocalle/pull/17) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/17/commits) | ✨ Add Google sign-in (paso 1.4)                                              |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 

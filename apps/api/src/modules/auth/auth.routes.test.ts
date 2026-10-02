@@ -11,6 +11,7 @@ const database: Database = { isReachable: async () => true, close: async () => {
 
 function buildTestApp(outbox: Email[] = []) {
   const auth = createAuth({
+    google: { clientId: 'test-client-id', clientSecret: 'test-client-secret' },
     sendEmail: async (email) => {
       outbox.push(email);
     },
@@ -194,6 +195,39 @@ test('resets the password with the emailed link', async () => {
     });
   expect((await signIn('contraseña-vieja-1')).statusCode).toBe(401);
   expect((await signIn('contraseña-nueva-2')).statusCode).toBe(200);
+
+  await app.close();
+});
+
+test('starts Google sign-in with the callback on the web address', async () => {
+  const app = buildTestApp();
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/auth/sign-in/social',
+    headers,
+    payload: { provider: 'google', callbackURL: '/inicio' },
+  });
+  const url = new URL(response.json().url);
+
+  expect(url.origin).toBe('https://accounts.google.com');
+  expect(url.searchParams.get('client_id')).toBe('test-client-id');
+  expect(url.searchParams.get('redirect_uri')).toBe(`${BASE_URL}/api/auth/callback/google`);
+  expect(url.searchParams.get('prompt')).toBe('select_account');
+
+  await app.close();
+});
+
+test('sends OAuth errors to the web sign-in page instead of an English error page', async () => {
+  const app = buildTestApp();
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/api/auth/callback/google?error=access_denied&state=unknown',
+  });
+
+  expect(response.statusCode).toBe(302);
+  expect(response.headers.location).toBe(`${BASE_URL}/entrar?error=state_mismatch`);
 
   await app.close();
 });

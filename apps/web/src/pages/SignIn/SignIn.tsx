@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { authClient, authErrorMessage } from '../../auth/authClient';
 import styles from '../../auth/authForm.module.scss';
 import { AuthLayout } from '../../components/AuthLayout/AuthLayout';
+import { GoogleButton } from '../../components/GoogleButton/GoogleButton';
 import { Button } from '../../components/ui/Button/Button';
 import { TextField } from '../../components/ui/TextField/TextField';
 
@@ -17,7 +18,11 @@ export function SignIn() {
   const [params] = useSearchParams();
   const returnTo = safeReturnPath(params.get('volver'));
   const { data: session } = authClient.useSession();
-  const [error, setError] = useState<string>();
+  // Google sign-in failures come back as /entrar?error=<code>.
+  const [error, setError] = useState<string | undefined>(() => {
+    const code = params.get('error');
+    return code ? authErrorMessage({ code }) : undefined;
+  });
   const [pending, setPending] = useState(false);
 
   if (session) return <Navigate to={returnTo} replace />;
@@ -48,6 +53,8 @@ export function SignIn() {
         </>
       }
     >
+      <GoogleButton callbackURL={returnTo} onError={setError} />
+      <p className={styles.divider}>o con tu correo</p>
       <form className={styles.form} onSubmit={submit}>
         <TextField
           label="Correo electrónico"

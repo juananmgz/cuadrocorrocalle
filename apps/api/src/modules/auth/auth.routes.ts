@@ -6,9 +6,13 @@ interface AuthRoutesOptions {
   auth?: Auth;
 }
 
-/** Converts a Fastify request into the Fetch request Better Auth expects. */
-function toFetchRequest(request: FastifyRequest) {
-  const url = new URL(request.url, `http://${request.headers.host ?? 'localhost'}`);
+/**
+ * Converts a Fastify request into the Fetch request Better Auth expects. The URL uses the
+ * public web origin, not the Host header (onrender.com behind the proxy), so relative
+ * redirects such as /inicio stay on the web.
+ */
+function toFetchRequest(request: FastifyRequest, origin: string) {
+  const url = new URL(request.url, origin);
   const headers = new Headers();
 
   for (const [key, value] of Object.entries(request.headers)) {
@@ -33,7 +37,7 @@ export async function authRoutes(app: FastifyInstance, { auth }: AuthRoutesOptio
         return reply.status(503).send({ message: 'Auth is unavailable without a database' });
       }
 
-      const response = await auth.handler(toFetchRequest(request));
+      const response = await auth.handler(toFetchRequest(request, auth.options.baseURL as string));
 
       reply.status(response.status);
       response.headers.forEach((value, key) => {
