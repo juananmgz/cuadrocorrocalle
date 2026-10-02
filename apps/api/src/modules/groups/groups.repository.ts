@@ -21,6 +21,9 @@ export interface NewGroup {
 export interface GroupRepository {
   listByOwner(ownerId: string): Promise<GroupRecord[]>;
   create(group: NewGroup): Promise<GroupRecord>;
+  findOwned(id: string, ownerId: string): Promise<GroupRecord | null>;
+  /** Deletes a group and, through cascades, everything that belongs to it. */
+  delete(id: string): Promise<void>;
   /** Updates a group owned by ownerId; null when it does not exist or is someone else's. */
   update(
     id: string,
@@ -41,6 +44,13 @@ export function createPrismaGroupRepository(prisma: PrismaClient): GroupReposito
     async create(group) {
       const created = await prisma.group.create({ data: group });
       return { ...created, gridColor: created.gridColor as GridColor };
+    },
+    async findOwned(id, ownerId) {
+      const group = await prisma.group.findFirst({ where: { id, ownerId } });
+      return group ? { ...group, gridColor: group.gridColor as GridColor } : null;
+    },
+    async delete(id) {
+      await prisma.group.delete({ where: { id } });
     },
     async update(id, ownerId, data) {
       const { count } = await prisma.group.updateMany({ where: { id, ownerId }, data });
@@ -66,6 +76,15 @@ export function createMemoryGroupRepository(): GroupRepository {
       const record = { isTrial: false, ...group, id: `group-${nextId}`, createdAt: new Date() };
       groups.push(record);
       return record;
+    },
+    async findOwned(id, ownerId) {
+      return groups.find((group) => group.id === id && group.ownerId === ownerId) ?? null;
+    },
+    async delete(id) {
+      groups.splice(
+        groups.findIndex((group) => group.id === id),
+        1,
+      );
     },
     async update(id, ownerId, data) {
       const group = groups.find((item) => item.id === id && item.ownerId === ownerId);

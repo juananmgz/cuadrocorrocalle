@@ -44,6 +44,10 @@ export function createGroupService(repository: GroupRepository) {
       return { groupsAvailable: 0 };
     },
 
+    findOwned: (ownerId: string, id: string) => repository.findOwned(id, ownerId),
+
+    delete: (id: string) => repository.delete(id),
+
     async update(ownerId: string, id: string, input: UpdateGroupInput): Promise<Group | null> {
       const updated = await repository.update(id, ownerId, input);
       return updated ? toGroup(updated) : null;

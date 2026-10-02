@@ -1,5 +1,7 @@
 import {
   type CreateGroupInput,
+  type DeleteGroupError,
+  type DeleteGroupInput,
   type Group,
   type GroupList,
   type UpdateGroupInput,
@@ -11,6 +13,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 const GROUPS_KEY = ['groups'];
 
+const DELETE_MESSAGES: Record<DeleteGroupError, string> = {
+  TRIAL_GROUP: 'El Grupo de Prueba no se puede borrar.',
+  WRONG_PASSWORD: 'La contraseña no es correcta.',
+  WRONG_NAME: 'El nombre no coincide con el del grupo.',
+  TOO_MANY_ATTEMPTS: 'Demasiados intentos. Espera unos minutos y vuelve a probar.',
+};
+
 async function request(init?: RequestInit, path = GROUPS_PATH) {
   const response = await fetch(path, {
     credentials: 'same-origin',
@@ -20,8 +29,10 @@ async function request(init?: RequestInit, path = GROUPS_PATH) {
   const body: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message = (body as { message?: string } | null)?.message;
-    throw new Error(message ?? 'No se ha podido completar. Vuelve a probar.');
+    const { code, message } = (body ?? {}) as { code?: DeleteGroupError; message?: string };
+    throw new Error(
+      (code && DELETE_MESSAGES[code]) ?? message ?? 'No se ha podido completar. Vuelve a probar.',
+    );
   }
   return body;
 }
@@ -60,6 +71,22 @@ export function useUpdateGroup() {
         list
           ? { ...list, groups: list.groups.map((item) => (item.id === group.id ? group : item)) }
           : list,
+      );
+    },
+  });
+}
+
+export function useDeleteGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...input }: DeleteGroupInput & { id: string }) => {
+      await request({ method: 'DELETE', body: JSON.stringify(input) }, `${GROUPS_PATH}/${id}`);
+      return id;
+    },
+    onSuccess: (id) => {
+      queryClient.setQueryData<GroupList>(GROUPS_KEY, (list) =>
+        list ? { ...list, groups: list.groups.filter((group) => group.id !== id) } : list,
       );
     },
   });

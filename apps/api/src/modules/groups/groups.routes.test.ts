@@ -12,10 +12,12 @@ const BASE_URL = 'http://localhost:5173';
 const database: Database = { isReachable: async () => true, close: async () => {} };
 let lastIp = 0;
 
-function buildTestApp() {
+type MemoryDb = Record<'user' | 'session' | 'account' | 'verification', Record<string, unknown>[]>;
+
+function buildTestApp(db: MemoryDb = { user: [], session: [], account: [], verification: [] }) {
   const groups = createGroupService(createMemoryGroupRepository());
   const auth = createAuth({
-    database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
+    database: memoryAdapter(db),
     secret: 'test-secret-that-is-long-enough-for-better-auth',
     baseURL: BASE_URL,
     sendEmail: async () => {},
@@ -135,5 +137,89 @@ test('reports how many more groups the licences allow', async () => {
   const response = await app.inject({ method: 'GET', url: GROUPS_PATH, headers: { cookie } });
 
   expect(response.json().licenses).toEqual({ groupsAvailable: 0 });
+  await app.close();
+});
+
+async function createGroup(app: ReturnType<typeof buildTestApp>, cookie: string, name: string) {
+  const response = await app.inject({
+    method: 'POST',
+    url: GROUPS_PATH,
+    headers: { cookie },
+    payload: { name, gridColor: 'verde' },
+  });
+  return response.json().id as string;
+}
+
+const deleteGroup = (
+  app: ReturnType<typeof buildTestApp>,
+  cookie: string,
+  id: string,
+  payload: Record<string, string>,
+) => app.inject({ method: 'DELETE', url: `${GROUPS_PATH}/${id}`, headers: { cookie }, payload });
+
+test('deletes a group after checking the password', async () => {
+  const app = buildTestApp();
+  const cookie = await signUp(app, 'delete@example.com');
+  const id = await createGroup(app, cookie, 'Coros de Pasarón');
+
+  const wrong = await deleteGroup(app, cookie, id, { password: 'otra-cosa-1234' });
+  expect(wrong.statusCode).toBe(403);
+  expect(wrong.json().code).toBe('WRONG_PASSWORD');
+
+  expect((await deleteGroup(app, cookie, id, { password: 'jota-de-la-vera' })).statusCode).toBe(
+    204,
+  );
+  const list = await app.inject({ method: 'GET', url: GROUPS_PATH, headers: { cookie } });
+  expect(list.json().groups.map((group: { name: string }) => group.name)).toEqual([
+    TRIAL_GROUP_NAME,
+  ]);
+  await app.close();
+});
+
+test('never deletes the "Grupo de Prueba" or someone else\'s group', async () => {
+  const app = buildTestApp();
+  const owner = await signUp(app, 'trial@example.com');
+  const other = await signUp(app, 'intruder@example.com');
+  const [trial] = (
+    await app.inject({ method: 'GET', url: GROUPS_PATH, headers: { cookie: owner } })
+  ).json().groups;
+  const id = await createGroup(app, owner, 'Mi grupo');
+
+  const trialDelete = await deleteGroup(app, owner, trial.id, { password: 'jota-de-la-vera' });
+  expect(trialDelete.statusCode).toBe(403);
+  expect(trialDelete.json().code).toBe('TRIAL_GROUP');
+  expect((await deleteGroup(app, other, id, { password: 'jota-de-la-vera' })).statusCode).toBe(404);
+  await app.close();
+});
+
+test('accounts without a password confirm by typing the group name', async () => {
+  const db: MemoryDb = { user: [], session: [], account: [], verification: [] };
+  const app = buildTestApp(db);
+  const cookie = await signUp(app, 'google@example.com');
+  // Simulates an account created with Google, which has no password.
+  for (const account of db.account) account.password = null;
+  const id = await createGroup(app, cookie, 'Coros de Pasarón');
+
+  const wrong = await deleteGroup(app, cookie, id, { confirmName: 'Coros' });
+  expect(wrong.json().code).toBe('WRONG_NAME');
+  expect(
+    (await deleteGroup(app, cookie, id, { confirmName: ' coros de pasarón ' })).statusCode,
+  ).toBe(204);
+  await app.close();
+});
+
+test('blocks deleting after 5 wrong confirmations', async () => {
+  const app = buildTestApp();
+  const cookie = await signUp(app, 'guess@example.com');
+  const id = await createGroup(app, cookie, 'Grupo');
+
+  for (let i = 0; i < 5; i += 1) {
+    expect((await deleteGroup(app, cookie, id, { password: `mal-${i}-1234` })).statusCode).toBe(
+      403,
+    );
+  }
+  const blocked = await deleteGroup(app, cookie, id, { password: 'jota-de-la-vera' });
+  expect(blocked.statusCode).toBe(429);
+  expect(blocked.json().code).toBe('TOO_MANY_ATTEMPTS');
   await app.close();
 });
