@@ -130,6 +130,10 @@ model Performance {
   date       DateTime? @db.Date
   minMinutes Int?      @map("min_minutes")
   maxMinutes Int?      @map("max_minutes")
+  // Stage size in metres and how many metres one grid square represents.
+  stageWidth Float?    @map("stage_width_m")
+  stageDepth Float?    @map("stage_depth_m")
+  squareSize Float     @default(1) @map("square_m")
   notes      String?
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")

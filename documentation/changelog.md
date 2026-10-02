@@ -25,7 +25,11 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0019](https://github.com/juananmgz/cuadrocorrocalle/pull/19) | [a1a996d](https://github.com/juananmgz/cuadrocorrocalle/commit/a1a996d)   | ✨ Add group deletion with confirmation (paso 1.6)                            |
 | [CCC-0019](https://github.com/juananmgz/cuadrocorrocalle/pull/19) | [4d1c8c2](https://github.com/juananmgz/cuadrocorrocalle/commit/4d1c8c2)   | 💄 Show the full name as logo and a side menu on phones                       |
 | [CCC-0020](https://github.com/juananmgz/cuadrocorrocalle/pull/20) | [0192acb](https://github.com/juananmgz/cuadrocorrocalle/commit/0192acb)   | ✨ Add people to groups with a pasted list and the Mi grupo page (paso 1.7)   |
-| [CCC-0021](https://github.com/juananmgz/cuadrocorrocalle/pull/21) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/21/commits) | ✨ Add performances with create, edit, duplicate and delete (paso 1.8)        |
+| [CCC-0021](https://github.com/juananmgz/cuadrocorrocalle/pull/21) | [1f76d9f](https://github.com/juananmgz/cuadrocorrocalle/commit/1f76d9f)   | ✨ Add performances with create, edit, duplicate and delete (paso 1.8)        |
+| [CCC-0022](https://github.com/juananmgz/cuadrocorrocalle/pull/22) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/22/commits) | ✨ Create performances from home with a stage preview seen from above         |
+| [CCC-0022](https://github.com/juananmgz/cuadrocorrocalle/pull/22) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/22/commits) | 💫 Move the grid camera with a dolly zoom and show the stage once it settles  |
+| [CCC-0022](https://github.com/juananmgz/cuadrocorrocalle/pull/22) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/22/commits) | 🔥 Remove the performances page and the create dialog                         |
+| [CCC-0022](https://github.com/juananmgz/cuadrocorrocalle/pull/22) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/22/commits) | 💄 Show the stage section title under its divider                             |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 

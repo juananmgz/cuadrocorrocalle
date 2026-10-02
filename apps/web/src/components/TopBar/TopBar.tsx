@@ -14,7 +14,7 @@ interface TopBarProps {
   userEmail?: string;
   /** Items of the user menu on tablets and PCs. */
   userMenuItems: MenuItem[];
-  /** Shows the app's sections (Actuaciones, Mi grupo) on tablets and PCs. */
+  /** Shows the app's sections (Mi grupo) on tablets and PCs. */
   showSections?: boolean;
 }
 

@@ -10,7 +10,7 @@ import { GridBackground } from '../GridBackground/GridBackground';
 import { GroupChooser } from '../GroupChooser/GroupChooser';
 import { TopBar } from '../TopBar/TopBar';
 import styles from './AppLayout.module.scss';
-import type { AppContext } from './appContext';
+import type { AppContext, GridSettings } from './appContext';
 
 /** Frame for signed-in pages: grid, top bar and the active group with its chooser. */
 export function AppLayout() {
@@ -27,8 +27,8 @@ function SignedInLayout() {
   const { data } = useGroups();
   const activeId = useActiveGroupId();
   const [chooserOpen, setChooserOpen] = useState(false);
-  // Width covered on the left by a page (the home's performance list); the grid centres on the rest.
-  const [gridInset, setGridInset] = useState(0);
+  // Pages can move the background grid (the home shifts it right of its list and looks from above).
+  const [grid, setGrid] = useState<GridSettings>({});
   const groups = data?.groups;
   const activeGroup = groups?.find((group) => group.id === activeId);
 
@@ -61,7 +61,7 @@ function SignedInLayout() {
 
   return (
     <div className={styles.root}>
-      <GridBackground leftInset={gridInset} />
+      <GridBackground {...grid} />
       <TopBar
         groupName={activeGroup?.name}
         onGroupClick={() => setChooserOpen(true)}
@@ -87,7 +87,7 @@ function SignedInLayout() {
       )}
       <div className={styles.content}>
         <main className={styles.main}>
-          <Outlet context={{ activeGroup, signOut, setGridInset } satisfies AppContext} />
+          <Outlet context={{ activeGroup, signOut, setGrid } satisfies AppContext} />
         </main>
       </div>
     </div>

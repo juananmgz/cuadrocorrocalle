@@ -129,3 +129,29 @@
     box-shadow: 4px 4px 0 var(--ink);
   }
 }
+
+// Staggered slide to the left when "Crear actuación" opens the form; back in on cancel.
+[data-slide] {
+  transition:
+    transform 260ms ease-in,
+    opacity 260ms ease-in;
+  animation: slide-in 260ms ease-out backwards;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+    animation: none;
+  }
+}
+
+[data-slide='out'] {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-120%);
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-120%);
+  }
+}

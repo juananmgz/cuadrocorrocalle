@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
 
 import { AppLayout } from './components/AppLayout/AppLayout';
 import { Welcome } from './pages/Welcome/Welcome';
@@ -39,12 +39,8 @@ export const router = createBrowserRouter([
         path: '/inicio',
         lazy: async () => ({ Component: (await import('./pages/Home/Home')).Home }),
       },
-      {
-        path: '/actuaciones',
-        lazy: async () => ({
-          Component: (await import('./pages/Performances/Performances')).Performances,
-        }),
-      },
+      // Performances are listed and created from the home page.
+      { path: '/actuaciones', element: <Navigate to="/inicio" replace /> },
       {
         path: '/actuaciones/:id',
         lazy: async () => ({

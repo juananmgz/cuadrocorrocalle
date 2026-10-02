@@ -1,5 +1,6 @@
 import {
   type CreatePerformanceInput,
+  DEFAULT_SQUARE_SIZE,
   type Performance,
   TRIAL_PERFORMANCE_LIMIT,
   type UpdatePerformanceInput,
@@ -32,6 +33,9 @@ function toChanges(input: UpdatePerformanceInput): PerformanceChanges {
     minMinutes: input.minMinutes,
     maxMinutes: input.maxMinutes,
     notes: blankToNull(input.notes),
+    stageWidth: input.stageWidth,
+    stageDepth: input.stageDepth,
+    squareSize: input.squareSize,
   };
   return Object.fromEntries(
     Object.entries(changes).filter(([, value]) => value !== undefined),
@@ -83,6 +87,9 @@ export function createPerformanceService(repository: PerformanceRepository, grou
         minMinutes: null,
         maxMinutes: null,
         notes: null,
+        stageWidth: null,
+        stageDepth: null,
+        squareSize: DEFAULT_SQUARE_SIZE,
         ...toChanges(input),
         title: input.title,
         groupId: input.groupId,
@@ -114,6 +121,7 @@ export function createPerformanceService(repository: PerformanceRepository, grou
       }
 
       const { groupId, place, date, minMinutes, maxMinutes, notes } = performance;
+      const { stageWidth, stageDepth, squareSize } = performance;
       const copy = await repository.create({
         groupId,
         place,
@@ -121,6 +129,9 @@ export function createPerformanceService(repository: PerformanceRepository, grou
         minMinutes,
         maxMinutes,
         notes,
+        stageWidth,
+        stageDepth,
+        squareSize,
         title: `Copia de ${performance.title}`.slice(0, 120),
       });
       return { ok: true, value: toPerformance(copy) };
