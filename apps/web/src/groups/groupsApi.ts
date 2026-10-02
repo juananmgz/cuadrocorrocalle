@@ -23,7 +23,8 @@ const DELETE_MESSAGES: Record<DeleteGroupError, string> = {
 async function request(init?: RequestInit, path = GROUPS_PATH) {
   const response = await fetch(path, {
     credentials: 'same-origin',
-    headers: { 'content-type': 'application/json' },
+    // Only requests with a body declare JSON; Fastify rejects an empty JSON body.
+    headers: init?.body ? { 'content-type': 'application/json' } : undefined,
     ...init,
   });
   const body: unknown = await response.json().catch(() => null);

@@ -65,6 +65,7 @@ function SignedInLayout() {
         onGroupClick={() => setChooserOpen(true)}
         userName={session?.user.name || '?'}
         userEmail={session?.user.email}
+        showSections
         userMenuItems={[
           { label: 'Mi cuenta', onSelect: () => navigate('/cuenta') },
           { label: 'Ajustes', onSelect: () => navigate('/ajustes') },

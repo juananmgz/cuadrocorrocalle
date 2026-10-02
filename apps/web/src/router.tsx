@@ -46,6 +46,10 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        path: '/grupo',
+        lazy: async () => ({ Component: (await import('./pages/MyGroup/MyGroup')).MyGroup }),
+      },
+      {
         path: '/ajustes',
         lazy: async () => ({ Component: (await import('./pages/Settings/Settings')).Settings }),
       },

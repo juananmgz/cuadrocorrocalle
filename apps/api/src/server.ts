@@ -5,6 +5,8 @@ import { createDatabase, unavailableDatabase } from './database/database';
 import { createAuth } from './modules/auth/auth';
 import { createPrismaGroupRepository } from './modules/groups/groups.repository';
 import { createGroupService } from './modules/groups/groups.service';
+import { createPrismaPersonRepository } from './modules/people/people.repository';
+import { createPersonService } from './modules/people/people.service';
 import { createBrevoMailer, createConsoleMailer, type SendEmail } from './modules/email/mailer';
 
 const port = Number(process.env.PORT ?? 3000);
@@ -29,6 +31,10 @@ const groups = database.prisma
   ? createGroupService(createPrismaGroupRepository(database.prisma))
   : undefined;
 
+const people = database.prisma
+  ? createPersonService(createPrismaPersonRepository(database.prisma))
+  : undefined;
+
 const auth =
   database.prisma && authSecret
     ? createAuth({
@@ -45,7 +51,7 @@ const auth =
     : undefined;
 
 const proxySecret = process.env.PROXY_SECRET;
-const app = buildApp({ logger: true, database, auth, groups, proxySecret });
+const app = buildApp({ logger: true, database, auth, groups, people, proxySecret });
 
 if (!databaseUrl) {
   app.log.warn('DATABASE_URL is not set: the API runs without a database');

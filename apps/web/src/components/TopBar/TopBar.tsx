@@ -1,7 +1,8 @@
 import { APP_NAME } from '@cuadrocorrocalle/shared';
-import { Link } from 'react-router';
+import { Link, NavLink } from 'react-router';
 
 import { GroupBox } from '../GroupBox/GroupBox';
+import { SECTIONS } from '../navigation';
 import { SideMenu } from '../SideMenu/SideMenu';
 import { Menu, type MenuItem } from '../ui/Menu/Menu';
 import styles from './TopBar.module.scss';
@@ -13,6 +14,8 @@ interface TopBarProps {
   userEmail?: string;
   /** Items of the user menu on tablets and PCs. */
   userMenuItems: MenuItem[];
+  /** Shows the app's sections (Actuaciones, Mi grupo) on tablets and PCs. */
+  showSections?: boolean;
 }
 
 export function TopBar({
@@ -21,12 +24,22 @@ export function TopBar({
   userName,
   userEmail,
   userMenuItems,
+  showSections = false,
 }: TopBarProps) {
   return (
     <header className={styles.root}>
       <Link to="/" className={styles.brand}>
         {APP_NAME}
       </Link>
+      {showSections && (
+        <nav className={styles.sections} aria-label="Secciones">
+          {SECTIONS.map((section) => (
+            <NavLink key={section.to} to={section.to} className={styles.section}>
+              {section.label}
+            </NavLink>
+          ))}
+        </nav>
+      )}
       {/* Phones get the hamburger menu; tablets and PCs the group box and user menu. */}
       <div className={styles.mobile}>
         <SideMenu
