@@ -123,6 +123,7 @@ export function CreatePerformanceCard({
           />
         </div>
 
+        <hr className={styles.divider} />
         <fieldset className={styles.stage} ref={stageFields} onBlur={leaveStageFields}>
           <legend className={styles.legend}>Escenario</legend>
           <div className={styles.pair}>
