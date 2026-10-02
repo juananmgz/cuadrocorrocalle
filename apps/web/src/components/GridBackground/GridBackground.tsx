@@ -129,7 +129,7 @@ export function GridBackground() {
     const resize = new ResizeObserver(redraw);
     resize.observe(canvas);
     const theme = new MutationObserver(redraw);
-    theme.observe(document.documentElement, { attributeFilter: ['data-theme'] });
+    theme.observe(document.documentElement, { attributeFilter: ['data-theme', 'data-grid'] });
     const scheme = window.matchMedia?.('(prefers-color-scheme: dark)');
     scheme?.addEventListener('change', redraw);
 

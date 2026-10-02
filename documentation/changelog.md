@@ -20,7 +20,8 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0014](https://github.com/juananmgz/cuadrocorrocalle/pull/14) | [bcd74b8](https://github.com/juananmgz/cuadrocorrocalle/commit/bcd74b8)   | ✨ Add email and password accounts with Better Auth (paso 1.2)                |
 | [CCC-0015](https://github.com/juananmgz/cuadrocorrocalle/pull/15) | [c1ceacb](https://github.com/juananmgz/cuadrocorrocalle/commit/c1ceacb)   | 🔒️ Lock the API to the web proxy and add a Content Security Policy (paso 1.2) |
 | [CCC-0016](https://github.com/juananmgz/cuadrocorrocalle/pull/16) | [4bac534](https://github.com/juananmgz/cuadrocorrocalle/commit/4bac534)   | ✨ Add email confirmation and password reset with Brevo (paso 1.3)            |
-| [CCC-0017](https://github.com/juananmgz/cuadrocorrocalle/pull/17) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/17/commits) | ✨ Add Google sign-in (paso 1.4)                                              |
+| [CCC-0017](https://github.com/juananmgz/cuadrocorrocalle/pull/17) | [c37485f](https://github.com/juananmgz/cuadrocorrocalle/commit/c37485f)   | ✨ Add Google sign-in (paso 1.4)                                              |
+| [CCC-0018](https://github.com/juananmgz/cuadrocorrocalle/pull/18) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/18/commits) | ✨ Add groups with chooser dialog and grid colours (paso 1.5)                 |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 
