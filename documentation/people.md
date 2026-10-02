@@ -12,8 +12,8 @@ Paso 1.7 (caso OA-01). Pantalla «Mi grupo» (`/grupo`): información del grupo 
 
 ## Navegación
 
-- **Móvil:** el menú lateral tiene «Mi grupo» entre «Actuaciones» y «Ajustes».
-- **Tablet y PC:** la barra superior muestra las secciones «Actuaciones» y «Mi grupo».
+- **Móvil:** el menú lateral tiene «Mi grupo» encima de «Ajustes».
+- **Tablet y PC:** la barra superior muestra la sección «Mi grupo».
 
 ## API
 

@@ -11,9 +11,7 @@ import styles from './PerformanceDialog.module.scss';
 interface PerformanceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Performance to edit; a new one is created in groupId without it. */
-  performance?: Performance;
-  groupId: string;
+  performance: Performance;
   mutations: PerformanceMutations;
   onSaved?: (performance: Performance) => void;
 }
@@ -23,16 +21,15 @@ const toMinutes = (value: FormDataEntryValue | null) => {
   return text ? Number(text) : null;
 };
 
-/** Performance data: title, place, date, minimum and maximum duration and notes. */
+/** Edits a performance's data: title, place, date, minimum and maximum duration and notes. */
 export function PerformanceDialog({
   open,
   onOpenChange,
   performance,
-  groupId,
   mutations,
   onSaved,
 }: PerformanceDialogProps) {
-  const saving = performance ? mutations.update : mutations.create;
+  const saving = mutations.update;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -50,8 +47,7 @@ export function PerformanceDialog({
       onSaved?.(saved);
     };
 
-    if (performance) mutations.update.mutate({ id: performance.id, ...input }, { onSuccess: done });
-    else mutations.create.mutate({ groupId, ...input }, { onSuccess: done });
+    mutations.update.mutate({ id: performance.id, ...input }, { onSuccess: done });
   };
 
   return (
@@ -61,14 +57,14 @@ export function PerformanceDialog({
         onOpenChange(next);
         if (!next) saving.reset();
       }}
-      title={performance ? 'Editar actuación' : 'Nueva actuación'}
+      title="Editar actuación"
     >
       {open && (
-        <form key={performance?.id ?? 'new'} className={styles.form} onSubmit={submit}>
+        <form key={performance.id} className={styles.form} onSubmit={submit}>
           <TextField
             label="Título"
             name="title"
-            defaultValue={performance?.title}
+            defaultValue={performance.title}
             placeholder="Pasarón de la Vera"
             maxLength={120}
             required
@@ -77,11 +73,11 @@ export function PerformanceDialog({
           <TextField
             label="Lugar"
             name="place"
-            defaultValue={performance?.place ?? ''}
+            defaultValue={performance.place ?? ''}
             placeholder="Plaza Mayor"
             maxLength={120}
           />
-          <TextField label="Fecha" name="date" type="date" defaultValue={performance?.date ?? ''} />
+          <TextField label="Fecha" name="date" type="date" defaultValue={performance.date ?? ''} />
           <div className={styles.durations}>
             <TextField
               label="Duración mínima"
@@ -90,7 +86,7 @@ export function PerformanceDialog({
               inputMode="numeric"
               min={1}
               max={1440}
-              defaultValue={performance?.minMinutes ?? ''}
+              defaultValue={performance.minMinutes ?? ''}
               hint="Minutos"
             />
             <TextField
@@ -100,14 +96,14 @@ export function PerformanceDialog({
               inputMode="numeric"
               min={1}
               max={1440}
-              defaultValue={performance?.maxMinutes ?? ''}
+              defaultValue={performance.maxMinutes ?? ''}
               hint="Minutos"
             />
           </div>
           <TextArea
             label="Notas"
             name="notes"
-            defaultValue={performance?.notes ?? ''}
+            defaultValue={performance.notes ?? ''}
             maxLength={2000}
             rows={3}
           />
@@ -119,7 +115,7 @@ export function PerformanceDialog({
           <div className={styles.actions}>
             <Button onClick={() => onOpenChange(false)}>Cancelar</Button>
             <Button type="submit" variant="primary" disabled={saving.isPending}>
-              {saving.isPending ? 'Guardando…' : performance ? 'Guardar' : 'Crear actuación'}
+              {saving.isPending ? 'Guardando…' : 'Guardar'}
             </Button>
           </div>
         </form>

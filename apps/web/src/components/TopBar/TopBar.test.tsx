@@ -31,7 +31,6 @@ test('the mobile menu shows the user, the group and the sections', async () => {
   expect(menu).not.toHaveTextContent('Usuario');
   // The open panel hides the rest of the page, so only its links remain.
   expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
-    'Actuaciones',
     'Mi grupo',
     'Ajustes',
     'Mi cuenta',

@@ -23,7 +23,7 @@ export function PerformanceDetail() {
     return (
       <Card title="No encontrada">
         <p className={styles.text}>Esta actuación no existe o es de otro grupo.</p>
-        <Link to="/actuaciones">Volver a Actuaciones</Link>
+        <Link to="/inicio">Volver al inicio</Link>
       </Card>
     );
   }
@@ -43,7 +43,7 @@ export function PerformanceDetail() {
     mutations.remove.mutate(performance, {
       onSuccess: () => {
         toast.show({ title: `«${performance.title}» borrada`, tone: 'success' });
-        navigate('/actuaciones', { replace: true });
+        navigate('/inicio', { replace: true });
       },
     });
   };
@@ -57,8 +57,8 @@ export function PerformanceDetail() {
 
   return (
     <>
-      <Link to="/actuaciones" className={styles.back}>
-        ← Actuaciones
+      <Link to="/inicio" className={styles.back}>
+        ← Inicio
       </Link>
       <h1 className={styles.title}>{performance.title}</h1>
       <Card title="Datos">
@@ -86,7 +86,6 @@ export function PerformanceDetail() {
         open={editing}
         onOpenChange={setEditing}
         performance={performance}
-        groupId={performance.groupId}
         mutations={mutations}
       />
     </>
