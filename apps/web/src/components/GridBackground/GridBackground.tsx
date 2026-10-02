@@ -3,25 +3,31 @@ import { useEffect, useRef } from 'react';
 import styles from './GridBackground.module.scss';
 
 /*
- * One scene for both views: a floor grid on a large sphere seen from a tilted camera.
- * Moving to the view from above flattens the sphere, turns the camera to look straight
- * down and raises it until the stage fits, so the same grid morphs between both.
+ * One scene for both views: a slightly curved floor grid seen from an angle. Going to the view
+ * from above orbits the camera around the point in the middle of the free area while it backs
+ * away and narrows its lens (a dolly zoom), so squares at that point keep their size, the
+ * perspective flattens and the curve straightens until the camera looks straight down.
  */
 
-const CELL = 48;
-const SAMPLES = 64;
-const MAX_LINES = 160;
-
-// Curved view: sphere radius and camera height in squares, horizon at 30 % of the screen.
-const RADIUS = 60;
-const EYE_HEIGHT = 7;
-const HORIZON = 0.3;
+// Curved view: lens, camera tilt and distance (in squares) and how much the floor bends.
+const FOV = (56 * Math.PI) / 180;
+const TILT = (26 * Math.PI) / 180;
+const HOME_DISTANCE = 14;
+const BEND = 0.004;
+// View from above: camera so far away that the projection is practically flat.
+const TOP_DISTANCE = 6000;
+// Squares drawn around the centre and where they fade out in the curved view.
+const RADIUS = 40;
+const FOG_START = 8;
+const FOG_END = 34;
+const FOG_LEVELS = 6;
 
 // View from above: smallest square in pixels and squares of margin around the stage.
 const MIN_CELL = 3;
 const MARGIN_SQUARES = 1;
 const TOP_BAR = 56;
-const DURATION = 900;
+const DURATION = 1200;
+const STAGE_DURATION = 350;
 
 export interface GridStage {
   /** Stage size in grid squares (metres divided by metres per square). */
@@ -33,23 +39,26 @@ interface Frame {
   width: number;
   height: number;
   leftInset: number;
-  /** 0 = curved world seen from an angle, 1 = flat floor seen from above. */
+  /** 0 = curved floor seen from an angle, 1 = flat floor seen from above. */
   view: number;
   /** Pixels per square in the view from above (eased towards the fitting size). */
   cell: number;
   stage: GridStage | null;
+  /** How far the stage has appeared: 0 = hidden, 1 = shown. */
+  stageShown: number;
   showCross: boolean;
 }
 
 interface Camera {
-  radius: number;
-  height: number;
-  /** How far the camera has moved forward over the floor, in world units. */
-  forward: number;
+  /** Pixels per square at the centre point. */
+  scale: number;
+  /** Distance from the camera to the centre point, in squares. */
+  distance: number;
+  /** Angle below the horizontal: from TILT to straight down. */
   tilt: number;
-  focal: number;
+  bend: number;
   centerX: number;
-  horizonY: number;
+  centerY: number;
 }
 
 // Theme colours, read once per theme or group change instead of on every frame.
@@ -73,6 +82,11 @@ function readColors(): Colors {
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const logLerp = (a: number, b: number, t: number) => Math.exp(lerp(Math.log(a), Math.log(b), t));
+const smooth = (a: number, b: number, v: number) => {
+  const k = Math.min(1, Math.max(0, (v - a) / (b - a)));
+  return k * k * (3 - 2 * k);
+};
 
 /** Free area right of leftInset and below the top bar, with its centre. */
 function freeArea({ width, height, leftInset }: Pick<Frame, 'width' | 'height' | 'leftInset'>) {
@@ -88,13 +102,18 @@ function freeArea({ width, height, leftInset }: Pick<Frame, 'width' | 'height' |
   };
 }
 
+/** Pixels per square at the centre of the curved view. */
+function homeCell(height: number) {
+  const focal = height / 2 / Math.tan(FOV / 2);
+  return focal / HOME_DISTANCE;
+}
+
 /**
- * Pixels per square seen from above. Turning the camera is a change of orientation, not of zoom,
- * so it keeps the size squares had in the middle of the curved view; it only zooms out when the
- * stage, plus a margin, would not fit.
+ * Pixels per square seen from above: the same as in the curved view, so the move has no zoom.
+ * It only zooms out when the stage, plus a margin, would not fit.
  */
 function fittingCell(frame: Pick<Frame, 'width' | 'height' | 'leftInset' | 'stage'>) {
-  const base = perspectiveCell(frame);
+  const base = homeCell(frame.height);
   if (!frame.stage) return base;
   const { areaWidth, areaHeight } = freeArea(frame);
   const fit = Math.min(
@@ -104,109 +123,41 @@ function fittingCell(frame: Pick<Frame, 'width' | 'height' | 'leftInset' | 'stag
   return Math.max(MIN_CELL, Math.min(base, fit));
 }
 
-/** Width in pixels of a square in the curved view, at the point in the middle of the free area. */
-function perspectiveCell(frame: Pick<Frame, 'width' | 'height' | 'leftInset'>) {
-  const camera = homeCamera(frame);
-  const focus = focusDistance(frame);
-  const left = project(camera, 0, focus);
-  const right = project(camera, CELL, focus);
-  const cell = left && right ? Math.abs(right.x - left.x) : 40;
-  return Math.max(MIN_CELL, cell);
-}
-
-/** The curved view of the home page: camera over the pole, horizon at 30 % of the screen. */
-function homeCamera(frame: Pick<Frame, 'width' | 'height' | 'leftInset'>): Camera {
-  const { centerX, areaWidth } = freeArea(frame);
-  const radius = RADIUS * CELL;
-  const height = EYE_HEIGHT * CELL;
+/** Camera for a point of the transition (t already eased). */
+function cameraFor(frame: Frame, t: number): Camera {
+  const { centerX, centerY } = freeArea(frame);
+  const home = homeCell(frame.height);
   return {
-    radius,
-    height,
-    forward: 0,
-    tilt: Math.acos(radius / (radius + height)),
-    focal: areaWidth * 0.9,
+    scale: logLerp(home, frame.cell, t),
+    // Backing away faster at the end keeps the perspective until the camera is almost on top.
+    distance: logLerp(HOME_DISTANCE, TOP_DISTANCE, t ** 1.6),
+    tilt: lerp(TILT, Math.PI / 2, t),
+    bend: lerp(BEND, 0, t),
     centerX,
-    horizonY: frame.height * HORIZON,
+    centerY,
   };
 }
 
-/** Floor distance (snapped to the grid) of the point shown in the middle of the free area. */
-function focusDistance(frame: Pick<Frame, 'width' | 'height' | 'leftInset'>) {
-  const camera = homeCamera(frame);
-  const { centerY } = freeArea(frame);
-  // Floor points further away appear higher: search the distance that lands on the middle.
-  let near = 0;
-  let far = RADIUS * CELL;
-  for (let i = 0; i < 30; i += 1) {
-    const middle = (near + far) / 2;
-    const point = project(camera, 0, middle);
-    if (!point || point.y < centerY) far = middle;
-    else near = middle;
-  }
-  return Math.round(near / CELL) * CELL;
-}
-
-/**
- * Camera for a point of the transition: it pans around the focus point, moving forward and
- * tilting down until it looks straight down at it, always at the same distance. So a square
- * keeps its size on screen; the distance only grows if the stage needs to zoom out to fit.
- */
-function cameraFor(frame: Frame, t: number, focus: number): Camera {
-  const home = homeCamera(frame);
-  if (t === 0) return home;
-  const { centerY } = freeArea(frame);
-
-  // Where the focus point is seen from the home camera: distance and angle below the horizon.
-  const theta = focus / home.radius;
-  const focusZ = home.radius * Math.sin(theta);
-  const focusDrop = home.radius * (1 - Math.cos(theta)) + home.height;
-  const distance0 = Math.hypot(focusZ, focusDrop);
-  const angle0 = Math.atan2(focusDrop, focusZ);
-  // Seen from above, one square of CELL world units shows as `frame.cell` pixels.
-  const distance1 = (home.focal * CELL) / frame.cell;
-  const distance = distance0 * (distance1 / distance0) ** t;
-  const angle = lerp(angle0, Math.PI / 2, t);
-
-  const camera: Camera = {
-    ...home,
-    // The sphere grows until the floor is flat.
-    radius: t >= 0.999 ? Infinity : home.radius / (1 - t) ** 2,
-    height: distance * Math.sin(angle),
-    forward: focus - distance * Math.cos(angle),
-    tilt: angle,
-    horizonY: 0,
-  };
-  // Shift the image so the focus point lands on the middle of the free area.
-  const point = project(camera, 0, focus);
-  camera.horizonY = point ? centerY - point.y : centerY;
-  return camera;
-}
-
-/** Projects floor coordinates (u across, w forward, in world units) onto the screen. */
-function project(camera: Camera, u: number, worldW: number) {
-  const w = worldW - camera.forward;
-  let x = u;
-  let z = w;
-  let y = -camera.height;
-
-  if (Number.isFinite(camera.radius)) {
-    const dist = Math.hypot(u, w);
-    const theta = dist / camera.radius;
-    const ratio = dist === 0 ? 1 : (camera.radius * Math.sin(theta)) / dist;
-    x = u * ratio;
-    z = w * ratio;
-    y = -camera.radius * (1 - Math.cos(theta)) - camera.height;
-  }
-
+/** Projects floor coordinates (x across, y away from the audience, in squares) onto the screen. */
+function projector(camera: Camera) {
   const cos = Math.cos(camera.tilt);
   const sin = Math.sin(camera.tilt);
-  const depth = z * cos - y * sin;
-  const up = y * cos + z * sin;
-  if (depth < 1) return null;
+  const focal = camera.scale * camera.distance;
+  // Camera position; it always looks at the floor point (0, 0).
+  const cameraY = -camera.distance * cos;
+  const cameraZ = camera.distance * sin;
 
-  return {
-    x: camera.centerX + (camera.focal * x) / depth,
-    y: camera.horizonY - (camera.focal * up) / depth,
+  return (x: number, y: number) => {
+    const z = -camera.bend * (x * x + y * y);
+    const vy = y - cameraY;
+    const vz = z - cameraZ;
+    const depth = vy * cos - vz * sin;
+    if (depth < 0.5) return null;
+    const up = vy * sin + vz * cos;
+    return {
+      x: camera.centerX + (focal * x) / depth,
+      y: camera.centerY - (focal * up) / depth,
+    };
   };
 }
 
@@ -227,105 +178,116 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
   ctx.clearRect(0, 0, width, height);
 
   const t = ease(frame.view);
-  // The stage and the centre cross sit on the floor point shown in the middle of the screen.
-  const focus = focusDistance(frame);
-  const camera = cameraFor(frame, t, focus);
-  const toScreen = (u: number, w: number) => project(camera, u, w);
+  const camera = cameraFor(frame, t);
+  const toScreen = projector(camera);
+  const flat = t >= 0.999;
 
-  // Only the sphere's visible cap is drawn; flat, enough squares to cover the screen.
-  const horizonDistance = Number.isFinite(camera.radius)
-    ? Math.acos(camera.radius / (camera.radius + camera.height)) * camera.radius * 0.995
-    : Infinity;
-  const flat = !Number.isFinite(camera.radius);
-  // Curves need fewer points as the floor flattens; a flat line only needs its two ends.
-  const samples = flat ? 1 : Math.max(8, Math.round(lerp(48, 8, t)));
-  // Only the squares the screen can show: about half the screen in squares when seen from above.
-  const screenSquares = (Math.max(width, height) / Math.max(frame.cell, MIN_CELL) / 2 + 2) * t;
-  const lines = Math.min(MAX_LINES, Math.max(Math.round(lerp(60, 0, t)), Math.ceil(screenSquares)));
-  const extent = Math.min(lines * CELL, horizonDistance);
+  // Enough squares to cover the screen from above; the fog moves out of sight as the camera turns.
+  const cover = Math.ceil(Math.hypot(width, height) / 2 / camera.scale) + 2;
+  const radius = Math.max(RADIUS, Math.ceil(lerp(RADIUS, cover, t)));
+  const fogStart = lerp(FOG_START, radius + 1, t);
+  const fogEnd = lerp(FOG_END, radius + 2, t);
+  const fog = (r: number) => 1 - smooth(fogStart, fogEnd, r);
 
   // Grid lines start at the stage edges, so an odd size puts the centre between two lines.
-  const offsetU = stage ? (((stage.cols / 2) % 1) + 1) % 1 : 0;
-  const offsetW = stage ? (((stage.rows / 2) % 1) + 1) % 1 : 0;
+  const offsetX = stage ? (((stage.cols / 2) % 1) + 1) % 1 : 0;
+  const offsetY = stage ? (((stage.rows / 2) % 1) + 1) % 1 : 0;
 
-  // Floor surface.
+  // Floor surface: a disc that covers the screen once seen from above.
   ctx.fillStyle = colors['--floor'];
-  if (t > 0.5) {
-    ctx.fillRect(0, 0, width, height);
-  } else {
-    ctx.beginPath();
-    for (let i = 0; i <= SAMPLES; i += 1) {
-      const angle = (i / SAMPLES) * Math.PI * 2;
-      const point = toScreen(Math.cos(angle) * extent, camera.forward + Math.sin(angle) * extent);
-      if (point) ctx.lineTo(point.x, point.y);
-    }
-    ctx.closePath();
-    ctx.fill();
+  ctx.beginPath();
+  for (let i = 0; i < 90; i += 1) {
+    const angle = (i / 90) * Math.PI * 2;
+    const point = toScreen(radius * Math.cos(angle), radius * Math.sin(angle));
+    if (point) ctx.lineTo(point.x, point.y);
   }
+  ctx.closePath();
+  ctx.fill();
 
-  // Adds a polyline to the current path; points behind the camera or past the horizon break it.
-  const curve = (points: [number, number][]) => {
-    let drawing = false;
-    for (const [u, w] of points) {
-      const beyond = !flat && Math.hypot(u, w - camera.forward) > extent;
-      const point = beyond ? null : toScreen(u, w);
-      if (!point) {
-        drawing = false;
-        continue;
+  // Lines go through every square corner; segments are grouped by fog level, one stroke each.
+  const levels: number[][] = Array.from({ length: FOG_LEVELS }, () => []);
+  const addLine = (fixed: number, vertical: boolean, target: number[][]) => {
+    const limit = Math.sqrt(Math.max(0, radius * radius - fixed * fixed));
+    const offset = vertical ? offsetY : offsetX;
+    const from = Math.ceil(-limit - offset);
+    const to = Math.floor(limit - offset);
+    // Seen from above, a straight line only needs its two ends.
+    const step = flat ? Math.max(1, to - from) : 1;
+    let previous: { x: number; y: number } | null = null;
+    let previousR = 0;
+    for (let k = from; k <= to; k += step) {
+      const v = k + offset;
+      const x = vertical ? fixed : v;
+      const y = vertical ? v : fixed;
+      const point = toScreen(x, y);
+      const r = Math.hypot(x, y);
+      if (point && previous) {
+        const alpha = flat ? 1 : fog((r + previousR) / 2);
+        if (alpha > 0.02) {
+          const level = Math.min(FOG_LEVELS - 1, Math.floor(alpha * FOG_LEVELS));
+          target[level]!.push(previous.x, previous.y, point.x, point.y);
+        }
       }
-      if (drawing) ctx.lineTo(point.x, point.y);
-      else ctx.moveTo(point.x, point.y);
-      drawing = true;
+      previous = point;
+      previousR = r;
     }
   };
-  const range = (
-    from: number,
-    to: number,
-    fixed: (v: number) => [number, number],
-    count = samples,
-  ) => Array.from({ length: count + 1 }, (_, i) => fixed(from + ((to - from) * i) / count));
-  const lineU = (u: number) =>
-    curve(range(camera.forward - extent, camera.forward + extent, (w) => [u, w]));
-  const lineW = (w: number) => curve(range(-extent, extent, (u) => [u, w]));
-
-  // All thin lines in a single path and a single stroke.
-  ctx.beginPath();
-  for (let i = -lines; i <= lines; i += 1) {
-    lineU((i + offsetU) * CELL);
-    lineW(focus + (i + offsetW) * CELL);
+  for (let k = -radius; k <= radius; k += 1) {
+    addLine(k + offsetX, true, levels);
+    addLine(k + offsetY, false, levels);
   }
-  ctx.strokeStyle = colors['--grid-minor'];
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  const strokeLevels = (segments: number[][], color: string, lineWidth: number) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    segments.forEach((points, level) => {
+      if (!points.length) return;
+      ctx.globalAlpha = (level + 1) / FOG_LEVELS;
+      ctx.beginPath();
+      for (let i = 0; i < points.length; i += 4) {
+        ctx.moveTo(points[i]!, points[i + 1]!);
+        ctx.lineTo(points[i + 2]!, points[i + 3]!);
+      }
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+  };
+  strokeLevels(levels, colors['--grid-minor'], 1);
 
-  // Stage, centred on the focus point, with the audience at the near edge.
-  if (stage) {
-    const halfU = (stage.cols / 2) * CELL;
-    const halfW = (stage.rows / 2) * CELL;
-    const edge = flat ? 1 : 12;
-    const outline: [number, number][] = [
-      ...range(-halfU, halfU, (u): [number, number] => [u, focus - halfW], edge),
-      ...range(focus - halfW, focus + halfW, (w): [number, number] => [halfU, w], edge),
-      ...range(halfU, -halfU, (u): [number, number] => [u, focus + halfW], edge),
-      ...range(focus + halfW, focus - halfW, (w): [number, number] => [-halfU, w], edge),
-    ];
-    const points = outline.map(([u, w]) => toScreen(u, w));
+  // Stage, centred on the middle point, with the audience at the near edge.
+  // It grows a little while it fades in.
+  const shown = ease(frame.stageShown);
+  if (stage && shown > 0) {
+    const grow = lerp(0.94, 1, shown);
+    const halfX = (stage.cols / 2) * grow;
+    const halfY = (stage.rows / 2) * grow;
+    const outline: [number, number][] = [];
+    const edge = (x0: number, y0: number, x1: number, y1: number) => {
+      const steps = flat ? 1 : Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2));
+      for (let i = 0; i < steps; i += 1) {
+        outline.push([lerp(x0, x1, i / steps), lerp(y0, y1, i / steps)]);
+      }
+    };
+    edge(-halfX, -halfY, halfX, -halfY);
+    edge(halfX, -halfY, halfX, halfY);
+    edge(halfX, halfY, -halfX, halfY);
+    edge(-halfX, halfY, -halfX, -halfY);
+    const points = outline.map(([x, y]) => toScreen(x, y));
     if (points.every(Boolean)) {
       ctx.beginPath();
       points.forEach((point) => ctx.lineTo(point!.x, point!.y));
       ctx.closePath();
-      ctx.globalAlpha = 0.75 * t;
+      ctx.globalAlpha = 0.75 * shown;
       ctx.fillStyle = colors['--stage'];
       ctx.fill();
-      ctx.globalAlpha = t;
+      ctx.globalAlpha = shown;
       ctx.strokeStyle = colors['--stage-edge'];
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      const label = toScreen(0, focus - halfW - CELL * 0.6);
+      const label = toScreen(0, -halfY - 0.6);
       if (label) {
         ctx.fillStyle = colors['--ink-soft'];
-        ctx.font = `700 ${Math.max(12, Math.min(20, frame.cell * 0.6))}px ${colors['--font-heading']}`;
+        ctx.font = `700 ${Math.max(12, Math.min(20, camera.scale * 0.6))}px ${colors['--font-heading']}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.letterSpacing = '0.3em';
@@ -336,20 +298,18 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
     }
   }
 
-  // Centre cross through the focus point, which is also the stage centre.
+  // Centre cross through the middle point, which is also the stage centre.
   if (showCross) {
-    ctx.beginPath();
-    lineU(0);
-    lineW(focus);
-    ctx.strokeStyle = colors['--grid-major'];
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    const cross: number[][] = Array.from({ length: FOG_LEVELS }, () => []);
+    addLine(0, true, cross);
+    addLine(0, false, cross);
+    strokeLevels(cross, colors['--grid-major'], 2);
   }
 
-  // Fade towards the horizon, which fades out as the camera looks down.
+  // Soft edge where the curved floor meets the sky; it fades out as the camera looks down.
   if (t < 1) {
     ctx.globalCompositeOperation = 'destination-in';
-    const fade = ctx.createLinearGradient(0, height * 0.25, 0, height * 0.55);
+    const fade = ctx.createLinearGradient(0, height * 0.18, 0, height * 0.45);
     fade.addColorStop(0, `rgb(0 0 0 / ${t})`);
     fade.addColorStop(1, 'rgb(0 0 0 / 1)');
     ctx.fillStyle = fade;
@@ -363,7 +323,10 @@ interface GridBackgroundProps {
   leftInset?: number;
   /** "top" moves the camera above the floor, e.g. while creating a performance. */
   view?: 'perspective' | 'top';
-  /** Stage previewed in the top view; the camera zooms to keep it on screen. */
+  /**
+   * Stage previewed in the top view; the camera zooms out if it does not fit. A new stage appears
+   * once the camera has settled, and a removed one fades out before the camera moves.
+   */
   stage?: GridStage | null;
   /** Shows the centre cross of the stage. */
   showCross?: boolean;
@@ -377,13 +340,22 @@ export function GridBackground({
 }: GridBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // Animated values survive re-renders; props only move their targets.
-  const animation = useRef({ view: view === 'top' ? 1 : 0, cell: 40, frame: 0 });
+  const animation = useRef({
+    view: view === 'top' ? 1 : 0,
+    cell: 40,
+    stageShown: stage ? 1 : 0,
+    // Last stage shown, kept to fade it out after the prop is cleared.
+    stage: stage as GridStage | null,
+    frame: 0,
+  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const state = animation.current;
     const targetView = view === 'top' ? 1 : 0;
+    const targetShown = stage ? 1 : 0;
+    if (stage) state.stage = stage;
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     let colors = readColors();
 
@@ -393,7 +365,8 @@ export function GridBackground({
       leftInset,
       view: state.view,
       cell: state.cell,
-      stage,
+      stage: state.stage,
+      stageShown: state.stageShown,
       showCross,
     });
 
@@ -403,18 +376,39 @@ export function GridBackground({
       last = now;
       const targetCell = fittingCell(currentFrame());
 
+      const toward = (value: number, target: number, amount: number) =>
+        value + Math.sign(target - value) * Math.min(amount, Math.abs(target - value));
+
       if (reduceMotion) {
         state.view = targetView;
         state.cell = targetCell;
+        state.stageShown = targetShown;
+      } else if (state.stageShown > targetShown) {
+        // One thing at a time: the stage leaves before the camera moves...
+        state.stageShown = toward(
+          state.stageShown,
+          targetShown,
+          (step * DURATION) / STAGE_DURATION,
+        );
+      } else if (state.view !== targetView) {
+        state.view = toward(state.view, targetView, step);
       } else {
-        state.view +=
-          Math.sign(targetView - state.view) * Math.min(step, Math.abs(targetView - state.view));
+        // ...and a new one appears once the camera has settled.
+        state.stageShown = toward(
+          state.stageShown,
+          targetShown,
+          (step * DURATION) / STAGE_DURATION,
+        );
+      }
+      if (!reduceMotion) {
         state.cell += (targetCell - state.cell) * Math.min(1, step * 8);
         if (Math.abs(targetCell - state.cell) < 0.05) state.cell = targetCell;
       }
 
       drawFrame(canvas, currentFrame(), colors);
-      const moving = state.view !== targetView || state.cell !== targetCell;
+      if (!stage && state.stageShown === 0) state.stage = null;
+      const moving =
+        state.view !== targetView || state.cell !== targetCell || state.stageShown !== targetShown;
       state.frame = moving ? requestAnimationFrame(tick) : 0;
     };
 

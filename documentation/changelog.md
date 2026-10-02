@@ -27,6 +27,7 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0020](https://github.com/juananmgz/cuadrocorrocalle/pull/20) | [0192acb](https://github.com/juananmgz/cuadrocorrocalle/commit/0192acb)   | ✨ Add people to groups with a pasted list and the Mi grupo page (paso 1.7)   |
 | [CCC-0021](https://github.com/juananmgz/cuadrocorrocalle/pull/21) | [1f76d9f](https://github.com/juananmgz/cuadrocorrocalle/commit/1f76d9f)   | ✨ Add performances with create, edit, duplicate and delete (paso 1.8)        |
 | [CCC-0022](https://github.com/juananmgz/cuadrocorrocalle/pull/22) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/22/commits) | ✨ Create performances from home with a stage preview seen from above         |
+| [CCC-0022](https://github.com/juananmgz/cuadrocorrocalle/pull/22) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/22/commits) | 💫 Move the grid camera with a dolly zoom and show the stage once it settles  |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 
