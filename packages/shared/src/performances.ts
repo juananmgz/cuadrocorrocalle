@@ -16,6 +16,11 @@ const minutes = z
   .nullable()
   .optional();
 
+// Stage measures in metres; one grid square represents squareSize metres (1 by default).
+export const DEFAULT_SQUARE_SIZE = 1;
+
+const metres = z.number().min(1, 'Al menos 1 m').max(100, 'Máximo 100 m').nullable().optional();
+
 const baseSchema = z.object({
   title: z.string().trim().min(1, 'Ponle un título').max(120, 'Máximo 120 caracteres'),
   place: optionalText(120),
@@ -24,6 +29,9 @@ const baseSchema = z.object({
   minMinutes: minutes,
   maxMinutes: minutes,
   notes: optionalText(2000),
+  stageWidth: metres,
+  stageDepth: metres,
+  squareSize: z.number().min(0.1, 'Mínimo 0,1 m').max(10, 'Máximo 10 m').optional(),
 });
 
 const durationOrder = (input: { minMinutes?: number | null; maxMinutes?: number | null }) =>
@@ -51,6 +59,9 @@ export const performanceSchema = z.object({
   minMinutes: z.number().nullable(),
   maxMinutes: z.number().nullable(),
   notes: z.string().nullable(),
+  stageWidth: z.number().nullable(),
+  stageDepth: z.number().nullable(),
+  squareSize: z.number(),
   createdAt: z.string(),
 });
 export type Performance = z.infer<typeof performanceSchema>;

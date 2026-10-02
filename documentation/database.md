@@ -11,6 +11,7 @@ Migraciones:
 - `20261002083115_groups` (paso 1.5): grupos de cada usuario.
 - `20261002101204_people` (paso 1.7): personas de cada grupo.
 - `20261002131629_performances` (paso 1.8): actuaciones de cada grupo.
+- `20261002135920_performance_stage`: medidas del escenario y metros por cuadrado de cada actuación.
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -80,6 +81,9 @@ erDiagram
     int min_minutes
     int max_minutes
     text notes
+    float stage_width_m
+    float stage_depth_m
+    float square_m "1 por defecto"
   }
   verification {
     text id PK

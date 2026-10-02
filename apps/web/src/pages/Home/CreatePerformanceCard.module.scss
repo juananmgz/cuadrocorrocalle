@@ -1,0 +1,131 @@
+@use '../../styles/mixins';
+
+.root {
+  @include mixins.panel;
+
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  animation: enter 280ms ease-out both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+// Separated from the fields above by a line instead of a box.
+.stage {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3) 0 0;
+  margin: 0;
+  border: 0;
+  border-top: var(--border-width) solid var(--line);
+}
+
+.legend {
+  @include mixins.label;
+
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
+.scaleNote {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+// Link-style secondary action.
+.change {
+  min-height: 32px;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.accordion {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms ease;
+
+  &[data-open] {
+    grid-template-rows: 1fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.accordionInner {
+  overflow: hidden;
+}
+
+.scale {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding-top: var(--space-1);
+  font-weight: 700;
+}
+
+.scaleInput {
+  @include mixins.control;
+
+  width: 96px;
+}
+
+.error {
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+  background: var(--danger-bg);
+  border-left: 6px solid var(--danger);
+  border-radius: var(--radius);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}

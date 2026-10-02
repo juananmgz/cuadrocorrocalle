@@ -68,6 +68,9 @@ const pasaron = {
   minMinutes: 45,
   maxMinutes: 60,
   notes: 'Llegar a las 19:00',
+  stageWidth: 12,
+  stageDepth: 8,
+  squareSize: 0.5,
 };
 
 test('creates, lists, edits, duplicates and deletes a performance', async () => {
@@ -98,7 +101,13 @@ test('creates, lists, edits, duplicates and deletes a performance', async () => 
     headers: { cookie },
   });
   expect(copy.json()).toEqual(
-    expect.objectContaining({ title: 'Copia de Pasarón de la Vera', date: '2026-08-15' }),
+    expect.objectContaining({
+      title: 'Copia de Pasarón de la Vera',
+      date: '2026-08-15',
+      stageWidth: 12,
+      stageDepth: 8,
+      squareSize: 0.5,
+    }),
   );
 
   const removed = await app.inject({
@@ -165,6 +174,17 @@ test('validates durations and keeps performances private', async () => {
     headers: { cookie: owner.cookie },
     payload: { groupId: owner.group, title: 'Privada', minMinutes: 30 },
   });
+  // Without stage measures the scale defaults to 1 m per square.
+  expect(created.json()).toEqual(
+    expect.objectContaining({ stageWidth: null, stageDepth: null, squareSize: 1 }),
+  );
+  const hugeStage = await app.inject({
+    method: 'PATCH',
+    url: `${PERFORMANCES_PATH}/${created.json().id}`,
+    headers: { cookie: owner.cookie },
+    payload: { stageWidth: 500 },
+  });
+  expect(hugeStage.json().message).toBe('Máximo 100 m');
   const id = created.json().id;
 
   const editMax = await app.inject({

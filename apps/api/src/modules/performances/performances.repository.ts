@@ -9,6 +9,9 @@ export interface PerformanceRecord {
   minMinutes: number | null;
   maxMinutes: number | null;
   notes: string | null;
+  stageWidth: number | null;
+  stageDepth: number | null;
+  squareSize: number;
   createdAt: Date;
 }
 
@@ -38,6 +41,9 @@ const FIELDS = {
   minMinutes: true,
   maxMinutes: true,
   notes: true,
+  stageWidth: true,
+  stageDepth: true,
+  squareSize: true,
   createdAt: true,
 } as const;
 
