@@ -1,0 +1,91 @@
+@use '../../styles/mixins';
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3rem);
+}
+
+.info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+
+  dt {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  dd {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    margin: var(--space-1) 0 0;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+}
+
+.swatch {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: var(--border-width) solid var(--token-stroke);
+  border-radius: 50%;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.empty {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.people {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.person {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 52px;
+  padding: var(--space-1);
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius);
+
+  &:hover {
+    background: var(--sel-bg);
+  }
+}
+
+.figure {
+  flex: none;
+  padding-right: var(--space-2);
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+
+  &[data-missing] {
+    font-style: italic;
+  }
+}

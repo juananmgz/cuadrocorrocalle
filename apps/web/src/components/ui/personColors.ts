@@ -1,3 +1,5 @@
+import type { PersonColorId } from '@cuadrocorrocalle/shared';
+
 export const PERSON_COLORS = [
   { id: 'blue', label: 'Azul', fill: 'var(--p1)', ink: 'var(--p1-ink)' },
   { id: 'red', label: 'Rojo', fill: 'var(--p2)', ink: 'var(--p2-ink)' },
@@ -19,9 +21,10 @@ export const PERSON_COLORS = [
   { id: 'fuchsia', label: 'Fucsia', fill: 'var(--p18)', ink: 'var(--p18-ink)' },
   { id: 'ice', label: 'Hielo', fill: 'var(--p19)', ink: 'var(--p19-ink)' },
   { id: 'mustard', label: 'Mostaza', fill: 'var(--p20)', ink: 'var(--p20-ink)' },
-] as const;
+] as const satisfies readonly { id: PersonColorId; label: string; fill: string; ink: string }[];
 
-export type PersonColor = (typeof PERSON_COLORS)[number]['id'];
+// Same ids and order as PERSON_COLOR_IDS in packages/shared.
+export type PersonColor = PersonColorId;
 
 export function getPersonColor(id: PersonColor) {
   return PERSON_COLORS.find((color) => color.id === id) ?? PERSON_COLORS[0];

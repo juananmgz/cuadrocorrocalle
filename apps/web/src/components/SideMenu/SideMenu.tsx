@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { NavLink } from 'react-router';
 
 import { GroupBox } from '../GroupBox/GroupBox';
+import { ACCOUNT_LINKS, SECTIONS } from '../navigation';
 import styles from './SideMenu.module.scss';
 
 interface SideMenuProps {
@@ -12,11 +13,7 @@ interface SideMenuProps {
   userEmail?: string;
 }
 
-const LINKS = [
-  { to: '/actuaciones', label: 'Actuaciones' },
-  { to: '/ajustes', label: 'Ajustes' },
-  { to: '/cuenta', label: 'Mi cuenta' },
-];
+const LINKS = [...SECTIONS, ...ACCOUNT_LINKS];
 
 /** Mobile hamburger menu: user, group box, then the app's sections. */
 export function SideMenu({ groupName, onGroupClick, userName, userEmail }: SideMenuProps) {
