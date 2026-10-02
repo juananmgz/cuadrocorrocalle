@@ -1,3 +1,4 @@
+import { APP_NAME } from '@cuadrocorrocalle/shared';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
@@ -18,7 +19,7 @@ export function AuthLayout({ title, children, footer }: AuthLayoutProps) {
       <main className={styles.root}>
         <section className={styles.card}>
           <Link to="/" className={styles.brand}>
-            3C Folk
+            {APP_NAME}
           </Link>
           <h1 className={styles.title}>{title}</h1>
           {children}

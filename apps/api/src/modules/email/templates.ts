@@ -14,7 +14,7 @@ function layout(title: string, intro: string, action: string, url: string, outro
   <body style="margin:0;padding:24px;background:#eceef1;font-family:Arial,sans-serif;color:#16181b">
     <table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#fff;border:2px solid #16181b;border-radius:4px">
       <tr><td style="padding:24px">
-        <p style="margin:0 0 8px;font-weight:700;color:#1f4fa3;letter-spacing:.04em">3C FOLK</p>
+        <p style="margin:0 0 8px;font-weight:700;color:#1f4fa3;letter-spacing:.04em">CUADROCORROCALLE</p>
         <h1 style="margin:0 0 16px;font-size:24px">${escape(title)}</h1>
         <p style="margin:0 0 24px;font-size:16px;line-height:1.5">${intro}</p>
         <p style="margin:0 0 24px"><a href="${escape(url)}" style="display:inline-block;padding:12px 20px;background:#1f4fa3;color:#fff;font-weight:700;text-decoration:none;border-radius:4px">${escape(action)}</a></p>

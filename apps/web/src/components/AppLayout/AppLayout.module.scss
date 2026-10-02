@@ -1,0 +1,19 @@
+@use '../../styles/mixins';
+
+.root {
+  min-height: 100dvh;
+}
+
+.main {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--space-4);
+  max-width: 720px;
+  padding: var(--space-3);
+  margin: 0 auto;
+
+  @include mixins.from-tablet {
+    padding: var(--space-5);
+  }
+}
