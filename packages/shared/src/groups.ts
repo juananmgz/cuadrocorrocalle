@@ -37,6 +37,21 @@ export const groupSchema = z.object({
 });
 export type Group = z.infer<typeof groupSchema>;
 
+// Deleting a group asks for the password, or the group's name for accounts without one (Google).
+export const deleteGroupSchema = z.object({
+  password: z.string().optional(),
+  confirmName: z.string().optional(),
+});
+export type DeleteGroupInput = z.infer<typeof deleteGroupSchema>;
+
+export const DELETE_GROUP_ERRORS = [
+  'TRIAL_GROUP',
+  'WRONG_PASSWORD',
+  'WRONG_NAME',
+  'TOO_MANY_ATTEMPTS',
+] as const;
+export type DeleteGroupError = (typeof DELETE_GROUP_ERRORS)[number];
+
 // How many more groups the user's licences allow; null means unlimited (licences arrive in phase 5).
 export const licenseQuotaSchema = z.object({ groupsAvailable: z.number().int().min(0).nullable() });
 export type LicenseQuota = z.infer<typeof licenseQuotaSchema>;

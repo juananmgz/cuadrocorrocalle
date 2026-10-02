@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router';
 
-import { RequireAuth } from './auth/RequireAuth';
+import { AppLayout } from './components/AppLayout/AppLayout';
 import { Welcome } from './pages/Welcome/Welcome';
 
 export const router = createBrowserRouter([
@@ -31,17 +31,28 @@ export const router = createBrowserRouter([
       Component: (await import('./pages/ResetPassword/ResetPassword')).ResetPassword,
     }),
   },
+  // Signed-in pages share the top bar and the active group.
   {
-    path: '/inicio',
-    lazy: async () => {
-      const { Home } = await import('./pages/Home/Home');
-      return {
-        Component: () => (
-          <RequireAuth>
-            <Home />
-          </RequireAuth>
-        ),
-      };
-    },
+    element: <AppLayout />,
+    children: [
+      {
+        path: '/inicio',
+        lazy: async () => ({ Component: (await import('./pages/Home/Home')).Home }),
+      },
+      {
+        path: '/actuaciones',
+        lazy: async () => ({
+          Component: (await import('./pages/Performances/Performances')).Performances,
+        }),
+      },
+      {
+        path: '/ajustes',
+        lazy: async () => ({ Component: (await import('./pages/Settings/Settings')).Settings }),
+      },
+      {
+        path: '/cuenta',
+        lazy: async () => ({ Component: (await import('./pages/Account/Account')).Account }),
+      },
+    ],
   },
 ]);

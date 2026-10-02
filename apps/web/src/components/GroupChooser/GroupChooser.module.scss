@@ -154,3 +154,21 @@
   font-weight: 700;
   color: var(--ink-soft);
 }
+
+// "Borrar grupo" sits on the left, away from the save button.
+.deleteButton {
+  margin-right: auto;
+}
+
+.note {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.warning {
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+  background: var(--danger-bg);
+  border-left: 6px solid var(--danger);
+  border-radius: var(--radius);
+}

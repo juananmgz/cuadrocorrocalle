@@ -24,6 +24,7 @@ Decidido por Juanan el 2 de octubre de 2026. Se construye en la fase 5; hasta en
 
 - Se avisa de que su licencia queda libre y se ofrecen dos opciones: crear otro grupo con ella o recibirla por correo.
 - La plaza libre dura 1 mes (`reuse_until`); pasado ese tiempo se pierde.
+- El borrado ya existe desde el paso 1.6; el aviso de la licencia libre y sus dos opciones se añaden en la fase 5.
 
 ## Pendiente de decidir
 

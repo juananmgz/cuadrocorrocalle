@@ -45,6 +45,11 @@ Cómo se protegen las contraseñas y las sesiones (paso 1.2).
 - Se pide a Google solo nombre, correo y foto, y siempre se muestra el selector de cuenta.
 - Si algo falla o la persona cancela en Google, vuelve a `/entrar` con un mensaje en español (`onAPIError.errorURL`), nunca a la página de error en inglés de Better Auth.
 
+## Acciones destructivas (paso 1.6)
+
+- Borrar un grupo vuelve a pedir la contraseña (`verifyPassword` de Better Auth). Las cuentas creadas con Google, que no tienen contraseña, confirman escribiendo el nombre del grupo.
+- Tras 5 confirmaciones fallidas en 10 minutos por usuario, la API responde 429, para que esa ruta no sirva para adivinar contraseñas.
+
 ## Pendiente
 
 - `style-src` permite estilos en línea (`'unsafe-inline'`) porque los componentes de Radix y algunos colores se aplican con el atributo `style`. El riesgo es bajo: los estilos no ejecutan código.

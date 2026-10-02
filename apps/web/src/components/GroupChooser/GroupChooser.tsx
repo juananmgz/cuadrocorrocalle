@@ -1,12 +1,21 @@
 import { GRID_COLORS, type GridColor, type Group } from '@cuadrocorrocalle/shared';
 import { RadioGroup } from 'radix-ui';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
+
+import { authClient } from '../../auth/authClient';
 
 import { GRID_COLOR_LABELS, gridColorVar } from '../../groups/gridColors';
-import { licenseQuotaText, useCreateGroup, useUpdateGroup } from '../../groups/groupsApi';
+import { clearActiveGroup } from '../../groups/activeGroup';
+import {
+  licenseQuotaText,
+  useCreateGroup,
+  useDeleteGroup,
+  useUpdateGroup,
+} from '../../groups/groupsApi';
 import { Button } from '../ui/Button/Button';
 import { Dialog } from '../ui/Dialog/Dialog';
 import { TextField } from '../ui/TextField/TextField';
+import { useToast } from '../ui/Toast/toastContext';
 import styles from './GroupChooser.module.scss';
 
 interface GroupChooserProps {
@@ -22,13 +31,18 @@ interface GroupChooserProps {
 }
 
 type View =
-  { kind: 'choose' } | { kind: 'manage' } | { kind: 'create' } | { kind: 'edit'; group: Group };
+  | { kind: 'choose' }
+  | { kind: 'manage' }
+  | { kind: 'create' }
+  | { kind: 'edit'; group: Group }
+  | { kind: 'delete'; group: Group };
 
 const TITLES: Record<View['kind'], string> = {
   choose: 'Elegir grupo',
   manage: 'Editar grupos',
   create: 'Crear grupo',
   edit: 'Editar grupo',
+  delete: 'Borrar grupo',
 };
 
 /** "Elegir grupo", styled after Chrome's profile picker, with a Netflix-style manage mode. */
@@ -41,6 +55,7 @@ export function GroupChooser({
   onChoose,
   dismissable,
 }: GroupChooserProps) {
+  const toast = useToast();
   const [view, setView] = useState<View>({ kind: 'choose' });
   const managing = view.kind === 'manage';
 
@@ -77,6 +92,18 @@ export function GroupChooser({
           submitLabel="Guardar"
           onCancel={() => setView({ kind: 'manage' })}
           onSaved={() => setView({ kind: 'manage' })}
+          onDelete={() => setView({ kind: 'delete', group: view.group })}
+        />
+      )}
+      {view.kind === 'delete' && (
+        <DeleteGroupForm
+          group={view.group}
+          onCancel={() => setView({ kind: 'edit', group: view.group })}
+          onDeleted={() => {
+            if (view.group.id === activeId) clearActiveGroup();
+            toast.show({ title: `«${view.group.name}» borrado`, tone: 'success' });
+            setView({ kind: 'manage' });
+          }}
         />
       )}
       {(view.kind === 'choose' || managing) && (
@@ -141,9 +168,11 @@ interface GroupFormProps {
   submitLabel: string;
   onCancel: () => void;
   onSaved: (group: Group) => void;
+  /** Offers "Borrar grupo" when editing. */
+  onDelete?: () => void;
 }
 
-function GroupForm({ group, submitLabel, onCancel, onSaved }: GroupFormProps) {
+function GroupForm({ group, submitLabel, onCancel, onSaved, onDelete }: GroupFormProps) {
   const createGroup = useCreateGroup();
   const updateGroup = useUpdateGroup();
   const mutation = group ? updateGroup : createGroup;
@@ -194,9 +223,72 @@ function GroupForm({ group, submitLabel, onCancel, onSaved }: GroupFormProps) {
         </RadioGroup.Root>
       </div>
       <div className={styles.actions}>
+        {group && onDelete && !group.isTrial && (
+          <Button variant="danger" className={styles.deleteButton} onClick={onDelete}>
+            Borrar grupo
+          </Button>
+        )}
         <Button onClick={onCancel}>Volver</Button>
         <Button type="submit" variant="primary" disabled={mutation.isPending}>
           {mutation.isPending ? 'Guardando…' : submitLabel}
+        </Button>
+      </div>
+      {group?.isTrial && <p className={styles.note}>El Grupo de Prueba no se puede borrar.</p>}
+    </form>
+  );
+}
+
+interface DeleteGroupFormProps {
+  group: Group;
+  onCancel: () => void;
+  onDeleted: () => void;
+}
+
+/** Asks for the password again, or the group's name for accounts created with Google. */
+function DeleteGroupForm({ group, onCancel, onDeleted }: DeleteGroupFormProps) {
+  const deleteGroup = useDeleteGroup();
+  const [withPassword, setWithPassword] = useState<boolean>();
+
+  useEffect(() => {
+    authClient.listAccounts().then(({ data }) => {
+      setWithPassword(Boolean(data?.some((account) => account.providerId === 'credential')));
+    });
+  }, []);
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const value = String(new FormData(event.currentTarget).get('confirm'));
+    deleteGroup.mutate(
+      { id: group.id, ...(withPassword ? { password: value } : { confirmName: value }) },
+      { onSuccess: onDeleted },
+    );
+  };
+
+  return (
+    <form className={styles.form} onSubmit={submit}>
+      <p className={styles.warning}>
+        Se borrará <strong>«{group.name}»</strong> con todas sus personas y actuaciones. No se puede
+        deshacer.
+      </p>
+      {withPassword !== undefined && (
+        <TextField
+          label={withPassword ? 'Tu contraseña' : `Escribe «${group.name}» para confirmar`}
+          name="confirm"
+          type={withPassword ? 'password' : 'text'}
+          autoComplete={withPassword ? 'current-password' : 'off'}
+          required
+          autoFocus
+          error={deleteGroup.error?.message}
+        />
+      )}
+      <div className={styles.actions}>
+        <Button onClick={onCancel}>Cancelar</Button>
+        <Button
+          type="submit"
+          variant="danger"
+          disabled={withPassword === undefined || deleteGroup.isPending}
+        >
+          {deleteGroup.isPending ? 'Borrando…' : 'Borrar grupo'}
         </Button>
       </div>
     </form>
