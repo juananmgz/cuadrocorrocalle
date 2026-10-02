@@ -1,0 +1,51 @@
+@use '../../styles/mixins';
+
+.back {
+  justify-self: start;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3rem);
+  overflow-wrap: anywhere;
+}
+
+.text {
+  margin: 0;
+}
+
+.data {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+
+  dt {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  dd {
+    margin: var(--space-1) 0 0;
+    font-weight: 700;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+
+    &[data-empty] {
+      font-weight: 400;
+      color: var(--ink-soft);
+    }
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

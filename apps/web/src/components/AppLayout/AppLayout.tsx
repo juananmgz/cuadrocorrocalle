@@ -27,6 +27,8 @@ function SignedInLayout() {
   const { data } = useGroups();
   const activeId = useActiveGroupId();
   const [chooserOpen, setChooserOpen] = useState(false);
+  // Width covered on the left by a page (the home's performance list); the grid centres on the rest.
+  const [gridInset, setGridInset] = useState(0);
   const groups = data?.groups;
   const activeGroup = groups?.find((group) => group.id === activeId);
 
@@ -59,7 +61,7 @@ function SignedInLayout() {
 
   return (
     <div className={styles.root}>
-      <GridBackground />
+      <GridBackground leftInset={gridInset} />
       <TopBar
         groupName={activeGroup?.name}
         onGroupClick={() => setChooserOpen(true)}
@@ -83,9 +85,11 @@ function SignedInLayout() {
           dismissable={!mustChoose}
         />
       )}
-      <main className={styles.main}>
-        <Outlet context={{ activeGroup, signOut } satisfies AppContext} />
-      </main>
+      <div className={styles.content}>
+        <main className={styles.main}>
+          <Outlet context={{ activeGroup, signOut, setGridInset } satisfies AppContext} />
+        </main>
+      </div>
     </div>
   );
 }

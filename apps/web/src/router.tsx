@@ -46,6 +46,13 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        path: '/actuaciones/:id',
+        lazy: async () => ({
+          Component: (await import('./pages/PerformanceDetail/PerformanceDetail'))
+            .PerformanceDetail,
+        }),
+      },
+      {
         path: '/grupo',
         lazy: async () => ({ Component: (await import('./pages/MyGroup/MyGroup')).MyGroup }),
       },
