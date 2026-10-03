@@ -277,7 +277,7 @@ export function CreatePerformanceCard({
         <hr className={styles.divider} />
         <fieldset className={styles.stage} onBlur={applyStage}>
           <legend className={styles.legend}>Escenario</legend>
-          <div className={styles.pair}>
+          <div className={styles.triple}>
             <TextField
               label="Ancho (m)"
               inputMode="numeric"
@@ -294,8 +294,6 @@ export function CreatePerformanceCard({
               onChange={update('depth', metres)}
               hint="Mínimo 2 m"
             />
-          </div>
-          <div className={styles.pair}>
             <TextField
               label="Borde (m)"
               inputMode="decimal"

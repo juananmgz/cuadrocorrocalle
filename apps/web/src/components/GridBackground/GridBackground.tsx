@@ -395,6 +395,8 @@ export function GridBackground({
     previous: null as GridStage | null,
     resized: 1,
     edge: stage?.edge ?? 0,
+    // Left inset eased towards the prop, so a wider column slides the centre over.
+    inset: leftInset,
     // Last stage shown, kept to fade it out after the prop is cleared.
     stage: stage as GridStage | null,
     frame: 0,
@@ -424,7 +426,7 @@ export function GridBackground({
     const currentFrame = (): Frame => ({
       width: canvas.clientWidth,
       height: canvas.clientHeight,
-      leftInset,
+      leftInset: state.inset,
       view: state.view,
       cell: state.cell,
       stage: state.stage,
@@ -450,6 +452,7 @@ export function GridBackground({
         state.stageShown = targetShown;
         state.resized = 1;
         state.edge = targetEdge;
+        state.inset = leftInset;
       } else if (state.stageShown > targetShown) {
         // One thing at a time: the stage leaves before the camera moves...
         state.stageShown = toward(
@@ -475,6 +478,12 @@ export function GridBackground({
       drawFrame(canvas, currentFrame(), colors);
       if (!stage && state.stageShown === 0) state.stage = null;
       if (!reduceMotion) {
+        // It only slides while away from the start view; on load it takes its place at once.
+        const sliding = targetView === 1 || state.view > 0;
+        state.inset = sliding
+          ? state.inset + (leftInset - state.inset) * Math.min(1, step * 8)
+          : leftInset;
+        if (Math.abs(leftInset - state.inset) < 0.5) state.inset = leftInset;
         state.resized = Math.min(1, state.resized + (step * DURATION) / RESIZE_DURATION);
         state.edge += (targetEdge - state.edge) * Math.min(1, step * 8);
         if (Math.abs(targetEdge - state.edge) < 0.001) state.edge = targetEdge;
@@ -485,6 +494,7 @@ export function GridBackground({
         state.cell !== targetCell ||
         state.stageShown !== targetShown ||
         state.resized !== 1 ||
+        state.inset !== leftInset ||
         state.edge !== targetEdge;
       state.frame = moving ? requestAnimationFrame(tick) : 0;
     };

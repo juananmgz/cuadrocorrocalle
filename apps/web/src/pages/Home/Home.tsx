@@ -105,7 +105,7 @@ export function Home() {
   });
 
   return (
-    <div ref={columnRef} className={styles.column}>
+    <div ref={columnRef} className={styles.column} data-wide={mode === 'create' ? '' : undefined}>
       <h1 className={styles.srOnly}>Inicio</h1>
 
       {mode === 'create' && activeGroup && (
