@@ -71,6 +71,7 @@ const pasaron = {
   stageWidth: 12,
   stageDepth: 8,
   squareSize: 0.5,
+  edgeDistance: 1,
 };
 
 test('creates, lists, edits, duplicates and deletes a performance', async () => {
@@ -107,6 +108,7 @@ test('creates, lists, edits, duplicates and deletes a performance', async () => 
       stageWidth: 12,
       stageDepth: 8,
       squareSize: 0.5,
+      edgeDistance: 1,
     }),
   );
 
@@ -174,9 +176,14 @@ test('validates durations and keeps performances private', async () => {
     headers: { cookie: owner.cookie },
     payload: { groupId: owner.group, title: 'Privada', minMinutes: 30 },
   });
-  // Without stage measures the scale defaults to 1 m per square.
+  // Without stage measures the scale defaults to 0.5 m per square.
   expect(created.json()).toEqual(
-    expect.objectContaining({ stageWidth: null, stageDepth: null, squareSize: 1 }),
+    expect.objectContaining({
+      stageWidth: null,
+      stageDepth: null,
+      squareSize: 0.5,
+      edgeDistance: 0.25,
+    }),
   );
   const hugeStage = await app.inject({
     method: 'PATCH',
@@ -185,6 +192,13 @@ test('validates durations and keeps performances private', async () => {
     payload: { stageWidth: 500 },
   });
   expect(hugeStage.json().message).toBe('Máximo 100 m');
+  const badStage = await app.inject({
+    method: 'PATCH',
+    url: `${PERFORMANCES_PATH}/${created.json().id}`,
+    headers: { cookie: owner.cookie },
+    payload: { stageWidth: 10.5, edgeDistance: 0.2 },
+  });
+  expect(badStage.statusCode).toBe(400);
   const id = created.json().id;
 
   const editMax = await app.inject({

@@ -83,7 +83,8 @@ erDiagram
     text notes
     float stage_width_m
     float stage_depth_m
-    float square_m "1 por defecto"
+    float square_m "0,5 por defecto"
+    float edge_distance_m "0,25 por defecto y mínimo"
   }
   verification {
     text id PK
