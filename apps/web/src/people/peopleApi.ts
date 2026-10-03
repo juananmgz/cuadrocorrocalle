@@ -1,5 +1,8 @@
 import {
+  type ConfirmationError,
+  type ConfirmationInput,
   type CreatePersonInput,
+  type PastePeopleInput,
   type Person,
   peoplePath,
   personListSchema,
@@ -7,6 +10,8 @@ import {
   type UpdatePersonInput,
 } from '@cuadrocorrocalle/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { CONFIRMATION_MESSAGES } from '../auth/confirmation';
 
 const peopleKey = (groupId: string) => ['people', groupId];
 
@@ -20,8 +25,12 @@ async function request(path: string, init?: RequestInit) {
   const body: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message = (body as { message?: string } | null)?.message;
-    throw new Error(message ?? 'No se ha podido completar. Vuelve a probar.');
+    const { code, message } = (body ?? {}) as { code?: ConfirmationError; message?: string };
+    throw new Error(
+      (code && CONFIRMATION_MESSAGES[code]) ??
+        message ??
+        'No se ha podido completar. Vuelve a probar.',
+    );
   }
   return body;
 }
@@ -52,11 +61,19 @@ export function usePeopleMutations(groupId: string) {
       onSuccess: (person) => update((people) => [...people, person]),
     }),
     paste: useMutation({
-      mutationFn: async (names: string[]) =>
+      mutationFn: async (input: PastePeopleInput) =>
         personListSchema.parse(
-          await request(`${path}/lista`, { method: 'POST', body: JSON.stringify({ names }) }),
+          await request(`${path}/lista`, { method: 'POST', body: JSON.stringify(input) }),
         ).people,
-      onSuccess: (added) => update((people) => [...people, ...added]),
+      // Replacing the list leaves only the new people.
+      onSuccess: (added, input) =>
+        update((people) => (input.replace ? added : [...people, ...added])),
+    }),
+    removeAll: useMutation({
+      mutationFn: async (confirmation: ConfirmationInput) => {
+        await request(path, { method: 'DELETE', body: JSON.stringify(confirmation) });
+      },
+      onSuccess: () => update(() => []),
     }),
     edit: useMutation({
       mutationFn: async ({ id, ...input }: UpdatePersonInput & { id: string }) =>

@@ -103,17 +103,23 @@ model Group {
 
 // A member of a group (step 1.7). Not an account: directors list people without them signing up.
 model Person {
-  id        String   @id @default(cuid())
-  groupId   String   @map("group_id")
-  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  name      String
+  id         String   @id @default(cuid())
+  groupId    String   @map("group_id")
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name       String
   // "boy" or "girl"; empty until the director chooses (e.g. after pasting a list).
-  figure    String?
+  figure     String?
   // One of the 20 person colours (blue, red, …).
-  mainColor String   @map("main_color")
-  notes     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  mainColor  String   @map("main_color")
+  // "member" (fixed) or "collaborator" (occasional).
+  membership String   @default("member")
+  // "dance", "music", "singing"… (more may come).
+  roles      String[] @default([])
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  callUps CallUp[]
 
   @@index([groupId])
   @@map("people")
@@ -121,25 +127,39 @@ model Person {
 
 // A performance of a group (step 1.8). Stage settings arrive in phase 2.
 model Performance {
-  id         String    @id @default(cuid())
-  groupId    String    @map("group_id")
-  group      Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  title      String
-  place      String?
+  id           String    @id @default(cuid())
+  groupId      String    @map("group_id")
+  group        Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title        String
+  place        String?
   // Day of the performance, without time zone.
-  date       DateTime? @db.Date
-  minMinutes Int?      @map("min_minutes")
-  maxMinutes Int?      @map("max_minutes")
+  date         DateTime? @db.Date
+  minMinutes   Int?      @map("min_minutes")
+  maxMinutes   Int?      @map("max_minutes")
   // Stage size in metres and how many metres one grid square represents.
-  stageWidth Float?    @map("stage_width_m")
-  stageDepth Float?    @map("stage_depth_m")
-  squareSize Float     @default(0.5) @map("square_m")
+  stageWidth   Float?    @map("stage_width_m")
+  stageDepth   Float?    @map("stage_depth_m")
+  squareSize   Float     @default(0.5) @map("square_m")
   // Safety distance kept clear inside the stage edge, in metres.
-  edgeDistance Float   @default(0.25) @map("edge_distance_m")
-  notes      String?
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
+  edgeDistance Float     @default(0.25) @map("edge_distance_m")
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  callUps      CallUp[]
 
   @@index([groupId])
   @@map("performances")
+}
+
+// Who is called up for a performance (step 1.9): "yes", "no" or "maybe".
+model CallUp {
+  performanceId String      @map("performance_id")
+  performance   Performance @relation(fields: [performanceId], references: [id], onDelete: Cascade)
+  personId      String      @map("person_id")
+  person        Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  status        String
+
+  @@id([performanceId, personId])
+  @@index([personId])
+  @@map("call_ups")
 }

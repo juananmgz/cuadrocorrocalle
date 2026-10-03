@@ -1,0 +1,153 @@
+@use '../../styles/mixins';
+
+.root,
+.tab {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.notice,
+.summary {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.error {
+  margin: 0;
+  color: var(--danger);
+}
+
+// Names that are not in the group: they block continuing until created or left out.
+.missing {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--danger-bg);
+  border-left: 6px solid var(--danger);
+  border-radius: var(--radius);
+}
+
+.missingHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+.missingList {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+  }
+}
+
+.original {
+  flex: 1;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.link {
+  padding: 0;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// A doubtful match: the pasted name to compare with.
+.review {
+  padding: 0 var(--space-1);
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--warn-bg);
+  border: var(--border-width) solid var(--warn);
+  border-radius: var(--radius);
+}
+
+.file {
+  display: grid;
+  gap: var(--space-1);
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.people {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.person {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.name {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  font-weight: 700;
+}
+
+.dot {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border: var(--border-width) solid var(--line);
+  border-radius: 50%;
+}
+
+.tag {
+  padding: 0 var(--space-1);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius);
+}
+
+.statuses {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-1);
+}
+
+.status {
+  min-height: 36px;
+  padding: 0 var(--space-1);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius);
+
+  &[aria-pressed='true'] {
+    color: var(--surface);
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+}

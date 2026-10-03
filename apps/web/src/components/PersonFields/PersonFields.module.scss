@@ -1,0 +1,37 @@
+.genders {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+// Several roles can be on at once.
+.roles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.toggle {
+  min-height: 44px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  background: transparent;
+  border: var(--border-width) solid var(--ctl);
+  border-radius: var(--radius);
+
+  &[data-state='checked'],
+  &[aria-pressed='true'] {
+    color: var(--on-accent);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+}
+
+// Smaller buttons for rows in a list.
+[data-compact] > .toggle {
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  font-size: 0.875rem;
+}

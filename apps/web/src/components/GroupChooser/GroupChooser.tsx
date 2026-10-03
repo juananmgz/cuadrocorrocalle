@@ -1,8 +1,6 @@
 import { GRID_COLORS, type GridColor, type Group } from '@cuadrocorrocalle/shared';
 import { RadioGroup } from 'radix-ui';
-import { type FormEvent, useEffect, useState } from 'react';
-
-import { authClient } from '../../auth/authClient';
+import { type FormEvent, useState } from 'react';
 
 import { GRID_COLOR_LABELS, gridColorVar } from '../../groups/gridColors';
 import { clearActiveGroup } from '../../groups/activeGroup';
@@ -12,6 +10,8 @@ import {
   useDeleteGroup,
   useUpdateGroup,
 } from '../../groups/groupsApi';
+import { confirmationInput, useHasPassword } from '../../auth/confirmation';
+import { ConfirmIdentity } from '../ConfirmIdentity/ConfirmIdentity';
 import { Button } from '../ui/Button/Button';
 import { Dialog } from '../ui/Dialog/Dialog';
 import { TextField } from '../ui/TextField/TextField';
@@ -247,40 +247,30 @@ interface DeleteGroupFormProps {
 /** Asks for the password again, or the group's name for accounts created with Google. */
 function DeleteGroupForm({ group, onCancel, onDeleted }: DeleteGroupFormProps) {
   const deleteGroup = useDeleteGroup();
-  const [withPassword, setWithPassword] = useState<boolean>();
-
-  useEffect(() => {
-    authClient.listAccounts().then(({ data }) => {
-      setWithPassword(Boolean(data?.some((account) => account.providerId === 'credential')));
-    });
-  }, []);
+  const withPassword = useHasPassword();
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = String(new FormData(event.currentTarget).get('confirm'));
     deleteGroup.mutate(
-      { id: group.id, ...(withPassword ? { password: value } : { confirmName: value }) },
+      { id: group.id, ...confirmationInput(Boolean(withPassword), value) },
       { onSuccess: onDeleted },
     );
   };
 
   return (
     <form className={styles.form} onSubmit={submit}>
-      <p className={styles.warning}>
-        Se borrará <strong>«{group.name}»</strong> con todas sus personas y actuaciones. No se puede
-        deshacer.
-      </p>
-      {withPassword !== undefined && (
-        <TextField
-          label={withPassword ? 'Tu contraseña' : `Escribe «${group.name}» para confirmar`}
-          name="confirm"
-          type={withPassword ? 'password' : 'text'}
-          autoComplete={withPassword ? 'current-password' : 'off'}
-          required
-          autoFocus
-          error={deleteGroup.error?.message}
-        />
-      )}
+      <ConfirmIdentity
+        withPassword={withPassword}
+        groupName={group.name}
+        warning={
+          <>
+            Se borrará <strong>«{group.name}»</strong> con todas sus personas y actuaciones. No se
+            puede deshacer.
+          </>
+        }
+        error={deleteGroup.error?.message}
+      />
       <div className={styles.actions}>
         <Button onClick={onCancel}>Cancelar</Button>
         <Button

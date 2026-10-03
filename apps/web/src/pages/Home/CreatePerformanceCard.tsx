@@ -4,15 +4,26 @@ import {
   MIN_EDGE_DISTANCE,
   MIN_STAGE_DEPTH,
   MIN_STAGE_WIDTH,
+  type CallUpEntry,
   type Performance,
 } from '@cuadrocorrocalle/shared';
-import { type FormEvent, type InputEvent, useEffect, useState } from 'react';
+import {
+  type FormEvent,
+  type InputEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import type { GridStage } from '../../components/GridBackground/GridBackground';
 import { Button } from '../../components/ui/Button/Button';
 import { TextField } from '../../components/ui/TextField/TextField';
+import { saveCallUp } from '../../callUps/callUpApi';
 import { usePerformanceMutations } from '../../performances/performancesApi';
 import { cleanDecimal, cleanInteger, cleanText } from '../../performances/sanitize';
+import { CallUpSection } from './CallUpSection';
 import styles from './CreatePerformanceCard.module.scss';
 
 interface StageValues {
@@ -22,8 +33,12 @@ interface StageValues {
   edgeDistance: string;
 }
 
+type Step = 'data' | 'callUp';
+
 interface CreatePerformanceCardProps {
   groupId: string;
+  /** Width covered on the left; the action buttons centre on the rest, under the stage. */
+  inset: number;
   onCancel: () => void;
   onCreated: (performance: Performance) => void;
   /** Reports the stage to preview on the grid. */
@@ -58,9 +73,50 @@ const filtered = (clean: (value: string) => string) => (event: InputEvent<HTMLIn
 const minutesField = filtered((value) => cleanInteger(value, 4));
 const textField = filtered(cleanText);
 
+interface StepPanelProps {
+  id: Step;
+  title: string;
+  summary: string;
+  open: boolean;
+  onOpen: () => void;
+  children: ReactNode;
+}
+
+/** One block of the form; only one is open at a time, like an accordion. */
+function StepPanel({ id, title, summary, open, onOpen, children }: StepPanelProps) {
+  return (
+    <section className={styles.root} aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`} className={styles.title}>
+        <button
+          type="button"
+          className={styles.header}
+          aria-expanded={open}
+          aria-controls={`${id}-body`}
+          onClick={onOpen}
+        >
+          {title}
+        </button>
+      </h2>
+      {!open && summary && <p className={styles.summary}>{summary}</p>}
+      {/* Closed blocks stay mounted so their fields keep what was typed. */}
+      <div
+        id={`${id}-body`}
+        className={styles.accordion}
+        data-open={open ? '' : undefined}
+        inert={!open}
+      >
+        <div className={styles.accordionInner}>
+          <div className={styles.form}>{children}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** "Crear actuación" on the home page, previewing the stage on the grid seen from above. */
 export function CreatePerformanceCard({
   groupId,
+  inset,
   onCancel,
   onCreated,
   onStageChange,
@@ -77,6 +133,20 @@ export function CreatePerformanceCard({
   // does not flash a 1 m stage.
   const [settled, setSettled] = useState<StageValues>(stage);
   const [scaleOpen, setScaleOpen] = useState(false);
+  const [step, setStep] = useState<Step | null>('data');
+  const [title, setTitle] = useState('');
+  const [titleError, setTitleError] = useState('');
+  const [callUp, setCallUp] = useState<{ entries: CallUpEntry[]; pending: boolean }>({
+    entries: [],
+    pending: false,
+  });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const titleRef = useRef<HTMLInputElement>(null);
+  const reportCallUp = useCallback(
+    (entries: CallUpEntry[], pending: boolean) => setCallUp({ entries, pending }),
+    [],
+  );
 
   useEffect(() => {
     onStageChange(toStage(settled));
@@ -110,15 +180,27 @@ export function CreatePerformanceCard({
       setStage((current) => ({ ...current, [field]: clean(event.target.value) }));
   const metres = (value: string) => cleanInteger(value, 3);
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  // The title is the only required field; without it the data block opens again.
+  const checkTitle = () => {
+    if (title.trim()) return true;
+    setStep('data');
+    setTitleError('Ponle un título');
+    window.setTimeout(() => titleRef.current?.focus(), 0);
+    return false;
+  };
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!checkTitle() || callUp.pending) return;
     const form = new FormData(event.currentTarget);
     const minutes = (name: string) => toNumber(String(form.get(name) ?? ''));
 
-    create.mutate(
-      {
+    setSaving(true);
+    setSaveError('');
+    try {
+      const performance = await create.mutateAsync({
         groupId,
-        title: String(form.get('title')),
+        title,
         place: String(form.get('place')),
         date: String(form.get('date')) || null,
         minMinutes: minutes('minMinutes'),
@@ -127,26 +209,49 @@ export function CreatePerformanceCard({
         stageDepth: toNumber(stage.depth),
         squareSize: toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE,
         edgeDistance: Math.min(10, edgeOf(stage.edgeDistance)),
-      },
-      { onSuccess: onCreated },
-    );
+      });
+      if (callUp.entries.length) await saveCallUp(performance.id, callUp.entries);
+      onCreated(performance);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'No se ha podido crear');
+      setSaving(false);
+    }
   };
 
   const square = formatNumber(String(toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE));
 
+  const calledCount = callUp.entries.filter((entry) => entry.status === 'yes').length;
+  const dataSummary = [title.trim(), settled.width && `${settled.width} × ${settled.depth} m`]
+    .filter(Boolean)
+    .join(' · ');
+  const callUpSummary = callUp.pending
+    ? 'Faltan personas por crear'
+    : callUp.entries.length
+      ? `${calledCount} ${calledCount === 1 ? 'viene' : 'vienen'} de ${callUp.entries.length} convocados`
+      : 'Sin convocatoria todavía';
+
   return (
-    <section className={styles.root} aria-labelledby="create-performance-title">
-      <h2 id="create-performance-title" className={styles.title}>
-        Nueva actuación
-      </h2>
-      <form className={styles.form} onSubmit={submit}>
+    <form id="create-performance" className={styles.stack} noValidate onSubmit={submit}>
+      <StepPanel
+        id="data"
+        title="Nueva actuación"
+        summary={dataSummary}
+        open={step === 'data'}
+        onOpen={() => setStep(step === 'data' ? null : 'data')}
+      >
         <TextField
+          ref={titleRef}
           label="Título"
           name="title"
           maxLength={120}
           required
           autoFocus
-          onInput={textField}
+          value={title}
+          onChange={(event) => {
+            setTitle(cleanText(event.target.value));
+            setTitleError('');
+          }}
+          error={titleError}
         />
         <TextField label="Lugar (opcional)" name="place" maxLength={120} onInput={textField} />
         <TextField label="Fecha" name="date" type="date" />
@@ -231,19 +336,48 @@ export function CreatePerformanceCard({
             </div>
           </div>
         </fieldset>
-
-        {create.error && (
-          <p className={styles.error} role="alert">
-            {create.error.message}
-          </p>
-        )}
-        <div className={styles.actions}>
-          <Button onClick={onCancel}>Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={create.isPending}>
-            {create.isPending ? 'Creando…' : 'Crear actuación'}
+        <div className={styles.next}>
+          <Button variant="primary" onClick={() => checkTitle() && setStep('callUp')}>
+            Continuar
           </Button>
         </div>
-      </form>
-    </section>
+      </StepPanel>
+
+      <StepPanel
+        id="callUp"
+        title="Convocatoria"
+        summary={callUpSummary}
+        open={step === 'callUp'}
+        onOpen={() => setStep(step === 'callUp' ? null : 'callUp')}
+      >
+        <CallUpSection groupId={groupId} onChange={reportCallUp} />
+        <div className={styles.next}>
+          <Button variant="primary" onClick={() => setStep(null)} disabled={callUp.pending}>
+            Continuar
+          </Button>
+        </div>
+      </StepPanel>
+
+      {saveError && (
+        <p className={styles.error} role="alert">
+          {saveError}
+        </p>
+      )}
+      {/* Under the stage, centred on the free area. */}
+      <div
+        className={styles.actions}
+        style={{ left: `calc(${inset}px + (100% - ${inset}px) / 2)` }}
+      >
+        <Button onClick={onCancel}>Cancelar</Button>
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={saving || callUp.pending}
+          title={callUp.pending ? 'Faltan personas de la convocatoria por crear' : undefined}
+        >
+          {saving ? 'Creando…' : 'Crear actuación'}
+        </Button>
+      </div>
+    </form>
   );
 }

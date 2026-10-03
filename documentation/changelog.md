@@ -31,6 +31,9 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0022](https://github.com/juananmgz/cuadrocorrocalle/pull/22) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/22/commits) | 🔥 Remove the performances page and the create dialog                           |
 | [CCC-0022](https://github.com/juananmgz/cuadrocorrocalle/pull/22) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/22/commits) | 💄 Show the stage section title under its divider                               |
 | [CCC-0023](https://github.com/juananmgz/cuadrocorrocalle/pull/23) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/23/commits) | 🐛 Resize the stage from its centre, add the stage border and filter form input |
+| [CCC-0024](https://github.com/juananmgz/cuadrocorrocalle/pull/24) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/24/commits) | ✨ Add the call-up step and people roles, filters and bulk actions (paso 1.9)   |
+| [CCC-0024](https://github.com/juananmgz/cuadrocorrocalle/pull/24) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/24/commits) | 💄 Keep the Mi grupo cards in view and scroll only their content                |
+| [CCC-0024](https://github.com/juananmgz/cuadrocorrocalle/pull/24) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/24/commits) | 💚 Stop the account lookup from failing web tests in CI                         |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 

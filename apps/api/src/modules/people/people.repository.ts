@@ -1,4 +1,4 @@
-import type { Figure, PersonColorId } from '@cuadrocorrocalle/shared';
+import type { Figure, Membership, PersonColorId, PersonRole } from '@cuadrocorrocalle/shared';
 
 import type { PrismaClient } from '../../generated/prisma/client';
 
@@ -8,6 +8,8 @@ export interface PersonRecord {
   name: string;
   figure: Figure | null;
   mainColor: PersonColorId;
+  membership: Membership;
+  roles: PersonRole[];
   notes: string | null;
 }
 
@@ -22,19 +24,34 @@ export interface PersonRepository {
   update(id: string, groupId: string, changes: PersonChanges): Promise<PersonRecord | null>;
   /** Deletes a person of groupId; false when it is not in that group. */
   delete(id: string, groupId: string): Promise<boolean>;
+  /** Deletes everyone in the group and returns how many there were. */
+  deleteAll(groupId: string): Promise<number>;
 }
 
-type PersonRow = Omit<PersonRecord, 'figure' | 'mainColor'> & {
+type PersonRow = Omit<PersonRecord, 'figure' | 'mainColor' | 'membership' | 'roles'> & {
   figure: string | null;
   mainColor: string;
+  membership: string;
+  roles: string[];
 };
 
-const toRecord = ({ id, groupId, name, figure, mainColor, notes }: PersonRow): PersonRecord => ({
+const toRecord = ({
+  id,
+  groupId,
+  name,
+  figure,
+  mainColor,
+  membership,
+  roles,
+  notes,
+}: PersonRow): PersonRecord => ({
   id,
   groupId,
   name,
   figure: figure as Figure | null,
   mainColor: mainColor as PersonColorId,
+  membership: membership as Membership,
+  roles: roles as PersonRole[],
   notes,
 });
 
@@ -59,6 +76,10 @@ export function createPrismaPersonRepository(prisma: PrismaClient): PersonReposi
     async delete(id, groupId) {
       const { count } = await prisma.person.deleteMany({ where: { id, groupId } });
       return count > 0;
+    },
+    async deleteAll(groupId) {
+      const { count } = await prisma.person.deleteMany({ where: { groupId } });
+      return count;
     },
   };
 }
@@ -98,6 +119,11 @@ export function createMemoryPersonRepository(): PersonRepository {
       if (!person) return false;
       people.splice(people.indexOf(person), 1);
       return true;
+    },
+    async deleteAll(groupId) {
+      const before = people.length;
+      people.splice(0, people.length, ...people.filter((person) => person.groupId !== groupId));
+      return before - people.length;
     },
   };
 }

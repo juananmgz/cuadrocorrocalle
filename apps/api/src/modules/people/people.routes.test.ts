@@ -64,15 +64,26 @@ test('pastes a list of names, each with its own colour', async () => {
     method: 'POST',
     url: `${peoplePath(groupId)}/lista`,
     headers: { cookie },
-    payload: { names: ['Julia Sánchez', 'Mario López', 'Ana'] },
+    payload: {
+      names: [
+        { name: 'Julia Sánchez', figure: 'girl', roles: ['dance', 'singing'] },
+        { name: 'Mario López', figure: 'boy', roles: ['music'] },
+        'Ana',
+      ],
+    },
   });
   expect(pasted.statusCode).toBe(201);
 
   const list = await app.inject({ method: 'GET', url: peoplePath(groupId), headers: { cookie } });
   expect(list.json().people).toEqual([
     expect.objectContaining({ name: 'Ana', mainColor: 'yellow', figure: null }),
-    expect.objectContaining({ name: 'Julia Sánchez', mainColor: 'blue' }),
-    expect.objectContaining({ name: 'Mario López', mainColor: 'red' }),
+    expect.objectContaining({
+      name: 'Julia Sánchez',
+      mainColor: 'blue',
+      figure: 'girl',
+      roles: ['dance', 'singing'],
+    }),
+    expect.objectContaining({ name: 'Mario López', mainColor: 'red', roles: ['music'] }),
   ]);
   await app.close();
 });
@@ -139,5 +150,42 @@ test("keeps each group's people private and validates the data", async () => {
   expect(foreign.statusCode).toBe(404);
   expect(badColor.statusCode).toBe(400);
   expect(noName.json().message).toBe('Escribe el nombre');
+  await app.close();
+});
+
+test('replaces the list and deletes everyone only after confirming the password', async () => {
+  const app = buildTestApp();
+  const { cookie, groupId } = await signUp(app, 'replace@example.com');
+  const paste = (payload: object) =>
+    app.inject({
+      method: 'POST',
+      url: `${peoplePath(groupId)}/lista`,
+      headers: { cookie },
+      payload,
+    });
+  const names = async () =>
+    (await app.inject({ method: 'GET', url: peoplePath(groupId), headers: { cookie } }))
+      .json()
+      .people.map((person: { name: string }) => person.name);
+
+  await paste({ names: ['Julia', 'Mario'] });
+
+  const wrong = await paste({ names: ['Ana'], replace: true, password: 'otra' });
+  expect(wrong.statusCode).toBe(403);
+  expect(wrong.json().code).toBe('WRONG_PASSWORD');
+  expect(await names()).toEqual(['Julia', 'Mario']);
+
+  const replaced = await paste({ names: ['Ana'], replace: true, password: 'jota-de-la-vera' });
+  expect(replaced.statusCode).toBe(201);
+  expect(await names()).toEqual(['Ana']);
+
+  const deleted = await app.inject({
+    method: 'DELETE',
+    url: peoplePath(groupId),
+    headers: { cookie },
+    payload: { password: 'jota-de-la-vera' },
+  });
+  expect(deleted.json()).toEqual({ deleted: 1 });
+  expect(await names()).toEqual([]);
   await app.close();
 });

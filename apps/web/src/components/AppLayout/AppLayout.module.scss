@@ -21,4 +21,9 @@
   @include mixins.from-tablet {
     padding: var(--space-5);
   }
+
+  // Pages with long lists (Mi grupo) use more of the width.
+  &:has([data-wide]) {
+    max-width: 1440px;
+  }
 }

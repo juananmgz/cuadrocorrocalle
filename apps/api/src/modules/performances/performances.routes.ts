@@ -1,4 +1,6 @@
 import {
+  callUpPath,
+  callUpSchema,
   createPerformanceSchema,
   PERFORMANCES_PATH,
   type Schema,
@@ -83,6 +85,22 @@ export async function performanceRoutes(
     return result.error === 'TRIAL_LIMIT'
       ? reply.status(403).send(TRIAL_LIMIT)
       : reply.status(404).send({ message: 'Performance not found' });
+  });
+
+  app.get<IdParams>(callUpPath(':id'), async (request, reply) => {
+    const entries = await performances.getCallUp(request.userId!, request.params.id);
+    return entries ? { entries } : reply.status(404).send({ message: 'Performance not found' });
+  });
+
+  app.put<IdParams>(callUpPath(':id'), async (request, reply) => {
+    const input = parse(callUpSchema, request.body, reply);
+    if (!input) return reply;
+
+    const entries = await performances.setCallUp(request.userId!, request.params.id, input.entries);
+    if (entries === 'UNKNOWN_PERSON') {
+      return reply.status(400).send({ message: 'Alguna persona no es de este grupo' });
+    }
+    return entries ? { entries } : reply.status(404).send({ message: 'Performance not found' });
   });
 
   app.delete<IdParams>(`${PERFORMANCES_PATH}/:id`, async (request, reply) => {

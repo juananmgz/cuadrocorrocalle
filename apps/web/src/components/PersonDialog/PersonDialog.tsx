@@ -1,10 +1,18 @@
-import type { Figure, Person, PersonColorId } from '@cuadrocorrocalle/shared';
+import {
+  type Figure,
+  type Membership,
+  MEMBERSHIP_LABELS,
+  type Person,
+  PERSON_COLOR_IDS,
+  type PersonRole,
+} from '@cuadrocorrocalle/shared';
 import { RadioGroup } from 'radix-ui';
 import { type FormEvent, useState } from 'react';
 
-import { FIGURE_LABELS, type PeopleMutations } from '../../people/peopleApi';
+import type { PeopleMutations } from '../../people/peopleApi';
+import { GenderToggle, RoleToggles } from '../PersonFields/PersonFields';
 import { Button } from '../ui/Button/Button';
-import { ColorPicker } from '../ui/ColorPicker/ColorPicker';
+import { type ColorChoice, ColorPicker, RANDOM_COLOR } from '../ui/ColorPicker/ColorPicker';
 import { Dialog } from '../ui/Dialog/Dialog';
 import { TextField } from '../ui/TextField/TextField';
 import styles from './PersonDialog.module.scss';
@@ -14,12 +22,10 @@ interface PersonDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Person to edit; a new one is added without it. */
   person?: Person;
-  /** Colour preselected for a new person. */
-  defaultColor: PersonColorId;
   mutations: PeopleMutations;
 }
 
-/** Adds or edits a person: name, puppet (boy or girl), main colour and notes. */
+/** Adds or edits a person: name, gender, membership, roles, main colour and notes. */
 export function PersonDialog(props: PersonDialogProps) {
   const { open, onOpenChange, person } = props;
 
@@ -35,21 +41,35 @@ export function PersonDialog(props: PersonDialogProps) {
   );
 }
 
-function PersonForm({ onOpenChange, person, defaultColor, mutations }: PersonDialogProps) {
+function PersonForm({ onOpenChange, person, mutations }: PersonDialogProps) {
   const [figure, setFigure] = useState<Figure | null>(person?.figure ?? null);
-  const [color, setColor] = useState<PersonColorId>(person?.mainColor ?? defaultColor);
+  const [membership, setMembership] = useState<Membership>(person?.membership ?? 'member');
+  const [roles, setRoles] = useState<PersonRole[]>(person?.roles ?? []);
+  // New people start with a random colour.
+  const [color, setColor] = useState<ColorChoice>(person?.mainColor ?? RANDOM_COLOR);
+  const [checked, setChecked] = useState(false);
+  const figureError = checked && !figure ? 'Elige el género' : undefined;
+  const rolesError = checked && !roles.length ? 'Elige al menos un rol' : undefined;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const saving = person ? mutations.edit : mutations.create;
   const close = () => onOpenChange(false);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // Gender and at least one role are required.
+    setChecked(true);
+    if (!figure || !roles.length) return;
     const form = new FormData(event.currentTarget);
     const input = {
       name: String(form.get('name')),
       notes: String(form.get('notes')),
       figure,
-      mainColor: color,
+      membership,
+      roles,
+      mainColor:
+        color === RANDOM_COLOR
+          ? PERSON_COLOR_IDS[Math.floor(Math.random() * PERSON_COLOR_IDS.length)]!
+          : color,
     };
 
     if (person) mutations.edit.mutate({ id: person.id, ...input }, { onSuccess: close });
@@ -75,23 +95,37 @@ function PersonForm({ onOpenChange, person, defaultColor, mutations }: PersonDia
       />
       <div className={styles.field}>
         <span id="person-figure" className={styles.label}>
-          Muñeco
+          Género
+        </span>
+        <GenderToggle value={figure} onChange={setFigure} labelledBy="person-figure" />
+        {figureError && <p className={styles.error}>{figureError}</p>}
+      </div>
+      <div className={styles.field}>
+        <span id="person-membership" className={styles.label}>
+          Tipo
         </span>
         <RadioGroup.Root
           className={styles.figures}
-          aria-labelledby="person-figure"
+          aria-labelledby="person-membership"
           orientation="horizontal"
-          value={figure ?? ''}
-          onValueChange={(value) => setFigure(value as Figure)}
+          value={membership}
+          onValueChange={(value) => setMembership(value as Membership)}
         >
-          {(Object.keys(FIGURE_LABELS) as Figure[]).map((id) => (
+          {(Object.keys(MEMBERSHIP_LABELS) as Membership[]).map((id) => (
             <RadioGroup.Item key={id} value={id} className={styles.figure}>
-              {FIGURE_LABELS[id]}
+              {MEMBERSHIP_LABELS[id]}
             </RadioGroup.Item>
           ))}
         </RadioGroup.Root>
       </div>
-      <ColorPicker label="Color principal" value={color} onValueChange={setColor} />
+      <div className={styles.field}>
+        <span id="person-roles" className={styles.label}>
+          Roles
+        </span>
+        <RoleToggles value={roles} onChange={setRoles} labelledBy="person-roles" />
+        {rolesError && <p className={styles.error}>{rolesError}</p>}
+      </div>
+      <ColorPicker label="Color principal" value={color} onValueChange={setColor} allowRandom />
       <TextField
         label="Notas"
         name="notes"

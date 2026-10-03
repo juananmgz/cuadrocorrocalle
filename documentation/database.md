@@ -12,6 +12,9 @@ Migraciones:
 - `20261002101204_people` (paso 1.7): personas de cada grupo.
 - `20261002131629_performances` (paso 1.8): actuaciones de cada grupo.
 - `20261002135920_performance_stage`: medidas del escenario y metros por cuadrado de cada actuación.
+- `20261002175748_stage_edge_distance`, `20261003094303_default_half_metre_square` y `20261003094432_default_quarter_metre_edge` (paso 1.8.1): borde del escenario, cuadrado de 0,5 m y borde de 0,25 m por defecto.
+- `20261003100841_call_ups` (paso 1.9): tipo de persona (miembro o colaborador) y convocatoria de cada actuación.
+- `20261003123935_person_roles`: roles de cada persona (baile, música, canto…).
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -69,6 +72,8 @@ erDiagram
     text name
     text figure "boy, girl o vacío"
     text main_color "blue, red… (20)"
+    text membership "member o collaborator"
+    text_array roles "dance, music, singing…"
     text notes
   }
   groups ||--o{ performances : "tiene"
@@ -85,6 +90,13 @@ erDiagram
     float stage_depth_m
     float square_m "0,5 por defecto"
     float edge_distance_m "0,25 por defecto y mínimo"
+  }
+  people ||--o{ call_ups : "convocada en"
+  performances ||--o{ call_ups : "convoca"
+  call_ups {
+    text performance_id PK,FK
+    text person_id PK,FK
+    text status "yes, no o maybe"
   }
   verification {
     text id PK
