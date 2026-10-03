@@ -34,6 +34,7 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0024](https://github.com/juananmgz/cuadrocorrocalle/pull/24) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/24/commits) | ✨ Add the call-up step and people roles, filters and bulk actions (paso 1.9)   |
 | [CCC-0024](https://github.com/juananmgz/cuadrocorrocalle/pull/24) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/24/commits) | 💄 Keep the Mi grupo cards in view and scroll only their content                |
 | [CCC-0024](https://github.com/juananmgz/cuadrocorrocalle/pull/24) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/24/commits) | 💚 Stop the account lookup from failing web tests in CI                         |
+| [CCC-0025](https://github.com/juananmgz/cuadrocorrocalle/pull/25) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/25/commits) | 💄 Choose the call-up with person chips, filters and an import dialog           |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 

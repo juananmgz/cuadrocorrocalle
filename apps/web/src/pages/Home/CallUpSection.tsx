@@ -1,106 +1,96 @@
 import {
-  CALL_UP_LABELS,
   type CallUpEntry,
   type CallUpStatus,
-  parseNameList,
+  type Figure,
+  type Membership,
+  MEMBERSHIP_LABELS,
+  PERSON_ROLES,
   type Person,
+  type PersonRole,
   ROLE_LABELS,
 } from '@cuadrocorrocalle/shared';
-import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { matchNames, type NameMatch } from '../../callUps/matchNames';
 import { Button } from '../../components/ui/Button/Button';
-import { Tabs } from '../../components/ui/Tabs/Tabs';
-import { TextArea } from '../../components/ui/TextArea/TextArea';
-import { getPersonColor } from '../../components/ui/personColors';
-import { usePeople, usePeopleMutations } from '../../people/peopleApi';
+import { FilterMenu } from '../../components/ui/FilterMenu/FilterMenu';
+import { PersonChip } from '../../components/ui/PersonChip/PersonChip';
+import { FIGURE_LABELS, usePeople, usePeopleMutations } from '../../people/peopleApi';
 import styles from './CallUpSection.module.scss';
+import { ImportNamesDialog } from './ImportNamesDialog';
 
-/** A pasted or imported name and who it is in the group; skipped rows are left out. */
+/** An imported name and who it is in the group; skipped rows are left out. */
 interface Row extends NameMatch {
   skipped: boolean;
 }
 
 interface CallUpSectionProps {
   groupId: string;
-  /** Reports the call-up and whether names are still missing from the group. */
+  /** Reports the call-up and whether imported names are still missing from the group. */
   onChange: (entries: CallUpEntry[], pending: boolean) => void;
 }
 
-const STATUSES: CallUpStatus[] = ['yes', 'no', 'maybe'];
 // Stable while loading, so the call-up is not recalculated on every render.
 const NO_PEOPLE: Person[] = [];
+const MEMBERSHIPS: Membership[] = ['member', 'collaborator'];
+const FIGURES: Figure[] = ['boy', 'girl'];
 
-/** CSV files keep the first column; plain text keeps every line. */
-async function readNames(file: File) {
-  const text = await file.text();
-  if (!/\.csv$/i.test(file.name)) return parseNameList(text);
-  return parseNameList(
-    text
-      .split(/\r?\n/)
-      .map((line) => line.split(/[;,\t]/)[0]?.replace(/"/g, '') ?? '')
-      .join('\n'),
-  );
-}
+// Each click moves a person along: comes, pending confirmation, not called up.
+const NEXT_STATUS = { none: 'yes', yes: 'maybe', maybe: 'none' } as const;
+type ChipStatus = keyof typeof NEXT_STATUS;
 
-/** "Convocatoria": paste or import a list, or choose who comes by hand. */
+/** "Convocatoria": click each person to mark who comes, or import a list. */
 export function CallUpSection({ groupId, onChange }: CallUpSectionProps) {
   const { data: people = NO_PEOPLE } = usePeople(groupId);
   const mutations = usePeopleMutations(groupId);
-  const [text, setText] = useState('');
+  const [importing, setImporting] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
-  // Statuses chosen by hand; pasted people come by default.
-  const [chosen, setChosen] = useState<Record<string, CallUpStatus | null>>({});
-  const [importError, setImportError] = useState('');
-  const [tab, setTab] = useState('paste');
+  const [statuses, setStatuses] = useState<Record<string, CallUpStatus>>({});
+  // Every option starts on, so nobody is hidden at first.
+  const [roles, setRoles] = useState<PersonRole[]>([...PERSON_ROLES]);
+  const [memberships, setMemberships] = useState<Membership[]>(MEMBERSHIPS);
+  const [figures, setFigures] = useState<Figure[]>(FIGURES);
 
-  const listed = useMemo(
-    () => new Set(rows.filter((row) => row.personId && !row.skipped).map((row) => row.personId!)),
-    [rows],
-  );
-  const statusOf = (personId: string) =>
-    personId in chosen ? chosen[personId]! : listed.has(personId) ? 'yes' : null;
   const missing = rows.filter((row) => !row.personId && !row.skipped);
-
   const entries = useMemo(
     () =>
       people.flatMap((person) => {
-        const status =
-          person.id in chosen ? chosen[person.id] : listed.has(person.id) ? 'yes' : null;
+        const status = statuses[person.id];
         return status ? [{ personId: person.id, status }] : [];
       }),
-    [people, chosen, listed],
+    [people, statuses],
   );
   useEffect(() => onChange(entries, missing.length > 0), [entries, missing.length, onChange]);
 
-  // The list marks who comes and opens the list by hand to review it.
-  const relate = (names: string[]) => {
-    setRows(matchNames(names, people).map((match) => ({ ...match, skipped: false })));
-    setTab('manual');
+  // Doubtful matches (low score, a tie or the same person twice) show the imported name.
+  const doubtful = new Map(
+    rows
+      .filter((row) => row.personId && !row.skipped && row.state === 'doubtful')
+      .map((row) => [row.personId!, row.original]),
+  );
+
+  // Everyone found in the imported list comes.
+  const markAll = (ids: string[]) =>
+    setStatuses((current) => ({
+      ...current,
+      ...Object.fromEntries(ids.map((id) => [id, 'yes' as const])),
+    }));
+  const importNames = (names: string[]) => {
+    const matches = matchNames(names, people).map((match) => ({ ...match, skipped: false }));
+    setRows(matches);
+    markAll(matches.flatMap((match) => (match.personId ? [match.personId] : [])));
   };
 
-  const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    const names = await readNames(file);
-    setImportError(names.length ? '' : 'No hay nombres en el fichero');
-    if (names.length) relate(names);
-  };
-
-  const skip = (original: string) =>
-    setRows((current) =>
-      current.map((row) => (row.original === original ? { ...row, skipped: true } : row)),
-    );
-
-  // New people join the group as occasional collaborators.
-  const link = (created: Person[]) =>
+  // New people join the group as collaborators and come.
+  const link = (created: Person[]) => {
     setRows((current) =>
       current.map((row) => {
         const person = created.find((item) => item.name === row.original);
         return person && !row.personId ? { ...row, personId: person.id, state: 'matched' } : row;
       }),
     );
+    markAll(created.map((person) => person.id));
+  };
   const createOne = (name: string) =>
     mutations.create.mutate({ name, membership: 'collaborator' }, { onSuccess: (p) => link([p]) });
   const createMissing = () =>
@@ -108,30 +98,43 @@ export function CallUpSection({ groupId, onChange }: CallUpSectionProps) {
       { names: missing.map((row) => row.original), membership: 'collaborator' },
       { onSuccess: link },
     );
+  const skip = (original: string) =>
+    setRows((current) =>
+      current.map((row) => (row.original === original ? { ...row, skipped: true } : row)),
+    );
 
-  const setStatus = (personId: string, status: CallUpStatus) =>
-    setChosen((current) => ({
-      ...current,
-      [personId]: statusOf(personId) === status ? null : status,
-    }));
+  const cycle = (personId: string) =>
+    setStatuses((current) => {
+      const next = NEXT_STATUS[(current[personId] as ChipStatus | undefined) ?? 'none'];
+      const rest = Object.fromEntries(Object.entries(current).filter(([id]) => id !== personId));
+      return next === 'none' ? rest : { ...rest, [personId]: next };
+    });
 
-  const counts = STATUSES.map((status) => ({
-    status,
-    count: entries.filter((entry) => entry.status === status).length,
-  }));
-
-  // Doubtful matches (low score, a tie or the same person twice) show the pasted name to review.
-  const doubtful = new Map(
-    rows
-      .filter((row) => row.personId && !row.skipped && row.state === 'doubtful')
-      .map((row) => [row.personId!, row.original]),
+  // People without a role or gender only hide when that filter is narrowed.
+  const visible = people.filter(
+    (person) =>
+      memberships.includes(person.membership) &&
+      (roles.length === PERSON_ROLES.length || person.roles.some((role) => roles.includes(role))) &&
+      (figures.length === FIGURES.length || (person.figure && figures.includes(person.figure))),
   );
+  const coming = entries.filter((entry) => entry.status === 'yes').length;
+  const pending = entries.length - coming;
 
-  const listReview = rows.length > 0 && (
-    <>
-      <p className={styles.notice}>
-        Revisa la convocatoria: al pegar o importar puede haber nombres mal escritos.
-      </p>
+  return (
+    <div className={styles.root}>
+      <div className={styles.toolbar}>
+        <Button onClick={() => setImporting(true)}>Importar</Button>
+        <p className={styles.summary}>
+          Vienen {coming}
+          {pending > 0 && ` · Por confirmar ${pending}`}
+        </p>
+      </div>
+
+      {rows.length > 0 && (
+        <p className={styles.notice}>
+          Revisa la convocatoria: al importar puede haber nombres mal escritos.
+        </p>
+      )}
       {missing.length > 0 && (
         <div className={styles.missing}>
           <div className={styles.missingHead}>
@@ -166,107 +169,62 @@ export function CallUpSection({ groupId, onChange }: CallUpSectionProps) {
           </ul>
         </div>
       )}
-    </>
-  );
 
-  return (
-    <div className={styles.root}>
-      <Tabs
-        label="Cómo elegir la convocatoria"
-        value={tab}
-        onValueChange={setTab}
-        items={[
-          {
-            value: 'paste',
-            label: 'Pegar',
-            content: (
-              <div className={styles.tab}>
-                <TextArea
-                  label="Lista de nombres"
-                  hint="Uno por línea o separados por comas"
-                  rows={4}
-                  value={text}
-                  onChange={(event) => setText(event.target.value)}
+      <div className={styles.filters}>
+        <FilterMenu
+          label="Rol"
+          options={PERSON_ROLES.map((value) => ({ value, label: ROLE_LABELS[value] }))}
+          selected={roles}
+          onChange={setRoles}
+        />
+        <FilterMenu
+          label="Tipo"
+          options={MEMBERSHIPS.map((value) => ({ value, label: MEMBERSHIP_LABELS[value] }))}
+          selected={memberships}
+          onChange={setMemberships}
+        />
+        <FilterMenu
+          label="Género"
+          options={FIGURES.map((value) => ({ value, label: FIGURE_LABELS[value] }))}
+          selected={figures}
+          onChange={setFigures}
+        />
+      </div>
+
+      <p className={styles.hint}>Un clic: viene. Dos: por confirmar. Tres: lo quitas.</p>
+      {people.length === 0 && <p className={styles.notice}>Aún no hay personas en el grupo.</p>}
+      {people.length > 0 && !visible.length && (
+        <p className={styles.notice}>Nadie cumple los filtros.</p>
+      )}
+      <ul className={styles.chips}>
+        {visible.map((person) => {
+          const status = statuses[person.id];
+          const label =
+            status === 'yes' ? 'viene' : status === 'maybe' ? 'por confirmar' : 'no convocado';
+          return (
+            <li key={person.id}>
+              <button
+                type="button"
+                className={styles.chip}
+                aria-label={`${person.name}: ${label}`}
+                onClick={() => cycle(person.id)}
+              >
+                <PersonChip
+                  name={person.name}
+                  color={person.mainColor}
+                  highlighted={status === 'yes'}
+                  secondary={status === 'maybe'}
                 />
-                <Button onClick={() => relate(parseNameList(text))} disabled={!text.trim()}>
-                  Marcar en la convocatoria
-                </Button>
-              </div>
-            ),
-          },
-          {
-            value: 'import',
-            label: 'Importar',
-            content: (
-              <div className={styles.tab}>
-                <label className={styles.file}>
-                  <span>Fichero .txt o .csv (en un CSV se usa la primera columna)</span>
-                  <input type="file" accept=".txt,.csv,text/plain,text/csv" onChange={importFile} />
-                </label>
-                {importError && <p className={styles.error}>{importError}</p>}
-              </div>
-            ),
-          },
-          {
-            value: 'manual',
-            label: 'A mano',
-            content: (
-              <div className={styles.tab}>
-                {listReview}
-                <p className={styles.summary}>
-                  {counts
-                    .map(({ status, count }) => `${CALL_UP_LABELS[status]}: ${count}`)
-                    .join(' · ')}
-                </p>
-                {people.length === 0 && (
-                  <p className={styles.notice}>Aún no hay personas en el grupo.</p>
+                {doubtful.has(person.id) && status && (
+                  <span className={styles.review}>Revisar: «{doubtful.get(person.id)}»</span>
                 )}
-                <ul className={styles.people}>
-                  {people.map((person) => (
-                    <li key={person.id} className={styles.person}>
-                      <span className={styles.name}>
-                        <span
-                          className={styles.dot}
-                          style={{ background: getPersonColor(person.mainColor).fill }}
-                          aria-hidden="true"
-                        />
-                        {person.name}
-                        {person.roles.map((role) => (
-                          <span key={role} className={styles.tag}>
-                            {ROLE_LABELS[role]}
-                          </span>
-                        ))}
-                        {person.membership === 'collaborator' && (
-                          <span className={styles.tag}>Colaborador</span>
-                        )}
-                        {doubtful.has(person.id) && statusOf(person.id) && (
-                          <span className={styles.review}>
-                            Revisar: «{doubtful.get(person.id)}»
-                          </span>
-                        )}
-                      </span>
-                      <span className={styles.statuses} role="group" aria-label={person.name}>
-                        {STATUSES.map((status) => (
-                          <button
-                            key={status}
-                            type="button"
-                            className={styles.status}
-                            data-status={status}
-                            aria-pressed={statusOf(person.id) === status}
-                            onClick={() => setStatus(person.id, status)}
-                          >
-                            {CALL_UP_LABELS[status]}
-                          </button>
-                        ))}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ),
-          },
-        ]}
-      />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <ImportNamesDialog open={importing} onOpenChange={setImporting} onImport={importNames} />
     </div>
   );
 }

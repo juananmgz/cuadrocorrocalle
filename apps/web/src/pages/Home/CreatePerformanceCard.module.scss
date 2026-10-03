@@ -81,6 +81,13 @@
   padding-top: var(--space-3);
 }
 
+// Width, depth and border on one row.
+.triple {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
 .pair {
   display: grid;
   grid-template-columns: 1fr 1fr;

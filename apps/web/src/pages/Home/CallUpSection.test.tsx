@@ -6,58 +6,69 @@ import { expect, test, vi } from 'vitest';
 
 import { CallUpSection } from './CallUpSection';
 
-const person = (id: string, name: string): Person => ({
+const person = (id: string, name: string, figure: Person['figure']): Person => ({
   id,
   name,
-  figure: null,
+  figure,
   mainColor: 'blue',
   membership: 'member',
-  roles: [],
+  roles: ['dance'],
   notes: null,
 });
 
+function renderSection() {
+  const onChange = vi.fn();
+  const queryClient = new QueryClient();
+  queryClient.setQueryData(
+    ['people', 'group-1'],
+    [person('ml', 'María Luisa Sánchez', 'girl'), person('mario', 'Mario Gil', 'boy')],
+  );
+  render(
+    <QueryClientProvider client={queryClient}>
+      <CallUpSection groupId="group-1" onChange={onChange} />
+    </QueryClientProvider>,
+  );
+  return () => onChange.mock.lastCall;
+}
+
 // Many clicks: a longer timeout keeps it stable on a busy machine.
+test('cycles each person through comes, pending and out', { timeout: 20_000 }, async () => {
+  const user = userEvent.setup();
+  const last = renderSection();
+
+  await user.click(screen.getByRole('button', { name: 'Mario Gil: no convocado' }));
+  expect(last()).toEqual([[{ personId: 'mario', status: 'yes' }], false]);
+  await user.click(screen.getByRole('button', { name: 'Mario Gil: viene' }));
+  expect(last()).toEqual([[{ personId: 'mario', status: 'maybe' }], false]);
+  await user.click(screen.getByRole('button', { name: 'Mario Gil: por confirmar' }));
+  expect(last()).toEqual([[], false]);
+});
+
 test(
-  'marks a pasted list by hand, blocks while a name is missing and lets you change it',
+  'imports a list, blocks while a name is missing and filters by gender',
   { timeout: 20_000 },
   async () => {
     const user = userEvent.setup();
-    const onChange = vi.fn();
-    const queryClient = new QueryClient();
-    queryClient.setQueryData(
-      ['people', 'group-1'],
-      [person('ml', 'María Luisa Sánchez'), person('julia', 'Julia Moreno')],
-    );
+    const last = renderSection();
 
-    render(
-      <QueryClientProvider client={queryClient}>
-        <CallUpSection groupId="group-1" onChange={onChange} />
-      </QueryClientProvider>,
-    );
-    const last = () => onChange.mock.lastCall;
-
+    await user.click(screen.getByRole('button', { name: 'Importar' }));
+    await user.click(screen.getByRole('tab', { name: 'Pegar texto' }));
     await user.type(screen.getByLabelText('Lista de nombres'), 'Malú, Rodrigo');
     await user.click(screen.getByRole('button', { name: 'Marcar en la convocatoria' }));
 
-    // Malú is María Luisa and is marked as coming; Rodrigo is not in the group and blocks the step.
-    expect(screen.getByRole('tab', { name: 'A mano' })).toHaveAttribute('aria-selected', 'true');
-    const maria = screen.getByRole('group', { name: 'María Luisa Sánchez' });
-    expect(within(maria).getByRole('button', { name: 'Viene' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: 'Crear 1 miembro nuevo' })).toBeInTheDocument();
+    // Malú is María Luisa and comes; Rodrigo is not in the group and blocks the step.
+    expect(screen.getByRole('button', { name: 'María Luisa Sánchez: viene' })).toBeInTheDocument();
     expect(last()).toEqual([[{ personId: 'ml', status: 'yes' }], true]);
-
     await user.click(screen.getByRole('button', { name: 'No incluir' }));
     expect(last()).toEqual([[{ personId: 'ml', status: 'yes' }], false]);
 
-    // By hand, Julia is marked as pending confirmation.
-    const julia = screen.getByRole('group', { name: 'Julia Moreno' });
-    await user.click(within(julia).getByRole('button', { name: 'Por confirmar' }));
-    expect(last()?.[0]).toEqual([
-      { personId: 'ml', status: 'yes' },
-      { personId: 'julia', status: 'maybe' },
-    ]);
+    // Leaving only "Chico" hides María Luisa.
+    await user.click(screen.getByRole('button', { name: 'Género' }));
+    await user.click(
+      within(screen.getByRole('menu')).getByRole('menuitemcheckbox', { name: 'Chica' }),
+    );
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('button', { name: /María Luisa/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mario Gil: no convocado' })).toBeInTheDocument();
   },
 );

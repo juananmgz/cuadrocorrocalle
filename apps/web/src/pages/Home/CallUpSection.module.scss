@@ -89,65 +89,54 @@
   color: var(--ink-soft);
 }
 
-.people {
-  display: grid;
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+// The group's people as chips; clicking one changes its state.
+.chips {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   padding: 0;
   margin: 0;
   list-style: none;
 }
 
-.person {
-  display: grid;
+.chip {
+  display: inline-flex;
+  flex-direction: column;
   gap: var(--space-1);
-}
-
-.name {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  align-items: center;
-  font-weight: 700;
-}
-
-.dot {
-  flex: 0 0 auto;
-  width: 12px;
-  height: 12px;
-  border: var(--border-width) solid var(--line);
-  border-radius: 50%;
-}
-
-.tag {
-  padding: 0 var(--space-1);
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--ink-soft);
-  border: var(--border-width) solid var(--line);
-  border-radius: var(--radius);
-}
-
-.statuses {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-1);
-}
-
-.status {
-  min-height: 36px;
-  padding: 0 var(--space-1);
+  align-items: flex-start;
+  padding: 0;
   font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: var(--ink-soft);
+  color: inherit;
+  text-align: left;
   cursor: pointer;
+  user-select: none;
   background: transparent;
-  border: var(--border-width) solid var(--line);
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: 999px;
+}
 
-  &[aria-pressed='true'] {
-    color: var(--surface);
-    background: var(--ink);
-    border-color: var(--ink);
-  }
+.dialogActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
 }
