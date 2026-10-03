@@ -14,9 +14,13 @@ export function useHasPassword() {
   const [withPassword, setWithPassword] = useState<boolean>();
 
   useEffect(() => {
-    authClient.listAccounts().then(({ data }) => {
-      setWithPassword(Boolean(data?.some((account) => account.providerId === 'credential')));
-    });
+    authClient
+      .listAccounts()
+      .then(({ data }) => {
+        setWithPassword(Boolean(data?.some((account) => account.providerId === 'credential')));
+      })
+      // Without an answer, ask for the password; the API rejects it if the account has none.
+      .catch(() => setWithPassword(true));
   }, []);
   return withPassword;
 }
