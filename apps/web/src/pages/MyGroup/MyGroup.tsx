@@ -330,8 +330,8 @@ function GroupPeople({ groupId }: { groupId: string }) {
     <>
       {/* Information on the left (4 of 12 columns), members on the right (8 of 12). */}
       <div className={styles.layout}>
-        <Card title="Información">
-          <dl className={styles.info}>
+        <Card title="Información" className={styles.panel}>
+          <dl className={`${styles.info} ${styles.scroll}`}>
             <div>
               <dt>Nombre</dt>
               <dd>{group.name}</dd>
@@ -363,6 +363,7 @@ function GroupPeople({ groupId }: { groupId: string }) {
         </Card>
 
         <Card
+          className={styles.panel}
           title="Miembros"
           actions={
             <>
@@ -394,36 +395,39 @@ function GroupPeople({ groupId }: { groupId: string }) {
                   Separar por género
                 </label>
               </div>
-              {query && !found.length && <p className={styles.empty}>Nadie se llama así.</p>}
+              {/* Only the list scrolls; the title, filters and actions stay in view. */}
+              <div className={styles.scroll}>
+                {query && !found.length && <p className={styles.empty}>Nadie se llama así.</p>}
 
-              {byGender ? (
-                <>
-                  <div className={styles.genders}>
-                    <GroupSection
-                      title="Chicos"
-                      people={ofFigure('boy')}
-                      showFigure={false}
-                      {...listProps}
-                    />
-                    <GroupSection
-                      title="Chicas"
-                      people={ofFigure('girl')}
-                      showFigure={false}
-                      {...listProps}
-                    />
-                  </div>
-                  {ofFigure(null).length > 0 && (
-                    <GroupSection
-                      title="Sin género"
-                      people={ofFigure(null)}
-                      showFigure={false}
-                      {...listProps}
-                    />
-                  )}
-                </>
-              ) : (
-                <GroupSection people={sorted} showFigure {...listProps} />
-              )}
+                {byGender ? (
+                  <>
+                    <div className={styles.genders}>
+                      <GroupSection
+                        title="Chicos"
+                        people={ofFigure('boy')}
+                        showFigure={false}
+                        {...listProps}
+                      />
+                      <GroupSection
+                        title="Chicas"
+                        people={ofFigure('girl')}
+                        showFigure={false}
+                        {...listProps}
+                      />
+                    </div>
+                    {ofFigure(null).length > 0 && (
+                      <GroupSection
+                        title="Sin género"
+                        people={ofFigure(null)}
+                        showFigure={false}
+                        {...listProps}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <GroupSection people={sorted} showFigure {...listProps} />
+                )}
+              </div>
             </>
           )}
           {people && people.length > 0 && (

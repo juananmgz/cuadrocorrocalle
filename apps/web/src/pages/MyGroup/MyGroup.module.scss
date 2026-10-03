@@ -9,6 +9,7 @@
 
 .info {
   display: grid;
+  align-content: start;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
 
   @include mixins.from-desktop {
@@ -363,4 +364,46 @@
   @include mixins.from-desktop {
     grid-template-columns: 4fr 8fr;
   }
+}
+
+// From desktop width the page fits the window: the cards keep a fixed height and only their
+// content scrolls.
+.page {
+  @include mixins.from-desktop {
+    grid-template-rows: auto minmax(0, 1fr);
+    height: calc(100dvh - 56px - 2 * var(--space-5));
+  }
+}
+
+.layout {
+  @include mixins.from-desktop {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+.panel {
+  @include mixins.from-desktop {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+// The scrolling part takes the remaining height.
+.scroll {
+  @include mixins.from-desktop {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+// Column titles stay at the top while the list scrolls.
+.columns {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }

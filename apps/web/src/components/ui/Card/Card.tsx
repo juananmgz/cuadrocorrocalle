@@ -6,12 +6,13 @@ interface CardProps {
   title?: string;
   /** Buttons at the end of the title row. */
   actions?: ReactNode;
+  className?: string;
   children: ReactNode;
 }
 
-export function Card({ title, actions, children }: CardProps) {
+export function Card({ title, actions, className, children }: CardProps) {
   return (
-    <section className={styles.root}>
+    <section className={className ? `${styles.root} ${className}` : styles.root}>
       {(title || actions) && (
         <div className={styles.header}>
           {title && <h2 className={styles.title}>{title}</h2>}
