@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { authClient, authErrorMessage, VERIFIED_CALLBACK } from '../../auth/authClient';
@@ -30,10 +30,7 @@ export function Home() {
   // "list" → "leaving" (items slide out one by one) → "create" (form card); back on cancel.
   const [mode, setMode] = useState<'list' | 'leaving' | 'create'>('list');
   const [inset, setInset] = useState(0);
-  const [preview, setPreview] = useState<{ stage: GridStage | null; showCross: boolean }>({
-    stage: null,
-    showCross: true,
-  });
+  const [previewStage, setPreviewStage] = useState<GridStage | null>(null);
   const wide = useMediaQuery(FROM_TABLET);
   const columnRef = useRef<HTMLDivElement>(null);
   const email = session?.user.email ?? '';
@@ -61,9 +58,9 @@ export function Home() {
     setGrid(
       mode === 'list'
         ? { leftInset: inset }
-        : { leftInset: inset, view: 'top', stage: preview.stage, showCross: preview.showCross },
+        : { leftInset: inset, view: 'top', stage: previewStage },
     );
-  }, [mode, inset, preview, setGrid]);
+  }, [mode, inset, previewStage, setGrid]);
   useEffect(() => () => setGrid({}), [setGrid]);
 
   const unverified = Boolean(session && !session.user.emailVerified);
@@ -76,12 +73,8 @@ export function Home() {
   };
   const stopCreating = () => {
     setMode('list');
-    setPreview({ stage: null, showCross: true });
+    setPreviewStage(null);
   };
-  const previewStage = useCallback(
-    (stage: GridStage | null, showCross: boolean) => setPreview({ stage, showCross }),
-    [],
-  );
 
   // The confirmation link lands here with ?correo=confirmado.
   useEffect(() => {
@@ -120,7 +113,7 @@ export function Home() {
           groupId={activeGroup.id}
           onCancel={stopCreating}
           onCreated={(performance) => navigate(`/actuaciones/${performance.id}`)}
-          onStageChange={previewStage}
+          onStageChange={setPreviewStage}
         />
       )}
 

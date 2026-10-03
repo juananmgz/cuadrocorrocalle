@@ -1,24 +1,33 @@
-import { DEFAULT_SQUARE_SIZE, type Performance } from '@cuadrocorrocalle/shared';
-import { type FocusEvent, type FormEvent, useEffect, useRef, useState } from 'react';
+import {
+  DEFAULT_SQUARE_SIZE,
+  MAX_STAGE_SIZE,
+  MIN_EDGE_DISTANCE,
+  MIN_STAGE_DEPTH,
+  MIN_STAGE_WIDTH,
+  type Performance,
+} from '@cuadrocorrocalle/shared';
+import { type FormEvent, type InputEvent, useEffect, useState } from 'react';
 
 import type { GridStage } from '../../components/GridBackground/GridBackground';
 import { Button } from '../../components/ui/Button/Button';
 import { TextField } from '../../components/ui/TextField/TextField';
 import { usePerformanceMutations } from '../../performances/performancesApi';
+import { cleanDecimal, cleanInteger, cleanText } from '../../performances/sanitize';
 import styles from './CreatePerformanceCard.module.scss';
 
 interface StageValues {
   width: string;
   depth: string;
   squareSize: string;
+  edgeDistance: string;
 }
 
 interface CreatePerformanceCardProps {
   groupId: string;
   onCancel: () => void;
   onCreated: (performance: Performance) => void;
-  /** Reports the stage to preview on the grid and whether its centre cross is settled. */
-  onStageChange: (stage: GridStage | null, showCross: boolean) => void;
+  /** Reports the stage to preview on the grid. */
+  onStageChange: (stage: GridStage | null) => void;
 }
 
 const toNumber = (value: string) => {
@@ -26,15 +35,28 @@ const toNumber = (value: string) => {
   return value.trim() && Number.isFinite(number) && number > 0 ? number : null;
 };
 
+const edgeOf = (value: string) => Math.max(MIN_EDGE_DISTANCE, toNumber(value) ?? 0);
+
 /** Stage in grid squares, or null until both measures are valid. */
-function toStage({ width, depth, squareSize }: StageValues): GridStage | null {
+function toStage({ width, depth, squareSize, edgeDistance }: StageValues): GridStage | null {
   const w = toNumber(width);
   const d = toNumber(depth);
   const square = toNumber(squareSize) ?? DEFAULT_SQUARE_SIZE;
-  return w && d ? { cols: w / square, rows: d / square } : null;
+  return w && d
+    ? { cols: w / square, rows: d / square, edge: edgeOf(edgeDistance) / square }
+    : null;
 }
 
 const formatNumber = (value: string) => value.replace('.', ',');
+
+/** Filters what is typed in an uncontrolled field. */
+const filtered = (clean: (value: string) => string) => (event: InputEvent<HTMLInputElement>) => {
+  const input = event.currentTarget;
+  const value = clean(input.value);
+  if (value !== input.value) input.value = value;
+};
+const minutesField = filtered((value) => cleanInteger(value, 4));
+const textField = filtered(cleanText);
 
 /** "Crear actuación" on the home page, previewing the stage on the grid seen from above. */
 export function CreatePerformanceCard({
@@ -48,29 +70,45 @@ export function CreatePerformanceCard({
   const [stage, setStage] = useState<StageValues>({
     width: '10',
     depth: '8',
-    squareSize: String(DEFAULT_SQUARE_SIZE),
+    squareSize: formatNumber(String(DEFAULT_SQUARE_SIZE)),
+    edgeDistance: formatNumber(String(MIN_EDGE_DISTANCE)),
   });
-  // Values the centre cross was last calculated for; it hides while they differ.
+  // Values shown on the grid: they only change when a field loses focus, so typing "9" over "10"
+  // does not flash a 1 m stage.
   const [settled, setSettled] = useState<StageValues>(stage);
   const [scaleOpen, setScaleOpen] = useState(false);
-  const stageFields = useRef<HTMLFieldSetElement>(null);
-
-  const dirty =
-    stage.width !== settled.width ||
-    stage.depth !== settled.depth ||
-    stage.squareSize !== settled.squareSize;
 
   useEffect(() => {
-    onStageChange(toStage(stage), !dirty);
-  }, [stage, dirty, onStageChange]);
+    onStageChange(toStage(settled));
+  }, [settled, onStageChange]);
 
-  // The cross is recalculated once the focus leaves every stage field.
-  const leaveStageFields = (event: FocusEvent) => {
-    if (!stageFields.current?.contains(event.relatedTarget as Node | null)) setSettled(stage);
+  // Leaving a stage field applies it; values out of range go to the nearest limit
+  // (width 4 to 100 m, depth 2 to 100 m, edge 0,25 to 10 m).
+  const applyStage = () => {
+    const limit = (value: string, min: number, max: number, blank: string) => {
+      const number = toNumber(value);
+      if (number === null) return blank;
+      const fixed = Math.min(max, Math.max(min, number));
+      return fixed === number ? value : formatNumber(String(fixed));
+    };
+    const next = {
+      ...stage,
+      width: limit(stage.width, MIN_STAGE_WIDTH, MAX_STAGE_SIZE, ''),
+      depth: limit(stage.depth, MIN_STAGE_DEPTH, MAX_STAGE_SIZE, ''),
+      edgeDistance: formatNumber(
+        limit(stage.edgeDistance, MIN_EDGE_DISTANCE, 10, String(MIN_EDGE_DISTANCE)),
+      ),
+    };
+    setStage(next);
+    // Incomplete measures keep the previous preview.
+    if (toStage(next)) setSettled(next);
   };
 
-  const update = (field: keyof StageValues) => (event: { target: { value: string } }) =>
-    setStage((current) => ({ ...current, [field]: event.target.value }));
+  const update =
+    (field: keyof StageValues, clean: (value: string) => string) =>
+    (event: { target: { value: string } }) =>
+      setStage((current) => ({ ...current, [field]: clean(event.target.value) }));
+  const metres = (value: string) => cleanInteger(value, 3);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -88,6 +126,7 @@ export function CreatePerformanceCard({
         stageWidth: toNumber(stage.width),
         stageDepth: toNumber(stage.depth),
         squareSize: toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE,
+        edgeDistance: Math.min(10, edgeOf(stage.edgeDistance)),
       },
       { onSuccess: onCreated },
     );
@@ -101,51 +140,64 @@ export function CreatePerformanceCard({
         Nueva actuación
       </h2>
       <form className={styles.form} onSubmit={submit}>
-        <TextField label="Título" name="title" maxLength={120} required autoFocus />
-        <TextField label="Lugar" name="place" maxLength={120} />
+        <TextField
+          label="Título"
+          name="title"
+          maxLength={120}
+          required
+          autoFocus
+          onInput={textField}
+        />
+        <TextField label="Lugar (opcional)" name="place" maxLength={120} onInput={textField} />
         <TextField label="Fecha" name="date" type="date" />
         <div className={styles.pair}>
           <TextField
             label="Duración mínima"
             name="minMinutes"
-            type="number"
             inputMode="numeric"
-            min={1}
+            autoComplete="off"
+            onInput={minutesField}
             hint="Minutos"
           />
           <TextField
             label="Duración máxima"
             name="maxMinutes"
-            type="number"
             inputMode="numeric"
-            min={1}
+            autoComplete="off"
+            onInput={minutesField}
             hint="Minutos"
           />
         </div>
 
         <hr className={styles.divider} />
-        <fieldset className={styles.stage} ref={stageFields} onBlur={leaveStageFields}>
+        <fieldset className={styles.stage} onBlur={applyStage}>
           <legend className={styles.legend}>Escenario</legend>
           <div className={styles.pair}>
             <TextField
               label="Ancho (m)"
-              type="number"
-              inputMode="decimal"
-              min={1}
-              max={100}
-              step="any"
+              inputMode="numeric"
+              autoComplete="off"
               value={stage.width}
-              onChange={update('width')}
+              onChange={update('width', metres)}
+              hint="Mínimo 4 m"
             />
             <TextField
               label="Fondo (m)"
-              type="number"
-              inputMode="decimal"
-              min={1}
-              max={100}
-              step="any"
+              inputMode="numeric"
+              autoComplete="off"
               value={stage.depth}
-              onChange={update('depth')}
+              onChange={update('depth', metres)}
+              hint="Mínimo 2 m"
+            />
+          </div>
+          <div className={styles.pair}>
+            <TextField
+              label="Borde (m)"
+              inputMode="decimal"
+              autoComplete="off"
+              value={stage.edgeDistance}
+              onChange={update('edgeDistance', cleanDecimal)}
+              hint="Mínimo 0,25 m"
             />
           </div>
           <div className={styles.scaleNote}>
@@ -167,13 +219,10 @@ export function CreatePerformanceCard({
                 <span>1 cuadrado =</span>
                 <input
                   className={styles.scaleInput}
-                  type="number"
                   inputMode="decimal"
-                  min={0.1}
-                  max={10}
-                  step="any"
+                  autoComplete="off"
                   value={stage.squareSize}
-                  onChange={update('squareSize')}
+                  onChange={update('squareSize', cleanDecimal)}
                   tabIndex={scaleOpen ? 0 : -1}
                   aria-label="Metros por cuadrado"
                 />

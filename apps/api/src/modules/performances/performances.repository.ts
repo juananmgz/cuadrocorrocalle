@@ -12,6 +12,7 @@ export interface PerformanceRecord {
   stageWidth: number | null;
   stageDepth: number | null;
   squareSize: number;
+  edgeDistance: number;
   createdAt: Date;
 }
 
@@ -44,6 +45,7 @@ const FIELDS = {
   stageWidth: true,
   stageDepth: true,
   squareSize: true,
+  edgeDistance: true,
   createdAt: true,
 } as const;
 

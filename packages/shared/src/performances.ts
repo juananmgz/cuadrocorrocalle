@@ -16,10 +16,23 @@ const minutes = z
   .nullable()
   .optional();
 
-// Stage measures in metres; one grid square represents squareSize metres (1 by default).
-export const DEFAULT_SQUARE_SIZE = 1;
+// Stage measures in metres; one grid square represents squareSize metres (0.5 by default).
+export const DEFAULT_SQUARE_SIZE = 0.5;
+// Distance kept clear inside the stage edge, in metres: the default and the minimum.
+export const MIN_EDGE_DISTANCE = 0.25;
+// Smallest stage, in whole metres.
+export const MIN_STAGE_WIDTH = 4;
+export const MIN_STAGE_DEPTH = 2;
+export const MAX_STAGE_SIZE = 100;
 
-const metres = z.number().min(1, 'Al menos 1 m').max(100, 'Máximo 100 m').nullable().optional();
+const metres = (min: number) =>
+  z
+    .number()
+    .int('Escribe metros enteros')
+    .min(min, `Al menos ${min} m`)
+    .max(MAX_STAGE_SIZE, `Máximo ${MAX_STAGE_SIZE} m`)
+    .nullable()
+    .optional();
 
 const baseSchema = z.object({
   title: z.string().trim().min(1, 'Ponle un título').max(120, 'Máximo 120 caracteres'),
@@ -29,9 +42,14 @@ const baseSchema = z.object({
   minMinutes: minutes,
   maxMinutes: minutes,
   notes: optionalText(2000),
-  stageWidth: metres,
-  stageDepth: metres,
+  stageWidth: metres(MIN_STAGE_WIDTH),
+  stageDepth: metres(MIN_STAGE_DEPTH),
   squareSize: z.number().min(0.1, 'Mínimo 0,1 m').max(10, 'Máximo 10 m').optional(),
+  edgeDistance: z
+    .number()
+    .min(MIN_EDGE_DISTANCE, 'Mínimo 0,25 m')
+    .max(10, 'Máximo 10 m')
+    .optional(),
 });
 
 const durationOrder = (input: { minMinutes?: number | null; maxMinutes?: number | null }) =>
@@ -62,6 +80,7 @@ export const performanceSchema = z.object({
   stageWidth: z.number().nullable(),
   stageDepth: z.number().nullable(),
   squareSize: z.number(),
+  edgeDistance: z.number(),
   createdAt: z.string(),
 });
 export type Performance = z.infer<typeof performanceSchema>;
