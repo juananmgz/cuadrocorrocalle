@@ -4,14 +4,20 @@ import { useId } from 'react';
 import { PERSON_COLORS, type PersonColor } from '../personColors';
 import styles from './ColorPicker.module.scss';
 
+/** "?" swatch: a colour chosen at random when saving. */
+export const RANDOM_COLOR = 'random';
+export type ColorChoice = PersonColor | typeof RANDOM_COLOR;
+
 interface ColorPickerProps {
   label: string;
-  value?: PersonColor;
-  defaultValue?: PersonColor;
-  onValueChange?: (value: PersonColor) => void;
+  value?: ColorChoice;
+  defaultValue?: ColorChoice;
+  onValueChange?: (value: ColorChoice) => void;
+  /** Shows the random "?" swatch first. */
+  allowRandom?: boolean;
 }
 
-export function ColorPicker({ label, onValueChange, ...props }: ColorPickerProps) {
+export function ColorPicker({ label, onValueChange, allowRandom, ...props }: ColorPickerProps) {
   const labelId = useId();
 
   return (
@@ -23,9 +29,19 @@ export function ColorPicker({ label, onValueChange, ...props }: ColorPickerProps
         className={styles.group}
         aria-labelledby={labelId}
         orientation="horizontal"
-        onValueChange={(value) => onValueChange?.(value as PersonColor)}
+        onValueChange={(value) => onValueChange?.(value as ColorChoice)}
         {...props}
       >
+        {allowRandom && (
+          <RadioGroup.Item
+            value={RANDOM_COLOR}
+            className={`${styles.swatch} ${styles.random}`}
+            aria-label="Aleatorio"
+            title="Aleatorio"
+          >
+            ?
+          </RadioGroup.Item>
+        )}
         {PERSON_COLORS.map((color) => (
           <RadioGroup.Item
             key={color.id}

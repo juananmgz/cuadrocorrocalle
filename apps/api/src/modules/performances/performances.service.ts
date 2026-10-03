@@ -1,4 +1,5 @@
 import {
+  type CallUpEntry,
   type CreatePerformanceInput,
   DEFAULT_SQUARE_SIZE,
   MIN_EDGE_DISTANCE,
@@ -8,6 +9,8 @@ import {
 } from '@cuadrocorrocalle/shared';
 
 import type { GroupService } from '../groups/groups.service';
+import type { PersonRepository } from '../people/people.repository';
+import type { CallUpRepository } from './callUps.repository';
 import type {
   PerformanceChanges,
   PerformanceRecord,
@@ -47,7 +50,16 @@ function toChanges(input: UpdatePerformanceInput): PerformanceChanges {
 export type PerformanceResult<T> =
   { ok: true; value: T } | { ok: false; error: 'NOT_FOUND' | 'TRIAL_LIMIT' };
 
-export function createPerformanceService(repository: PerformanceRepository, groups: GroupService) {
+interface PerformanceServiceDependencies {
+  groups: GroupService;
+  people: PersonRepository;
+  callUps: CallUpRepository;
+}
+
+export function createPerformanceService(
+  repository: PerformanceRepository,
+  { groups, people, callUps }: PerformanceServiceDependencies,
+) {
   /** A performance whose group belongs to ownerId, or null. */
   async function findOwned(ownerId: string, id: string) {
     const performance = await repository.find(id);
@@ -138,7 +150,25 @@ export function createPerformanceService(repository: PerformanceRepository, grou
         edgeDistance,
         title: `Copia de ${performance.title}`.slice(0, 120),
       });
+      await callUps.replace(copy.id, await callUps.list(performance.id));
       return { ok: true, value: toPerformance(copy) };
+    },
+
+    async getCallUp(ownerId: string, id: string) {
+      const performance = await findOwned(ownerId, id);
+      return performance ? callUps.list(performance.id) : null;
+    },
+
+    /** Replaces the call-up; every person must belong to the performance's group. */
+    async setCallUp(ownerId: string, id: string, entries: CallUpEntry[]) {
+      const performance = await findOwned(ownerId, id);
+      if (!performance) return null;
+      const groupPeople = new Set(
+        (await people.listByGroup(performance.groupId)).map((person) => person.id),
+      );
+      if (entries.some((entry) => !groupPeople.has(entry.personId)))
+        return 'UNKNOWN_PERSON' as const;
+      return callUps.replace(performance.id, entries);
     },
 
     async delete(ownerId: string, id: string) {

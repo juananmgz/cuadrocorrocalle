@@ -8,6 +8,7 @@ import { createGroupService } from './modules/groups/groups.service';
 import { createPrismaPersonRepository } from './modules/people/people.repository';
 import { createPersonService } from './modules/people/people.service';
 import { createPrismaPerformanceRepository } from './modules/performances/performances.repository';
+import { createPrismaCallUpRepository } from './modules/performances/callUps.repository';
 import { createPerformanceService } from './modules/performances/performances.service';
 import { createBrevoMailer, createConsoleMailer, type SendEmail } from './modules/email/mailer';
 
@@ -33,13 +34,18 @@ const groups = database.prisma
   ? createGroupService(createPrismaGroupRepository(database.prisma))
   : undefined;
 
-const people = database.prisma
-  ? createPersonService(createPrismaPersonRepository(database.prisma))
+const personRepository = database.prisma
+  ? createPrismaPersonRepository(database.prisma)
   : undefined;
+const people = personRepository ? createPersonService(personRepository) : undefined;
 
 const performances =
-  database.prisma && groups
-    ? createPerformanceService(createPrismaPerformanceRepository(database.prisma), groups)
+  database.prisma && groups && personRepository
+    ? createPerformanceService(createPrismaPerformanceRepository(database.prisma), {
+        groups,
+        people: personRepository,
+        callUps: createPrismaCallUpRepository(database.prisma),
+      })
     : undefined;
 
 const auth =

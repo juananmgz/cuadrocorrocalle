@@ -11,13 +11,13 @@ import {
 } from '@cuadrocorrocalle/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { CONFIRMATION_MESSAGES } from '../auth/confirmation';
+
 const GROUPS_KEY = ['groups'];
 
 const DELETE_MESSAGES: Record<DeleteGroupError, string> = {
   TRIAL_GROUP: 'El Grupo de Prueba no se puede borrar.',
-  WRONG_PASSWORD: 'La contraseña no es correcta.',
-  WRONG_NAME: 'El nombre no coincide con el del grupo.',
-  TOO_MANY_ATTEMPTS: 'Demasiados intentos. Espera unos minutos y vuelve a probar.',
+  ...CONFIRMATION_MESSAGES,
 };
 
 async function request(init?: RequestInit, path = GROUPS_PATH) {

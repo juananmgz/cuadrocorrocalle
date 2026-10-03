@@ -12,21 +12,25 @@ Paso 1.8 (caso OA-05). Las medidas del escenario, el lado del público y la zona
 - **Cambio de tamaño:** al cambiar el ancho o el fondo, los cuadrados se añaden o se quitan por el medio (0,45 s): las dos mitades se separan o se juntan desde el centro, como placas tectónicas, y los cuadrados nuevos nacen en el centro mientras los que sobran se cierran y se desvanecen.
 - **Borde:** se dibuja dentro del escenario como otro rectángulo con borde discontinuo, a esa distancia de cada lado.
 - **Sin página de listado:** las actuaciones se ven y se crean desde el inicio; ya no existen `/actuaciones` ni el formulario emergente de crear. El inicio tendrá más adelante una opción para ver todas.
+- **Bloques en acordeón:** el formulario de crear tiene dos bloques, «Nueva actuación» (datos y escenario) y «Convocatoria». Solo uno está abierto; el cerrado muestra un resumen (título y medidas, o cuántos vienen) y se abre pulsando su título. Cada bloque acaba en «Continuar»: el de datos comprueba el título y abre la convocatoria; el de convocatoria la cierra. «Cancelar» y «Crear actuación» van abajo, centrados en el espacio libre, debajo de «PÚBLICO».
+- **Convocatoria** (paso 1.9): pestañas «Pegar», «Importar» (.txt, o la primera columna de un .csv) y «A mano». «Marcar en la convocatoria» (o elegir el fichero) relaciona cada nombre con una persona del grupo, la marca como «Viene» y pasa a «A mano» para revisarla. La relación no usa lista de apodos: ignora tildes, mayúsculas y signos y puntúa erratas, iniciales («M. Luisa») y apodos hechos con partes del nombre («Malú» = María Luisa). Las relaciones dudosas (parecido bajo, empate como dos «Pablo» o la misma persona dos veces) llevan la etiqueta amarilla «Revisar: «nombre pegado»». Los nombres que no están en el grupo salen arriba en rojo, con «Crear» y «No incluir» en cada uno y «Crear N miembros nuevos», y bloquean «Continuar» y «Crear actuación» hasta resolverlos; las personas creadas así entran como colaboradoras. En «A mano» se ve todo el grupo con «Viene», «No viene» y «Por confirmar» (pulsar otra vez lo quita). Aviso fijo: hay que revisar la convocatoria porque al pegar o importar puede haber nombres mal escritos.
 - **Datos:** título (obligatorio), lugar, fecha (solo el día), duración mínima y máxima en minutos (la mínima no puede superar la máxima) y notas.
-- **Ficha** (`/actuaciones/:id`): sus datos con «Editar», «Duplicar» (crea «Copia de …»; cuando existan, copiará también repertorio y convocatoria) y «Borrar» (pide una segunda pulsación y vuelve al inicio). «Editar» abre el formulario emergente de edición; «← Inicio» vuelve al inicio.
+- **Ficha** (`/actuaciones/:id`): sus datos con «Editar», «Duplicar» (crea «Copia de …» con la misma convocatoria; cuando exista, copiará también el repertorio) y «Borrar» (pide una segunda pulsación y vuelve al inicio). «Editar» abre el formulario emergente de edición; «← Inicio» vuelve al inicio.
 - **Grupo de Prueba:** admite una sola actuación; crear o duplicar otra responde `TRIAL_LIMIT`. El límite de 3 bailes llegará con el repertorio.
 
 ## API
 
 Módulo propio con el prefijo `/api/actuaciones`, como prevé la arquitectura (gestor de actuaciones separado del de cuentas).
 
-| Método | Ruta                              | Qué hace                                                                                 |
-| ------ | --------------------------------- | ---------------------------------------------------------------------------------------- |
-| GET    | `/api/actuaciones?grupo=:groupId` | Actuaciones del grupo                                                                    |
-| POST   | `/api/actuaciones`                | Crea una actuación `{ groupId, title, place?, date?, minMinutes?, maxMinutes?, notes? }` |
-| GET    | `/api/actuaciones/:id`            | Una actuación                                                                            |
-| PATCH  | `/api/actuaciones/:id`            | Cambia sus datos                                                                         |
-| POST   | `/api/actuaciones/:id/duplicar`   | La duplica                                                                               |
-| DELETE | `/api/actuaciones/:id`            | La borra                                                                                 |
+| Método | Ruta                                | Qué hace                                                                                 |
+| ------ | ----------------------------------- | ---------------------------------------------------------------------------------------- |
+| GET    | `/api/actuaciones?grupo=:groupId`   | Actuaciones del grupo                                                                    |
+| POST   | `/api/actuaciones`                  | Crea una actuación `{ groupId, title, place?, date?, minMinutes?, maxMinutes?, notes? }` |
+| GET    | `/api/actuaciones/:id`              | Una actuación                                                                            |
+| PATCH  | `/api/actuaciones/:id`              | Cambia sus datos                                                                         |
+| POST   | `/api/actuaciones/:id/duplicar`     | La duplica                                                                               |
+| DELETE | `/api/actuaciones/:id`              | La borra                                                                                 |
+| GET    | `/api/actuaciones/:id/convocatoria` | Convocatoria `{ entries: [{ personId, status }] }` con status `yes`, `no` o `maybe`      |
+| PUT    | `/api/actuaciones/:id/convocatoria` | La sustituye entera; las personas deben ser del grupo (400 si no)                        |
 
-Solo el propietario del grupo puede usarlas (404 si no). Los esquemas están en `packages/shared/src/performances.ts`.
+Solo el propietario del grupo puede usarlas (404 si no). Los esquemas están en `packages/shared/src/performances.ts` y `packages/shared/src/callUps.ts`.

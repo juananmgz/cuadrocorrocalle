@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { GROUPS_PATH } from './groups';
+import { confirmationSchema, GROUPS_PATH } from './groups';
 
 export const peoplePath = (groupId: string) => `${GROUPS_PATH}/${groupId}/personas`;
 
@@ -39,12 +39,26 @@ export const colorForIndex = (index: number): PersonColorId =>
 export const figureSchema = z.enum(['boy', 'girl']);
 export type Figure = z.infer<typeof figureSchema>;
 
+// Fixed members ("miembros") or occasional collaborators ("colaboradores").
+export const membershipSchema = z.enum(['member', 'collaborator']);
+export type Membership = z.infer<typeof membershipSchema>;
+export const MEMBERSHIP_LABELS = { member: 'Principal', collaborator: 'Colaborador' } as const;
+
+// What a person does in the group; a list so more roles can be added later.
+export const PERSON_ROLES = ['dance', 'music', 'singing'] as const;
+export const roleSchema = z.enum(PERSON_ROLES);
+export type PersonRole = z.infer<typeof roleSchema>;
+export const ROLE_LABELS = { dance: 'Baile', music: 'Música', singing: 'Canto' } as const;
+const rolesSchema = z.array(roleSchema).max(PERSON_ROLES.length);
+
 const nameSchema = z.string().trim().min(1, 'Escribe el nombre').max(80, 'Máximo 80 caracteres');
 
 export const createPersonSchema = z.object({
   name: nameSchema,
   figure: figureSchema.nullable().optional(),
   mainColor: personColorSchema.optional(),
+  membership: membershipSchema.optional(),
+  roles: rolesSchema.optional(),
   notes: z.string().trim().max(500, 'Máximo 500 caracteres').nullable().optional(),
 });
 export type CreatePersonInput = z.infer<typeof createPersonSchema>;
@@ -54,8 +68,22 @@ export type UpdatePersonInput = z.infer<typeof updatePersonSchema>;
 
 export const MAX_PASTED_NAMES = 200;
 
-export const pastePeopleSchema = z.object({
-  names: z.array(nameSchema).min(1, 'No hay nombres').max(MAX_PASTED_NAMES),
+/** A pasted name, alone or with its gender and roles. */
+const pastedPersonSchema = z.union([
+  nameSchema,
+  z.object({
+    name: nameSchema,
+    figure: figureSchema.nullable().optional(),
+    roles: rolesSchema.optional(),
+  }),
+]);
+export type PastedPerson = z.infer<typeof pastedPersonSchema>;
+
+export const pastePeopleSchema = confirmationSchema.extend({
+  names: z.array(pastedPersonSchema).min(1, 'No hay nombres').max(MAX_PASTED_NAMES),
+  /** Deletes everyone in the group first; needs the confirmation. */
+  replace: z.boolean().optional(),
+  membership: membershipSchema.optional(),
 });
 export type PastePeopleInput = z.infer<typeof pastePeopleSchema>;
 
@@ -64,6 +92,8 @@ export const personSchema = z.object({
   name: z.string(),
   figure: figureSchema.nullable(),
   mainColor: personColorSchema,
+  membership: membershipSchema,
+  roles: rolesSchema,
   notes: z.string().nullable(),
 });
 export type Person = z.infer<typeof personSchema>;

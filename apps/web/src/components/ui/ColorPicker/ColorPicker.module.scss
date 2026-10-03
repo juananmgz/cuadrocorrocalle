@@ -35,3 +35,13 @@
 .indicator {
   font-weight: 700;
 }
+
+// Random colour: a question mark on the page background.
+.random {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--ctl);
+  border-style: dashed;
+}

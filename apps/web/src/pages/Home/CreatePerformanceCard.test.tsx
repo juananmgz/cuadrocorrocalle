@@ -14,6 +14,7 @@ test('previews the stage when leaving each field', { timeout: 20_000 }, async ()
     <QueryClientProvider client={new QueryClient()}>
       <CreatePerformanceCard
         groupId="group-1"
+        inset={0}
         onCancel={() => {}}
         onCreated={() => {}}
         onStageChange={onStageChange}

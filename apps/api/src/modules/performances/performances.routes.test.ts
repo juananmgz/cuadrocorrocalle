@@ -1,4 +1,4 @@
-import { GROUPS_PATH, PERFORMANCES_PATH } from '@cuadrocorrocalle/shared';
+import { callUpPath, GROUPS_PATH, peoplePath, PERFORMANCES_PATH } from '@cuadrocorrocalle/shared';
 import { memoryAdapter } from 'better-auth/adapters/memory';
 import { expect, test } from 'vitest';
 
@@ -7,6 +7,9 @@ import type { Database } from '../../database/database';
 import { createAuth } from '../auth/auth';
 import { createMemoryGroupRepository } from '../groups/groups.repository';
 import { createGroupService } from '../groups/groups.service';
+import { createMemoryPersonRepository } from '../people/people.repository';
+import { createPersonService } from '../people/people.service';
+import { createMemoryCallUpRepository } from './callUps.repository';
 import { createMemoryPerformanceRepository } from './performances.repository';
 import { createPerformanceService } from './performances.service';
 
@@ -24,9 +27,20 @@ function buildTestApp() {
     onUserCreated: (userId) => groups.ensureTrialGroup(userId),
     checkLeakedPasswords: false,
   });
-  const performances = createPerformanceService(createMemoryPerformanceRepository(), groups);
+  const personRepository = createMemoryPersonRepository();
+  const performances = createPerformanceService(createMemoryPerformanceRepository(), {
+    groups,
+    people: personRepository,
+    callUps: createMemoryCallUpRepository(),
+  });
 
-  return buildApp({ database, auth, groups, performances });
+  return buildApp({
+    database,
+    auth,
+    groups,
+    people: createPersonService(personRepository),
+    performances,
+  });
 }
 
 type TestApp = ReturnType<typeof buildTestApp>;
@@ -224,4 +238,82 @@ test('validates durations and keeps performances private', async () => {
   expect(foreignList.statusCode).toBe(404);
   expect(anonymous.statusCode).toBe(401);
   await app.close();
+});
+
+test('saves the call-up of a performance and copies it when duplicating', async () => {
+  const app = buildTestApp();
+  const { cookie, group } = await signUp(app, 'callup@example.com');
+  const other = await signUp(app, 'other-callup@example.com');
+
+  const pasted = await app.inject({
+    method: 'POST',
+    url: `${peoplePath(group)}/lista`,
+    headers: { cookie },
+    payload: { names: ['Julia', 'Mario'], membership: 'collaborator' },
+  });
+  const [julia, mario] = pasted.json().people;
+  expect(julia.membership).toBe('collaborator');
+
+  const performance = (
+    await app.inject({
+      method: 'POST',
+      url: PERFORMANCES_PATH,
+      headers: { cookie },
+      payload: { groupId: group, title: 'Pasarón' },
+    })
+  ).json();
+
+  const entries = [
+    { personId: julia.id, status: 'yes' },
+    { personId: mario.id, status: 'maybe' },
+  ];
+  const saved = await app.inject({
+    method: 'PUT',
+    url: callUpPath(performance.id),
+    headers: { cookie },
+    payload: { entries },
+  });
+  expect(saved.json().entries).toEqual(entries);
+
+  const read = await app.inject({
+    method: 'GET',
+    url: callUpPath(performance.id),
+    headers: { cookie },
+  });
+  expect(read.json().entries).toEqual(entries);
+
+  // People from another group cannot be called up.
+  const stranger = (
+    await app.inject({
+      method: 'POST',
+      url: peoplePath(other.group),
+      headers: { cookie: other.cookie },
+      payload: { name: 'Ajena' },
+    })
+  ).json();
+  const wrong = await app.inject({
+    method: 'PUT',
+    url: callUpPath(performance.id),
+    headers: { cookie },
+    payload: { entries: [{ personId: stranger.id, status: 'yes' }] },
+  });
+  expect(wrong.statusCode).toBe(400);
+
+  // Nor can another user read it.
+  const foreign = await app.inject({
+    method: 'GET',
+    url: callUpPath(performance.id),
+    headers: { cookie: other.cookie },
+  });
+  expect(foreign.statusCode).toBe(404);
+
+  const copy = (
+    await app.inject({
+      method: 'POST',
+      url: `${PERFORMANCES_PATH}/${performance.id}/duplicar`,
+      headers: { cookie },
+    })
+  ).json();
+  const copied = await app.inject({ method: 'GET', url: callUpPath(copy.id), headers: { cookie } });
+  expect(copied.json().entries).toEqual(entries);
 });

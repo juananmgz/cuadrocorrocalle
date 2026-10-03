@@ -4,7 +4,6 @@
   @include mixins.panel;
 
   display: grid;
-  gap: var(--space-3);
   padding: var(--space-4);
   animation: enter 280ms ease-out both;
 
@@ -20,6 +19,19 @@
   }
 }
 
+// Both blocks of the form, one above the other.
+.stack {
+  display: grid;
+  gap: var(--space-3);
+
+  // Room for the action buttons fixed at the bottom on phones.
+  padding-bottom: 88px;
+
+  @include mixins.from-tablet {
+    padding-bottom: 0;
+  }
+}
+
 .title {
   @include mixins.heading;
 
@@ -27,9 +39,46 @@
   font-size: 1.75rem;
 }
 
+// The block title opens and closes it.
+.header {
+  width: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+
+  &::after {
+    float: right;
+    font-size: 1rem;
+    content: '▾';
+  }
+
+  &[aria-expanded='true']::after {
+    content: '▴';
+  }
+}
+
+.summary {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-soft);
+}
+
+.next {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .form {
   display: grid;
   gap: var(--space-3);
+
+  // Space under the block title; the gap would also show while the block is closed.
+  padding-top: var(--space-3);
 }
 
 .pair {
@@ -132,8 +181,11 @@
 }
 
 .actions {
+  position: fixed;
+  bottom: var(--space-4);
+  z-index: 3;
   display: flex;
-  flex-wrap: wrap;
   gap: var(--space-2);
-  justify-content: flex-end;
+  justify-content: center;
+  transform: translateX(-50%);
 }
