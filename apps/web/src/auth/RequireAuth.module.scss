@@ -1,0 +1,17 @@
+@use '../styles/mixins';
+
+// Shown instead of the sign-in page when the API does not answer.
+.offline {
+  @include mixins.popover;
+
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  width: min(100% - 2 * var(--space-4), 420px);
+  padding: var(--space-4);
+  margin: 20vh auto 0;
+
+  p {
+    margin: 0;
+  }
+}

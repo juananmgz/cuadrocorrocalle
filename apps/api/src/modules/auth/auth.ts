@@ -3,7 +3,7 @@ import type { BetterAuthOptions } from 'better-auth';
 import { haveIBeenPwned } from 'better-auth/plugins';
 
 import type { SendEmail } from '../email/mailer';
-import { resetPasswordMessage, verifyEmailMessage } from '../email/templates';
+import { changeEmailMessage, resetPasswordMessage, verifyEmailMessage } from '../email/templates';
 
 export const AUTH_BASE_PATH = '/api/auth';
 export const MIN_PASSWORD_LENGTH = 8;
@@ -24,6 +24,16 @@ interface AuthConfig {
   onUserCreated?: (userId: string) => Promise<unknown>;
   /** Rejects passwords found in known data breaches (needs internet access). */
   checkLeakedPasswords?: boolean;
+}
+
+/** Whether a verification token is for changing the email (its JWT payload has "updateTo"). */
+function isEmailChange(token: string) {
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString());
+    return Boolean(payload.updateTo);
+  } catch {
+    return false;
+  }
 }
 
 export function createAuth({
@@ -55,13 +65,21 @@ export function createAuth({
       autoSignInAfterVerification: true,
       // Confirmation links last 24 hours.
       expiresIn: 60 * 60 * 24,
-      sendVerificationEmail: ({ user, url }) => sendEmail(verifyEmailMessage(user, url)),
+      // The same link confirms a new account's email or a change of email (its token says which).
+      sendVerificationEmail: ({ user, url, token }) =>
+        sendEmail(
+          isEmailChange(token) ? changeEmailMessage(user, url) : verifyEmailMessage(user, url),
+        ),
     },
     socialProviders: google ? { google: { ...google, prompt: 'select_account' } } : undefined,
     // Google accounts link to an existing account with the same email only when that
     // account has confirmed its email (Better Auth's default), which blocks pre-registration takeovers.
     account: {
       accountLinking: { enabled: true },
+    },
+    // A new email is confirmed with a link sent to it; it changes once the link is opened.
+    user: {
+      changeEmail: { enabled: true },
     },
     session: {
       // Sessions last 30 days and renew once a day while in use.

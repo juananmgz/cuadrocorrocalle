@@ -2,6 +2,7 @@ import Fastify, { type FastifyServerOptions } from 'fastify';
 
 import type { Database } from './database/database';
 import type { Auth } from './modules/auth/auth';
+import { accountRoutes } from './modules/account/account.routes';
 import { authRoutes } from './modules/auth/auth.routes';
 import { groupRoutes } from './modules/groups/groups.routes';
 import type { GroupService } from './modules/groups/groups.service';
@@ -37,6 +38,7 @@ export function buildApp({
 
   app.register(healthRoutes, { database });
   app.register(authRoutes, { auth });
+  if (auth) app.register(accountRoutes, { auth });
   if (auth && groups) app.register(groupRoutes, { auth, groups });
   if (auth && groups && people) app.register(peopleRoutes, { auth, groups, people });
   if (auth && performances) app.register(performanceRoutes, { auth, performances });
