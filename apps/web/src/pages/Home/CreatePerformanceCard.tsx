@@ -1,6 +1,8 @@
 import {
   DEFAULT_SQUARE_SIZE,
-  MAX_STAGE_SIZE,
+  MAX_EDGE_DISTANCE,
+  MAX_STAGE_DEPTH,
+  MAX_STAGE_WIDTH,
   MIN_EDGE_DISTANCE,
   MIN_STAGE_DEPTH,
   MIN_STAGE_WIDTH,
@@ -153,7 +155,7 @@ export function CreatePerformanceCard({
   }, [settled, onStageChange]);
 
   // Leaving a stage field applies it; values out of range go to the nearest limit
-  // (width 4 to 100 m, depth 2 to 100 m, edge 0,25 to 10 m).
+  // (width 4 to 32 m, depth 2 to 20 m, edge 0,25 to 2 m).
   const applyStage = () => {
     const limit = (value: string, min: number, max: number, blank: string) => {
       const number = toNumber(value);
@@ -163,10 +165,10 @@ export function CreatePerformanceCard({
     };
     const next = {
       ...stage,
-      width: limit(stage.width, MIN_STAGE_WIDTH, MAX_STAGE_SIZE, ''),
-      depth: limit(stage.depth, MIN_STAGE_DEPTH, MAX_STAGE_SIZE, ''),
+      width: limit(stage.width, MIN_STAGE_WIDTH, MAX_STAGE_WIDTH, ''),
+      depth: limit(stage.depth, MIN_STAGE_DEPTH, MAX_STAGE_DEPTH, ''),
       edgeDistance: formatNumber(
-        limit(stage.edgeDistance, MIN_EDGE_DISTANCE, 10, String(MIN_EDGE_DISTANCE)),
+        limit(stage.edgeDistance, MIN_EDGE_DISTANCE, MAX_EDGE_DISTANCE, String(MIN_EDGE_DISTANCE)),
       ),
     };
     setStage(next);
@@ -208,7 +210,7 @@ export function CreatePerformanceCard({
         stageWidth: toNumber(stage.width),
         stageDepth: toNumber(stage.depth),
         squareSize: toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE,
-        edgeDistance: Math.min(10, edgeOf(stage.edgeDistance)),
+        edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(stage.edgeDistance)),
       });
       if (callUp.entries.length) await saveCallUp(performance.id, callUp.entries);
       onCreated(performance);
@@ -284,7 +286,7 @@ export function CreatePerformanceCard({
               autoComplete="off"
               value={stage.width}
               onChange={update('width', metres)}
-              hint="Mínimo 4 m"
+              hint="De 4 a 32 m"
             />
             <TextField
               label="Fondo (m)"
@@ -292,7 +294,7 @@ export function CreatePerformanceCard({
               autoComplete="off"
               value={stage.depth}
               onChange={update('depth', metres)}
-              hint="Mínimo 2 m"
+              hint="De 2 a 20 m"
             />
             <TextField
               label="Borde (m)"
@@ -300,7 +302,7 @@ export function CreatePerformanceCard({
               autoComplete="off"
               value={stage.edgeDistance}
               onChange={update('edgeDistance', cleanDecimal)}
-              hint="Mínimo 0,25 m"
+              hint="De 0,25 a 2 m"
             />
           </div>
           <div className={styles.scaleNote}>

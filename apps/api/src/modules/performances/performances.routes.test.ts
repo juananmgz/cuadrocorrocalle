@@ -205,7 +205,7 @@ test('validates durations and keeps performances private', async () => {
     headers: { cookie: owner.cookie },
     payload: { stageWidth: 500 },
   });
-  expect(hugeStage.json().message).toBe('Máximo 100 m');
+  expect(hugeStage.json().message).toBe('Máximo 32 m');
   const badStage = await app.inject({
     method: 'PATCH',
     url: `${PERFORMANCES_PATH}/${created.json().id}`,

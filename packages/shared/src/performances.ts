@@ -18,19 +18,21 @@ const minutes = z
 
 // Stage measures in metres; one grid square represents squareSize metres (0.5 by default).
 export const DEFAULT_SQUARE_SIZE = 0.5;
-// Distance kept clear inside the stage edge, in metres: the default and the minimum.
+// Distance kept clear inside the stage edge, in metres: the default and minimum, and the maximum.
 export const MIN_EDGE_DISTANCE = 0.25;
-// Smallest stage, in whole metres.
+export const MAX_EDGE_DISTANCE = 2;
+// Smallest and largest stage, in whole metres.
 export const MIN_STAGE_WIDTH = 4;
 export const MIN_STAGE_DEPTH = 2;
-export const MAX_STAGE_SIZE = 100;
+export const MAX_STAGE_WIDTH = 32;
+export const MAX_STAGE_DEPTH = 20;
 
-const metres = (min: number) =>
+const metres = (min: number, max: number) =>
   z
     .number()
     .int('Escribe metros enteros')
     .min(min, `Al menos ${min} m`)
-    .max(MAX_STAGE_SIZE, `Máximo ${MAX_STAGE_SIZE} m`)
+    .max(max, `Máximo ${max} m`)
     .nullable()
     .optional();
 
@@ -42,13 +44,13 @@ const baseSchema = z.object({
   minMinutes: minutes,
   maxMinutes: minutes,
   notes: optionalText(2000),
-  stageWidth: metres(MIN_STAGE_WIDTH),
-  stageDepth: metres(MIN_STAGE_DEPTH),
+  stageWidth: metres(MIN_STAGE_WIDTH, MAX_STAGE_WIDTH),
+  stageDepth: metres(MIN_STAGE_DEPTH, MAX_STAGE_DEPTH),
   squareSize: z.number().min(0.1, 'Mínimo 0,1 m').max(10, 'Máximo 10 m').optional(),
   edgeDistance: z
     .number()
     .min(MIN_EDGE_DISTANCE, 'Mínimo 0,25 m')
-    .max(10, 'Máximo 10 m')
+    .max(MAX_EDGE_DISTANCE, 'Máximo 2 m')
     .optional(),
 });
 
