@@ -6,11 +6,13 @@ import styles from './GoogleButton.module.scss';
 interface GoogleButtonProps {
   /** Where to land after signing in. */
   callbackURL: string;
+  /** Where a brand-new account goes instead, e.g. the guided start. */
+  newUserCallbackURL?: string;
   onError: (message: string) => void;
 }
 
 /** "Continuar con Google" following Google's branding guidelines (white button, colour logo). */
-export function GoogleButton({ callbackURL, onError }: GoogleButtonProps) {
+export function GoogleButton({ callbackURL, newUserCallbackURL, onError }: GoogleButtonProps) {
   const [pending, setPending] = useState(false);
 
   const signIn = async () => {
@@ -19,6 +21,7 @@ export function GoogleButton({ callbackURL, onError }: GoogleButtonProps) {
     const { error } = await authClient.signIn.social({
       provider: 'google',
       callbackURL,
+      newUserCallbackURL,
       errorCallbackURL: '/entrar',
     });
 

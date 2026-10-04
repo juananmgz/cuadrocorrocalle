@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 
 import { authClient, authErrorMessage, VERIFIED_CALLBACK } from '../../auth/authClient';
 import { useApp } from '../../components/AppLayout/appContext';
@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button/Button';
 import { useToast } from '../../components/ui/Toast/toastContext';
 import { formatDay, formatDuration } from '../../performances/format';
 import { usePerformances } from '../../performances/performancesApi';
+import type { CreateFromOnboarding } from '../Onboarding/Onboarding';
 import { PerformanceActions } from './PerformanceActions';
 import { PerformanceEditor } from './PerformanceEditor';
 import { useColumnInset } from './useColumnInset';
@@ -28,7 +29,13 @@ export function Home() {
   const { data: session } = authClient.useSession();
   const [resending, setResending] = useState(false);
   // "list" → "leaving" (items slide out one by one) → "create" (form card); back on cancel.
-  const [mode, setMode] = useState<'list' | 'leaving' | 'create'>('list');
+  // The guided start lands here with the first performance's title: the form opens with it.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [createTitle, setCreateTitle] = useState(
+    () => (location.state as CreateFromOnboarding | null)?.createTitle,
+  );
+  const [mode, setMode] = useState<'list' | 'leaving' | 'create'>(createTitle ? 'create' : 'list');
   const [previewStage, setPreviewStage] = useState<GridStage | null>(null);
   // Sign over the stage with the open piece, while editing the pieces.
   const [pieceLabel, setPieceLabel] = useState<string | null>(null);
@@ -71,7 +78,13 @@ export function Home() {
     setMode('list');
     setPreviewStage(null);
     setPieceLabel(null);
+    setCreateTitle(undefined);
   };
+
+  // The title is read once; then it is cleared from the history, so going back does not reopen it.
+  useEffect(() => {
+    if (createTitle) navigate('.', { replace: true, state: null });
+  }, [createTitle, navigate]);
 
   // The confirmation link lands here with ?correo=confirmado.
   useEffect(() => {
@@ -113,6 +126,7 @@ export function Home() {
       {mode === 'create' && activeGroup && (
         <PerformanceEditor
           groupId={activeGroup.id}
+          initialTitle={createTitle}
           onCancel={stopCreating}
           onFinish={stopCreating}
           onStageChange={setPreviewStage}
