@@ -30,6 +30,8 @@ Cómo se protegen las contraseñas y las sesiones (paso 1.2).
 - Las peticiones que cambian algo solo se aceptan desde el origen de la web (`trustedOrigins`), lo que frena el CSRF.
 - Los registros de la API (Fastify) guardan método, ruta y estado, nunca el cuerpo de la petición, así que la contraseña no aparece en ellos.
 
+- **Sin conexión con la API:** si al abrir una página privada la API no responde (caída o reinicio), la web no manda a «Entrar»: avisa «No hay conexión con el servidor. Tu sesión sigue abierta.» con «Reintentar», porque la sesión no se ha perdido.
+
 ## Correo (paso 1.3)
 
 - **Confirmar el correo:** al crear la cuenta se envía un enlace que caduca en 24 horas. Se puede usar la cuenta antes de confirmarlo; `/inicio` recuerda que falta y permite reenviarlo.
