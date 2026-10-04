@@ -5,7 +5,7 @@ services:
     plan: free
     region: frankfurt
     branch: main
-    buildCommand: npx --yes pnpm@12.8.1 install --frozen-lockfile && npx --yes pnpm@12.8.1 --filter @cuadrocorrocalle/api db:deploy
+    buildCommand: npx --yes pnpm@12.8.1 install --frozen-lockfile && npx --yes pnpm@12.8.1 --filter @cuadrocorrocalle/api db:generate && npx --yes pnpm@12.8.1 --filter @cuadrocorrocalle/api db:deploy
     startCommand: cd apps/api && node --import tsx src/server.ts
     healthCheckPath: /api/health
     envVars:

@@ -12,6 +12,12 @@ Qué commits entran en cada versión, con enlace a su pull request. Cada fase de
 
 Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 
+## v0.2.1 (en curso)
+
+| PR                                                                | Commit                                                                    | Cambio                                                       |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [CCC-0035](https://github.com/juananmgz/cuadrocorrocalle/pull/35) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/35/commits) | 🐛 Generate the Prisma client explicitly in the Render build |
+
 ## v0.2.0 · [Release #33](https://github.com/juananmgz/cuadrocorrocalle/pull/33)
 
 | PR                                                                | Commit                                                                    | Cambio                                                                                      |
