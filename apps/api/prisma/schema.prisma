@@ -178,6 +178,8 @@ model Piece {
   durationSeconds Int?            @map("duration_s")
   structure       String?
   optional        Boolean         @default(false)
+  // Encore ("bis"): kept ready in case the audience asks for more; not counted in the summary.
+  encore          Boolean         @default(false)
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
   participations  Participation[]

@@ -11,6 +11,8 @@ export interface PieceDraft {
   duration: string;
   structure: string;
   optional: boolean;
+  /** Encore ("bis"), not counted in the summary. */
+  encore: boolean;
   participants: Participant[];
 }
 
@@ -24,6 +26,7 @@ export const emptyDraft = (): PieceDraft => ({
   duration: '',
   structure: '',
   optional: false,
+  encore: false,
   participants: [],
 });
 
@@ -35,6 +38,7 @@ export const toDraft = (piece: Piece): PieceDraft => ({
   duration: formatClock(piece.durationSeconds) ?? '',
   structure: piece.structure ?? '',
   optional: piece.optional,
+  encore: piece.encore,
   participants: piece.participants,
 });
 
@@ -58,9 +62,6 @@ export const toPieceInput = (draft: PieceDraft): PieceInput => ({
   durationSeconds: draftSeconds(draft) || null,
   structure: draft.structure.trim() || null,
   optional: draft.optional,
+  encore: draft.encore,
   participants: draft.participants,
 });
-
-/** Total seconds of the repertoire, leaving out pieces without duration. */
-export const totalSeconds = (drafts: PieceDraft[]) =>
-  drafts.reduce((total, draft) => total + (draftSeconds(draft) ?? 0), 0);

@@ -19,6 +19,7 @@ const FIELDS = {
   durationSeconds: true,
   structure: true,
   optional: true,
+  encore: true,
   participations: {
     select: { personId: true, roles: true },
     orderBy: { personId: 'asc' },

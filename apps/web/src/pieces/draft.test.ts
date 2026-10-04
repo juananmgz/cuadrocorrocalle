@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { draftError, emptyDraft, toDraft, toPieceInput, totalSeconds } from './draft';
+import { draftError, emptyDraft, toDraft, toPieceInput } from './draft';
 
 test('turns pieces into drafts and back', () => {
   const draft = toDraft({
@@ -10,6 +10,7 @@ test('turns pieces into drafts and back', () => {
     durationSeconds: 210,
     structure: null,
     optional: true,
+    encore: false,
     participants: [],
   });
   expect(draft.duration).toBe('3:30');
@@ -20,20 +21,14 @@ test('turns pieces into drafts and back', () => {
     durationSeconds: 210,
     structure: null,
     optional: true,
+    encore: false,
     participants: [],
   });
 });
 
-test('checks drafts and adds up the repertoire', () => {
+test('checks drafts', () => {
   const blank = emptyDraft();
   expect(draftError(blank)).toBe('Ponle un título');
   expect(draftError({ ...blank, title: 'Ronda', duration: '2:99' })).toMatch(/Duración/);
   expect(draftError({ ...blank, title: 'Ronda', duration: '2:30' })).toBeNull();
-  expect(
-    totalSeconds([
-      { ...blank, duration: '2:30' },
-      { ...blank, duration: '' },
-      { ...blank, duration: '4' },
-    ]),
-  ).toBe(390);
 });

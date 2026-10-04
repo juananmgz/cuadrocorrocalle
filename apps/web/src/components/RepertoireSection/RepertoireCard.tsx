@@ -25,6 +25,9 @@ interface RepertoireCardProps {
   onFinish?: () => void;
   /** Both panels take the full height available, each scrolling on its own. */
   fill?: boolean;
+  /** Time available for the performance, for the summary. */
+  minMinutes?: number | null;
+  maxMinutes?: number | null;
 }
 
 /** Repertoire of a saved performance, saved on its own as it changes, with a people tray. */
@@ -33,6 +36,8 @@ export function RepertoireCard({
   onOpenPiece,
   onFinish,
   fill = false,
+  minMinutes = null,
+  maxMinutes = null,
 }: RepertoireCardProps) {
   const toast = useToast();
   const { activeGroup } = useApp();
@@ -134,6 +139,8 @@ export function RepertoireCard({
               people={people}
               openKey={openKey}
               onOpenKeyChange={setOpenKey}
+              minMinutes={minMinutes}
+              maxMinutes={maxMinutes}
             />
           )}
           {(status || onFinish) && (

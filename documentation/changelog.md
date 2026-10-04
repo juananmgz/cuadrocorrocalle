@@ -39,6 +39,7 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0027](https://github.com/juananmgz/cuadrocorrocalle/pull/27) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/27/commits) | ✨ Add the repertoire with ordered pieces, drag to reorder and a stage block (paso 1.10)    |
 | [CCC-0027](https://github.com/juananmgz/cuadrocorrocalle/pull/27) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/27/commits) | 💄 Polish the create form: editable title, required marks, Enter and cancel dialog          |
 | [CCC-0028](https://github.com/juananmgz/cuadrocorrocalle/pull/28) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/28/commits) | ✨ Choose who takes part in each piece and edit performances like creating them (paso 1.11) |
+| [CCC-0029](https://github.com/juananmgz/cuadrocorrocalle/pull/29) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/29/commits) | ✨ Add the repertoire summary and an encore list (paso 1.12)                                |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 

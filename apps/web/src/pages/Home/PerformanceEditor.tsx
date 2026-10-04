@@ -99,6 +99,8 @@ export function PerformanceEditor({
             <RepertoireCard
               performanceId={performance.id}
               fill
+              minMinutes={performance.minMinutes}
+              maxMinutes={performance.maxMinutes}
               onOpenPiece={(label) => view === 'pieces' && onPieceLabel(label)}
               onFinish={onFinish}
             />

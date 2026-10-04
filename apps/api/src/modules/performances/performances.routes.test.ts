@@ -355,12 +355,18 @@ test('saves the repertoire in order, keeps piece ids and copies it when duplicat
 
   const first = await save([
     { title: 'Jota de Pasarón', type: 'dance', durationSeconds: 210, structure: '3 coplas' },
-    { title: 'Ronda', type: 'song', optional: true },
+    { title: 'Ronda', type: 'song', optional: true, encore: true },
   ]);
   expect(first.statusCode).toBe(200);
   const [jota, ronda] = first.json().pieces;
   expect(jota).toMatchObject({ title: 'Jota de Pasarón', durationSeconds: 210, optional: false });
-  expect(ronda).toMatchObject({ structure: null, durationSeconds: null, optional: true });
+  expect(ronda).toMatchObject({
+    structure: null,
+    durationSeconds: null,
+    optional: true,
+    encore: true,
+  });
+  expect(jota.encore).toBe(false);
 
   // Reordering keeps the ids; a piece left out is deleted.
   const reordered = await save([{ ...ronda }, { ...jota, title: 'Jota' }]);
