@@ -18,6 +18,16 @@ flowchart LR
 - Rama `dev`: desarrollo en local (`apps/api/.env`, fuera de git).
 - Rama principal: producción. Sus dos cadenas de conexión (con `-pooler` y sin él) van en Render.
 
+### Administrador de la plataforma
+
+Ver `/status` y `/componentes` exige `isAdmin` en la tabla `user`. Nadie puede ponérselo desde la web: se marca a mano en el editor SQL de Neon, en cada rama (desarrollo y producción), y hay que repetirlo si se restaura o se copia la base de datos:
+
+```sql
+UPDATE "user" SET "isAdmin" = true WHERE "email" = '<correo del administrador>';
+```
+
+La cuenta tiene que existir antes (entrar una vez con ella). Tras el cambio, basta con recargar la web.
+
 ## Render (API)
 
 1. New > Blueprint y elegir el repositorio `juananmgz/cuadrocorrocalle`: Render lee `render.yaml`.

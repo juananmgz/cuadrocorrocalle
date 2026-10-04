@@ -1,0 +1,23 @@
+@use '../../styles/mixins';
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3rem);
+}
+
+.version {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.link {
+  justify-self: start;
+  font-weight: 700;
+  color: var(--accent);
+}

@@ -103,3 +103,19 @@ test('changing the email sends a confirmation to the new address', async () => {
   });
   await app.close();
 });
+
+test('users cannot make themselves administrators', async () => {
+  const db: MemoryDb = { user: [], session: [], account: [], verification: [] };
+  const app = buildTestApp(db);
+  const cookie = await signUp(app, 'not-admin@example.com');
+  expect(db.user[0]?.isAdmin).toBe(false);
+
+  await app.inject({
+    method: 'POST',
+    url: '/api/auth/update-user',
+    headers: { cookie, 'content-type': 'application/json', origin: BASE_URL },
+    payload: { name: 'Juanan', isAdmin: true },
+  });
+  expect(db.user[0]?.isAdmin).toBe(false);
+  await app.close();
+});
