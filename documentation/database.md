@@ -17,6 +17,7 @@ Migraciones:
 - `20261003123935_person_roles`: roles de cada persona (baile, música, canto…).
 - `20261004093000_pieces` (paso 1.10): repertorio de cada actuación, en orden.
 - `20261004193000_participations` (paso 1.11): quién sale en cada pieza y qué hace.
+- `20261004210000_piece_encore` (paso 1.12): piezas de bis, aparte del repertorio.
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -110,6 +111,7 @@ erDiagram
     int duration_s
     text structure
     boolean optional
+    boolean encore "bis"
   }
   pieces ||--o{ participations : "quién sale"
   call_ups ||--o{ participations : "solo convocados"

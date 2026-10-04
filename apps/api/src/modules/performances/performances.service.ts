@@ -215,6 +215,7 @@ export function createPerformanceService(
           durationSeconds: piece.durationSeconds ?? null,
           structure: piece.structure || null,
           optional: piece.optional ?? false,
+          encore: piece.encore ?? false,
           participants: (piece.participants ?? []).map((participant) => ({
             personId: participant.personId,
             roles: participant.roles,

@@ -4,7 +4,6 @@ import styles from './RequiredMark.module.scss';
 export function RequiredMark() {
   return (
     <span className={styles.root} title="Obligatorio">
-      {' '}
       (*)<span className={styles.srOnly}> obligatorio</span>
     </span>
   );

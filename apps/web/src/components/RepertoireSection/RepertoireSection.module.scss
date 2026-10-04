@@ -13,9 +13,18 @@
 .list {
   display: grid;
   gap: var(--space-2);
+
+  // Room to drop into an empty list.
+  min-height: 52px;
   padding: 0;
   margin: 0;
   list-style: none;
+  border-radius: var(--radius);
+
+  &[data-over] {
+    outline: var(--border-width) dashed var(--accent);
+    outline-offset: 4px;
+  }
 }
 
 .piece {
@@ -96,7 +105,8 @@
 
 .meta {
   display: flex;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
   align-items: center;
 }
 
@@ -272,6 +282,151 @@
   }
 }
 
+// Its content shrinks with the column instead of pushing it wider.
 .repertoireCard {
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
+}
+
+.emptyList {
+  display: grid;
+  place-items: center;
+  min-height: 52px;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+  border: var(--border-width) dashed var(--line);
+  border-radius: var(--radius);
+}
+
+.encores {
+  display: grid;
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid var(--line);
+  border-radius: var(--radius);
+
+  &[data-over] {
+    outline: var(--border-width) dashed var(--accent);
+    outline-offset: 4px;
+  }
+}
+
+.encoresTitle {
+  margin: 0;
+}
+
+// The title opens and closes the block, like the form blocks.
+.encoresToggle {
+  @include mixins.heading;
+
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  font-size: 1.125rem;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+
+  &::after {
+    margin-left: auto;
+    font-size: 0.875rem;
+    content: '▾';
+  }
+
+  &[aria-expanded='true']::after {
+    content: '▴';
+  }
+}
+
+.encoresTime {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--ink-soft);
+  text-transform: none;
+}
+
+// Accordion sweep: the block grows from 0 to its height.
+.accordion {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms ease;
+
+  &[data-open] {
+    grid-template-rows: 1fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.accordionInner {
+  display: grid;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow: hidden;
+
+  [data-open] > & {
+    padding-top: var(--space-1);
+  }
+}
+
+// Summary box: highlighted in blue when everything fits, yellow when there is any problem.
+.overview {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--sel-bg);
+  border: var(--border-width) solid var(--accent);
+  border-left-width: 6px;
+  border-radius: var(--radius);
+
+  &:not([data-status='ok']) {
+    background: var(--warn-bg);
+    border-color: var(--warn);
+  }
+}
+
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+
+  dt {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.summaryBlock {
+  display: grid;
+  gap: var(--space-1);
+}
+
+// Note under the box when the performance has no duration to compare with.
+.disclaimer {
+  margin: 0;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--warn);
+}
+
+.verdict {
+  margin: 0;
+  font-weight: 700;
 }

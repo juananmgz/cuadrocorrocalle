@@ -1,7 +1,11 @@
-// Same colour as the main call to action, so required fields stand out.
+// Small and raised, like a superscript, in the colour of the main call to action.
 .root {
+  font-size: 0.6em;
   font-weight: 700;
+  line-height: 0;
+  margin-left: 0.2em;
   color: var(--cta);
+  vertical-align: super;
 }
 
 .srOnly {

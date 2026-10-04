@@ -49,6 +49,7 @@ export const pieceInputSchema = z.object({
     .optional(),
   structure: z.string().trim().max(300, 'Máximo 300 caracteres').nullable().optional(),
   optional: z.boolean().optional(),
+  encore: z.boolean().optional(),
   participants: participantsSchema.optional(),
 });
 export type PieceInput = z.infer<typeof pieceInputSchema>;
@@ -72,6 +73,7 @@ export const pieceSchema = z.object({
   durationSeconds: z.number().nullable(),
   structure: z.string().nullable(),
   optional: z.boolean(),
+  encore: z.boolean(),
   participants: z.array(participantSchema),
 });
 export type Piece = z.infer<typeof pieceSchema>;
