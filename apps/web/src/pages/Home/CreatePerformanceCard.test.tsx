@@ -31,11 +31,12 @@ test('previews the stage when leaving each field', { timeout: 20_000 }, async ()
   await user.type(screen.getByLabelText('Ancho (m)'), '9,5e');
   await user.clear(screen.getByLabelText('Fondo (m)'));
   await user.type(screen.getByLabelText('Fondo (m)'), '6');
-  expect(screen.getByLabelText('Ancho (m)')).toHaveValue('95');
+  // Leaving the width applies it, capped at 32 m.
+  expect(screen.getByLabelText('Ancho (m)')).toHaveValue('32');
   await user.clear(screen.getByLabelText('Ancho (m)'));
   await user.type(screen.getByLabelText('Ancho (m)'), '9');
-  // Still typing the new width: the grid keeps the sizes applied on leaving each field (95 × 6 m).
-  expect(last()).toEqual([{ cols: 190, rows: 12, edge: 0.5 }]);
+  // Still typing the new width: the grid keeps the sizes applied on leaving each field (32 × 6 m).
+  expect(last()).toEqual([{ cols: 64, rows: 12, edge: 0.5 }]);
 
   await user.click(screen.getByLabelText('Lugar (opcional)'));
   expect(last()).toEqual([{ cols: 18, rows: 12, edge: 0.5 }]);
@@ -58,6 +59,20 @@ test('previews the stage when leaving each field', { timeout: 20_000 }, async ()
   await user.type(screen.getByLabelText('Borde (m)'), '0,1');
   await user.click(screen.getByLabelText('Lugar (opcional)'));
   expect(screen.getByLabelText('Borde (m)')).toHaveValue('0,25');
+  await user.clear(screen.getByLabelText('Borde (m)'));
+  await user.type(screen.getByLabelText('Borde (m)'), '1');
+  await user.click(screen.getByLabelText('Lugar (opcional)'));
+
+  // Nor can the depth go above 20 m or the edge above 2 m.
+  await user.clear(screen.getByLabelText('Fondo (m)'));
+  await user.type(screen.getByLabelText('Fondo (m)'), '25');
+  await user.clear(screen.getByLabelText('Borde (m)'));
+  await user.type(screen.getByLabelText('Borde (m)'), '3');
+  await user.click(screen.getByLabelText('Lugar (opcional)'));
+  expect(screen.getByLabelText('Fondo (m)')).toHaveValue('20');
+  expect(screen.getByLabelText('Borde (m)')).toHaveValue('2');
+  await user.clear(screen.getByLabelText('Fondo (m)'));
+  await user.type(screen.getByLabelText('Fondo (m)'), '6');
   await user.clear(screen.getByLabelText('Borde (m)'));
   await user.type(screen.getByLabelText('Borde (m)'), '1');
   await user.click(screen.getByLabelText('Lugar (opcional)'));
