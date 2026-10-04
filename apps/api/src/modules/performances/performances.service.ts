@@ -4,13 +4,16 @@ import {
   DEFAULT_SQUARE_SIZE,
   MIN_EDGE_DISTANCE,
   type Performance,
+  type PieceInput,
   TRIAL_PERFORMANCE_LIMIT,
+  TRIAL_PIECE_LIMIT,
   type UpdatePerformanceInput,
 } from '@cuadrocorrocalle/shared';
 
 import type { GroupService } from '../groups/groups.service';
 import type { PersonRepository } from '../people/people.repository';
 import type { CallUpRepository } from './callUps.repository';
+import type { PieceRepository } from './pieces.repository';
 import type {
   PerformanceChanges,
   PerformanceRecord,
@@ -54,11 +57,12 @@ interface PerformanceServiceDependencies {
   groups: GroupService;
   people: PersonRepository;
   callUps: CallUpRepository;
+  pieces: PieceRepository;
 }
 
 export function createPerformanceService(
   repository: PerformanceRepository,
-  { groups, people, callUps }: PerformanceServiceDependencies,
+  { groups, people, callUps, pieces }: PerformanceServiceDependencies,
 ) {
   /** A performance whose group belongs to ownerId, or null. */
   async function findOwned(ownerId: string, id: string) {
@@ -127,7 +131,7 @@ export function createPerformanceService(
       return toPerformance(await repository.update(id, toChanges(input)));
     },
 
-    /** Copies a performance as "Copia de …"; its pieces and call-up will be copied too once they exist. */
+    /** Copies a performance as "Copia de …", with its call-up and repertoire. */
     async duplicate(ownerId: string, id: string): Promise<PerformanceResult<Performance>> {
       const performance = await findOwned(ownerId, id);
       if (!performance) return { ok: false, error: 'NOT_FOUND' };
@@ -151,6 +155,11 @@ export function createPerformanceService(
         title: `Copia de ${performance.title}`.slice(0, 120),
       });
       await callUps.replace(copy.id, await callUps.list(performance.id));
+      const repertoire = await pieces.list(performance.id);
+      await pieces.replace(
+        copy.id,
+        repertoire.map((piece) => ({ ...piece, id: undefined })),
+      );
       return { ok: true, value: toPerformance(copy) };
     },
 
@@ -169,6 +178,35 @@ export function createPerformanceService(
       if (entries.some((entry) => !groupPeople.has(entry.personId)))
         return 'UNKNOWN_PERSON' as const;
       return callUps.replace(performance.id, entries);
+    },
+
+    async getRepertoire(ownerId: string, id: string) {
+      const performance = await findOwned(ownerId, id);
+      return performance ? pieces.list(performance.id) : null;
+    },
+
+    /** Replaces the repertoire in the given order; ids must be pieces of this performance. */
+    async setRepertoire(ownerId: string, id: string, input: PieceInput[]) {
+      const performance = await findOwned(ownerId, id);
+      if (!performance) return null;
+      const group = await groups.findOwned(ownerId, performance.groupId);
+      if (group?.isTrial && input.length > TRIAL_PIECE_LIMIT) return 'TRIAL_PIECE_LIMIT' as const;
+
+      const current = new Set((await pieces.list(performance.id)).map((piece) => piece.id));
+      if (input.some((piece) => piece.id && !current.has(piece.id)))
+        return 'UNKNOWN_PIECE' as const;
+
+      return pieces.replace(
+        performance.id,
+        input.map((piece) => ({
+          id: piece.id,
+          title: piece.title,
+          type: piece.type,
+          durationSeconds: piece.durationSeconds ?? null,
+          structure: piece.structure || null,
+          optional: piece.optional ?? false,
+        })),
+      );
     },
 
     async delete(ownerId: string, id: string) {

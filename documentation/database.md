@@ -15,6 +15,7 @@ Migraciones:
 - `20261002175748_stage_edge_distance`, `20261003094303_default_half_metre_square` y `20261003094432_default_quarter_metre_edge` (paso 1.8.1): borde del escenario, cuadrado de 0,5 m y borde de 0,25 m por defecto.
 - `20261003100841_call_ups` (paso 1.9): tipo de persona (miembro o colaborador) y convocatoria de cada actuación.
 - `20261003123935_person_roles`: roles de cada persona (baile, música, canto…).
+- `20261004093000_pieces` (paso 1.10): repertorio de cada actuación, en orden.
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -97,6 +98,17 @@ erDiagram
     text performance_id PK,FK
     text person_id PK,FK
     text status "yes, no o maybe"
+  }
+  performances ||--o{ pieces : "repertorio"
+  pieces {
+    text id PK
+    text performance_id FK
+    int position "orden, desde 0"
+    text title
+    text type "dance, song o recorded"
+    int duration_s
+    text structure
+    boolean optional
   }
   verification {
     text id PK
@@ -240,8 +252,9 @@ erDiagram
     text performance_id FK
     int position
     text title
-    text type "baile, canción, ambos"
+    text type "baile, canción, grabación"
     int duration_s
+    text structure
     boolean optional
     text audience_side "si cambia"
     text music_side "si cambia"

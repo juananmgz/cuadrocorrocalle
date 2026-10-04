@@ -13,11 +13,12 @@ Paso 1.8 (caso OA-05). Las medidas del escenario, el lado del público y la zona
 - **Borde:** se dibuja dentro del escenario como otro rectángulo con borde discontinuo, a esa distancia de cada lado.
 - **Sin página de listado:** las actuaciones se ven y se crean desde el inicio; ya no existen `/actuaciones` ni el formulario emergente de crear. El inicio tendrá más adelante una opción para ver todas.
 - **Ancho:** al crear, la columna izquierda pasa de 380 px a un tercio de la pantalla (como 4 de 12 columnas) y el centro de la cuadrícula se desliza con ella.
-- **Bloques en acordeón:** el formulario de crear tiene dos bloques, «Nueva actuación» (datos y escenario) y «Convocatoria». Solo uno está abierto; el cerrado muestra un resumen (título y medidas, o cuántos vienen) y se abre pulsando su título. Cada bloque acaba en «Continuar»: el de datos comprueba el título y abre la convocatoria; el de convocatoria la cierra. «Cancelar» y «Crear actuación» van abajo, centrados en el espacio libre, debajo de «PÚBLICO».
+- **Bloques en acordeón:** el formulario de crear tiene cuatro bloques: «Nueva actuación» (datos), «Escenario», «Convocatoria» y «Repertorio». Solo uno está abierto; los cerrados muestran un resumen (título, medidas, cuántos vienen o cuántas piezas) y se abre pulsando su título. Cada bloque acaba en «Continuar», que abre el siguiente; el de datos comprueba antes el título y el de repertorio cierra el bloque. «Cancelar» y «Crear actuación» van abajo, centrados en el espacio libre, debajo de «PÚBLICO».
 - **Convocatoria** (paso 1.9): arriba, «Importar» abre un diálogo para «Subir archivo» (.txt, o la primera columna de un .csv) o «Pegar texto»; quien aparece en la lista queda marcado como que viene. La relación no usa lista de apodos: ignora tildes, mayúsculas y signos y puntúa erratas, iniciales («M. Luisa») y apodos hechos con partes del nombre («Malú» = María Luisa). Las relaciones dudosas (parecido bajo, empate como dos «Pablo» o la misma persona dos veces) llevan la etiqueta amarilla «Revisar: «nombre importado»». Los nombres que no están en el grupo salen en rojo, con «Crear» y «No incluir» en cada uno y «Crear N miembros nuevos», y bloquean «Continuar» y «Crear actuación» hasta resolverlos; quienes se crean así entran como colaboradores y vienen. Debajo, las personas del grupo como fichas: un clic, viene (resaltada); dos, por confirmar (borde discontinuo); tres, se quita (no viene). Filtros «Rol», «Tipo» (principal o colaborador) y «Género», con todas las opciones marcadas al entrar; un filtro con opciones quitadas se resalta y muestra cuántas quedan. Arriba se ve cuántos vienen y cuántos están por confirmar.
+- **Repertorio** (paso 1.10): piezas en orden, cada una con título, tipo (baile, canción o voz en off / música enlatada), duración en minutos y segundos, estructura (texto libre) y si es opcional. Se reordenan arrastrando.
 - **Datos:** título (obligatorio), lugar, fecha (solo el día), duración mínima y máxima en minutos (la mínima no puede superar la máxima) y notas.
-- **Ficha** (`/actuaciones/:id`): sus datos con «Editar», «Duplicar» (crea «Copia de …» con la misma convocatoria; cuando exista, copiará también el repertorio) y «Borrar» (pide una segunda pulsación y vuelve al inicio). «Editar» abre el formulario emergente de edición; «← Inicio» vuelve al inicio.
-- **Grupo de Prueba:** admite una sola actuación; crear o duplicar otra responde `TRIAL_LIMIT`. El límite de 3 bailes llegará con el repertorio.
+- **Ficha** (`/actuaciones/:id`): sus datos con «Editar», «Duplicar» (crea «Copia de …» con la misma convocatoria y el mismo repertorio) y «Borrar» (pide una segunda pulsación y vuelve al inicio). «Editar» abre el formulario emergente de edición; «← Inicio» vuelve al inicio.
+- **Grupo de Prueba:** admite una sola actuación; crear o duplicar otra responde `TRIAL_LIMIT`. Su repertorio admite hasta 3 piezas; guardar más responde `TRIAL_PIECE_LIMIT`.
 
 ## API
 
@@ -30,8 +31,10 @@ Módulo propio con el prefijo `/api/actuaciones`, como prevé la arquitectura (g
 | GET    | `/api/actuaciones/:id`              | Una actuación                                                                            |
 | PATCH  | `/api/actuaciones/:id`              | Cambia sus datos                                                                         |
 | POST   | `/api/actuaciones/:id/duplicar`     | La duplica                                                                               |
+| GET    | `/api/actuaciones/:id/repertorio`   | Repertorio `{ pieces: [{ id, title, type, durationSeconds, structure, optional }] }`     |
+| PUT    | `/api/actuaciones/:id/repertorio`   | Lo sustituye en ese orden; las piezas sin `id` se crean y las que faltan se borran       |
 | DELETE | `/api/actuaciones/:id`              | La borra                                                                                 |
 | GET    | `/api/actuaciones/:id/convocatoria` | Convocatoria `{ entries: [{ personId, status }] }` con status `yes`, `no` o `maybe`      |
 | PUT    | `/api/actuaciones/:id/convocatoria` | La sustituye entera; las personas deben ser del grupo (400 si no)                        |
 
-Solo el propietario del grupo puede usarlas (404 si no). Los esquemas están en `packages/shared/src/performances.ts` y `packages/shared/src/callUps.ts`.
+Solo el propietario del grupo puede usarlas (404 si no). Los esquemas están en `packages/shared/src/performances.ts` y `packages/shared/src/callUps.ts` y `packages/shared/src/pieces.ts`.

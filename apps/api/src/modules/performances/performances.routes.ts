@@ -3,6 +3,8 @@ import {
   callUpSchema,
   createPerformanceSchema,
   PERFORMANCES_PATH,
+  repertoireInputSchema,
+  repertoirePath,
   type Schema,
   updatePerformanceSchema,
 } from '@cuadrocorrocalle/shared';
@@ -22,6 +24,11 @@ type IdParams = { Params: { id: string } };
 const TRIAL_LIMIT = {
   code: 'TRIAL_LIMIT',
   message: 'El Grupo de Prueba admite una sola actuación',
+};
+
+const TRIAL_PIECE_LIMIT = {
+  code: 'TRIAL_PIECE_LIMIT',
+  message: 'El Grupo de Prueba admite hasta 3 piezas',
 };
 
 /** Performances module, with its own /api/actuaciones prefix as the architecture plans. */
@@ -101,6 +108,27 @@ export async function performanceRoutes(
       return reply.status(400).send({ message: 'Alguna persona no es de este grupo' });
     }
     return entries ? { entries } : reply.status(404).send({ message: 'Performance not found' });
+  });
+
+  app.get<IdParams>(repertoirePath(':id'), async (request, reply) => {
+    const pieces = await performances.getRepertoire(request.userId!, request.params.id);
+    return pieces ? { pieces } : reply.status(404).send({ message: 'Performance not found' });
+  });
+
+  app.put<IdParams>(repertoirePath(':id'), async (request, reply) => {
+    const input = parse(repertoireInputSchema, request.body, reply);
+    if (!input) return reply;
+
+    const pieces = await performances.setRepertoire(
+      request.userId!,
+      request.params.id,
+      input.pieces,
+    );
+    if (pieces === 'TRIAL_PIECE_LIMIT') return reply.status(403).send(TRIAL_PIECE_LIMIT);
+    if (pieces === 'UNKNOWN_PIECE') {
+      return reply.status(400).send({ message: 'Alguna pieza no es de esta actuación' });
+    }
+    return pieces ? { pieces } : reply.status(404).send({ message: 'Performance not found' });
   });
 
   app.delete<IdParams>(`${PERFORMANCES_PATH}/:id`, async (request, reply) => {

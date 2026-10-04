@@ -111,6 +111,7 @@ export function Home() {
       {mode === 'create' && activeGroup && (
         <CreatePerformanceCard
           groupId={activeGroup.id}
+          isTrial={activeGroup.isTrial}
           inset={inset}
           onCancel={stopCreating}
           onCreated={(performance) => navigate(`/actuaciones/${performance.id}`)}

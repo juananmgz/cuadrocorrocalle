@@ -6,6 +6,7 @@ import {
   MIN_EDGE_DISTANCE,
   MIN_STAGE_DEPTH,
   MIN_STAGE_WIDTH,
+  TRIAL_PIECE_LIMIT,
   type CallUpEntry,
   type Performance,
 } from '@cuadrocorrocalle/shared';
@@ -20,11 +21,15 @@ import {
 } from 'react';
 
 import type { GridStage } from '../../components/GridBackground/GridBackground';
+import { RepertoireSection } from '../../components/RepertoireSection/RepertoireSection';
 import { Button } from '../../components/ui/Button/Button';
 import { TextField } from '../../components/ui/TextField/TextField';
 import { saveCallUp } from '../../callUps/callUpApi';
 import { usePerformanceMutations } from '../../performances/performancesApi';
 import { cleanDecimal, cleanInteger, cleanText } from '../../performances/sanitize';
+import { saveRepertoire } from '../../pieces/repertoireApi';
+import { formatClock } from '../../pieces/clock';
+import { draftError, type PieceDraft, toPieceInput, totalSeconds } from '../../pieces/draft';
 import { CallUpSection } from './CallUpSection';
 import styles from './CreatePerformanceCard.module.scss';
 
@@ -35,10 +40,12 @@ interface StageValues {
   edgeDistance: string;
 }
 
-type Step = 'data' | 'callUp';
+type Step = 'data' | 'stage' | 'callUp' | 'repertoire';
 
 interface CreatePerformanceCardProps {
   groupId: string;
+  /** The "Grupo de Prueba" allows up to TRIAL_PIECE_LIMIT pieces. */
+  isTrial?: boolean;
   /** Width covered on the left; the action buttons centre on the rest, under the stage. */
   inset: number;
   onCancel: () => void;
@@ -118,6 +125,7 @@ function StepPanel({ id, title, summary, open, onOpen, children }: StepPanelProp
 /** "Crear actuación" on the home page, previewing the stage on the grid seen from above. */
 export function CreatePerformanceCard({
   groupId,
+  isTrial,
   inset,
   onCancel,
   onCreated,
@@ -142,6 +150,7 @@ export function CreatePerformanceCard({
     entries: [],
     pending: false,
   });
+  const [pieces, setPieces] = useState<PieceDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
@@ -194,6 +203,11 @@ export function CreatePerformanceCard({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!checkTitle() || callUp.pending) return;
+    if (piecesInvalid) {
+      setStep('repertoire');
+      setSaveError('Revisa las piezas marcadas en rojo');
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const minutes = (name: string) => toNumber(String(form.get(name) ?? ''));
 
@@ -213,6 +227,7 @@ export function CreatePerformanceCard({
         edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(stage.edgeDistance)),
       });
       if (callUp.entries.length) await saveCallUp(performance.id, callUp.entries);
+      if (pieces.length) await saveRepertoire(performance.id, pieces.map(toPieceInput));
       onCreated(performance);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'No se ha podido crear');
@@ -222,10 +237,18 @@ export function CreatePerformanceCard({
 
   const square = formatNumber(String(toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE));
 
+  const piecesInvalid = pieces.some((piece) => draftError(piece));
+  const repertoireSummary = pieces.length
+    ? [
+        `${pieces.length} ${pieces.length === 1 ? 'pieza' : 'piezas'}`,
+        totalSeconds(pieces) > 0 && formatClock(totalSeconds(pieces)),
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : 'Sin repertorio todavía';
   const calledCount = callUp.entries.filter((entry) => entry.status === 'yes').length;
-  const dataSummary = [title.trim(), settled.width && `${settled.width} × ${settled.depth} m`]
-    .filter(Boolean)
-    .join(' · ');
+  const dataSummary = title.trim();
+  const stageSummary = settled.width ? `${settled.width} × ${settled.depth} m` : '';
   const callUpSummary = callUp.pending
     ? 'Faltan personas por crear'
     : callUp.entries.length
@@ -275,10 +298,21 @@ export function CreatePerformanceCard({
             hint="Minutos"
           />
         </div>
+        <div className={styles.next}>
+          <Button variant="primary" onClick={() => checkTitle() && setStep('stage')}>
+            Continuar
+          </Button>
+        </div>
+      </StepPanel>
 
-        <hr className={styles.divider} />
-        <fieldset className={styles.stage} onBlur={applyStage}>
-          <legend className={styles.legend}>Escenario</legend>
+      <StepPanel
+        id="stage"
+        title="Escenario"
+        summary={stageSummary}
+        open={step === 'stage'}
+        onOpen={() => setStep(step === 'stage' ? null : 'stage')}
+      >
+        <fieldset className={styles.stage} aria-labelledby="stage-title" onBlur={applyStage}>
           <div className={styles.triple}>
             <TextField
               label="Ancho (m)"
@@ -337,7 +371,7 @@ export function CreatePerformanceCard({
           </div>
         </fieldset>
         <div className={styles.next}>
-          <Button variant="primary" onClick={() => checkTitle() && setStep('callUp')}>
+          <Button variant="primary" onClick={() => setStep('callUp')}>
             Continuar
           </Button>
         </div>
@@ -352,7 +386,29 @@ export function CreatePerformanceCard({
       >
         <CallUpSection groupId={groupId} onChange={reportCallUp} />
         <div className={styles.next}>
-          <Button variant="primary" onClick={() => setStep(null)} disabled={callUp.pending}>
+          <Button variant="primary" onClick={() => setStep('repertoire')} disabled={callUp.pending}>
+            Continuar
+          </Button>
+        </div>
+      </StepPanel>
+
+      <StepPanel
+        id="repertoire"
+        title="Repertorio"
+        summary={repertoireSummary}
+        open={step === 'repertoire'}
+        onOpen={() => setStep(step === 'repertoire' ? null : 'repertoire')}
+      >
+        <RepertoireSection
+          pieces={pieces}
+          onChange={(next) => {
+            setPieces(next);
+            setSaveError('');
+          }}
+          limit={isTrial ? TRIAL_PIECE_LIMIT : undefined}
+        />
+        <div className={styles.next}>
+          <Button variant="primary" onClick={() => setStep(null)} disabled={piecesInvalid}>
             Continuar
           </Button>
         </div>

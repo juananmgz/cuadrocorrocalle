@@ -89,5 +89,5 @@ export type Performance = z.infer<typeof performanceSchema>;
 
 export const performanceListSchema = z.object({ performances: z.array(performanceSchema) });
 
-export const PERFORMANCE_ERRORS = ['TRIAL_LIMIT'] as const;
+export const PERFORMANCE_ERRORS = ['TRIAL_LIMIT', 'TRIAL_PIECE_LIMIT'] as const;
 export type PerformanceError = (typeof PERFORMANCE_ERRORS)[number];

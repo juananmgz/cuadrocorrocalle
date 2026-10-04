@@ -1,0 +1,175 @@
+@use '../../styles/mixins';
+
+.root {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.totals {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.piece {
+  position: relative;
+  background: var(--surface);
+  border: var(--border-width) solid var(--ctl);
+  border-radius: var(--radius);
+
+  &[data-dragging] {
+    z-index: 1;
+    border-color: var(--accent);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+
+  &[data-invalid] {
+    border-color: var(--danger);
+  }
+}
+
+.row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 52px;
+  padding-right: var(--space-3);
+}
+
+// Large touch target; dragging starts here so the page still scrolls elsewhere.
+.handle {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  width: 44px;
+  font-size: 1.25rem;
+  color: var(--ink-soft);
+  touch-action: none;
+  cursor: grab;
+  background: transparent;
+  border: 0;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:focus-visible {
+    outline: var(--border-width) solid var(--accent);
+    outline-offset: -4px;
+  }
+}
+
+.number {
+  min-width: 1.5em;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.summary {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: var(--space-2) 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.type,
+.optional {
+  padding: 0 var(--space-2);
+  font-size: 0.8125rem;
+  border: 1px solid var(--ctl);
+  border-radius: 999px;
+}
+
+.optional {
+  border-style: dashed;
+}
+
+.duration {
+  min-width: 3.5em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.fields {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+// Fields stay aligned to the top even when only one of them has a hint.
+.pair {
+  display: grid;
+  gap: var(--space-3);
+  align-items: start;
+
+  @include mixins.from-tablet {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.buttons {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.check {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+
+  input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+  }
+}
+
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.limit {
+  color: var(--ink-soft);
+}

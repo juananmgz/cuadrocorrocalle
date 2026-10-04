@@ -13,7 +13,7 @@ Decidido por Juanan el 2 de octubre de 2026. Se construye en la fase 5; hasta en
 ## Sin licencia: «Grupo de Prueba»
 
 - Toda cuenta nueva recibe un grupo llamado «Grupo de Prueba» (ya en el paso 1.5).
-- En él solo se puede montar 1 actuación con hasta 3 bailes. Para más, hay que activar una licencia. El límite de 1 actuación ya se aplica desde el paso 1.8; el de 3 bailes llega con el repertorio.
+- En él solo se puede montar 1 actuación con hasta 3 bailes. Para más, hay que activar una licencia. El límite de 1 actuación se aplica desde el paso 1.8 y el de 3 piezas desde el 1.10 (`TRIAL_PIECE_LIMIT`).
 
 ## Migrar una licencia a otro grupo
 

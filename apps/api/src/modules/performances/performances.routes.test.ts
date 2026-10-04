@@ -1,4 +1,10 @@
-import { callUpPath, GROUPS_PATH, peoplePath, PERFORMANCES_PATH } from '@cuadrocorrocalle/shared';
+import {
+  callUpPath,
+  GROUPS_PATH,
+  peoplePath,
+  PERFORMANCES_PATH,
+  repertoirePath,
+} from '@cuadrocorrocalle/shared';
 import { memoryAdapter } from 'better-auth/adapters/memory';
 import { expect, test } from 'vitest';
 
@@ -11,6 +17,7 @@ import { createMemoryPersonRepository } from '../people/people.repository';
 import { createPersonService } from '../people/people.service';
 import { createMemoryCallUpRepository } from './callUps.repository';
 import { createMemoryPerformanceRepository } from './performances.repository';
+import { createMemoryPieceRepository } from './pieces.repository';
 import { createPerformanceService } from './performances.service';
 
 const BASE_URL = 'http://localhost:5173';
@@ -32,6 +39,7 @@ function buildTestApp() {
     groups,
     people: personRepository,
     callUps: createMemoryCallUpRepository(),
+    pieces: createMemoryPieceRepository(),
   });
 
   return buildApp({
@@ -316,4 +324,98 @@ test('saves the call-up of a performance and copies it when duplicating', async 
   ).json();
   const copied = await app.inject({ method: 'GET', url: callUpPath(copy.id), headers: { cookie } });
   expect(copied.json().entries).toEqual(entries);
+});
+
+test('saves the repertoire in order, keeps piece ids and copies it when duplicating', async () => {
+  const app = buildTestApp();
+  const { cookie, group } = await signUp(app, 'repertoire@example.com');
+  const other = await signUp(app, 'other-repertoire@example.com');
+  const performance = (
+    await app.inject({
+      method: 'POST',
+      url: PERFORMANCES_PATH,
+      headers: { cookie },
+      payload: { groupId: group, title: 'Pasarón de la Vera' },
+    })
+  ).json();
+  const save = (pieces: unknown[], headers = { cookie }) =>
+    app.inject({
+      method: 'PUT',
+      url: repertoirePath(performance.id),
+      headers,
+      payload: { pieces },
+    });
+
+  const empty = await app.inject({
+    method: 'GET',
+    url: repertoirePath(performance.id),
+    headers: { cookie },
+  });
+  expect(empty.json().pieces).toEqual([]);
+
+  const first = await save([
+    { title: 'Jota de Pasarón', type: 'dance', durationSeconds: 210, structure: '3 coplas' },
+    { title: 'Ronda', type: 'song', optional: true },
+  ]);
+  expect(first.statusCode).toBe(200);
+  const [jota, ronda] = first.json().pieces;
+  expect(jota).toMatchObject({ title: 'Jota de Pasarón', durationSeconds: 210, optional: false });
+  expect(ronda).toMatchObject({ structure: null, durationSeconds: null, optional: true });
+
+  // Reordering keeps the ids; a piece left out is deleted.
+  const reordered = await save([{ ...ronda }, { ...jota, title: 'Jota' }]);
+  expect(reordered.json().pieces.map((piece: { id: string }) => piece.id)).toEqual([
+    ronda.id,
+    jota.id,
+  ]);
+  const trimmed = await save([jota]);
+  expect(trimmed.json().pieces).toHaveLength(1);
+
+  // Unknown ids, bad types and other users are refused.
+  expect((await save([{ id: 'nope', title: 'X', type: 'dance' }])).statusCode).toBe(400);
+  expect((await save([{ title: 'X', type: 'rap' }])).statusCode).toBe(400);
+  expect((await save([], { cookie: other.cookie })).statusCode).toBe(404);
+
+  const copy = (
+    await app.inject({
+      method: 'POST',
+      url: `${PERFORMANCES_PATH}/${performance.id}/duplicar`,
+      headers: { cookie },
+    })
+  ).json();
+  const copied = (
+    await app.inject({ method: 'GET', url: repertoirePath(copy.id), headers: { cookie } })
+  ).json().pieces;
+  expect(copied).toHaveLength(1);
+  expect(copied[0].title).toBe('Jota de Pasarón');
+  expect(copied[0].id).not.toBe(jota.id);
+  await app.close();
+});
+
+test('the "Grupo de Prueba" allows up to 3 pieces', async () => {
+  const app = buildTestApp();
+  const { cookie, trial } = await signUp(app, 'trial-pieces@example.com');
+  const performance = (
+    await app.inject({
+      method: 'POST',
+      url: PERFORMANCES_PATH,
+      headers: { cookie },
+      payload: { groupId: trial, title: 'Ensayo' },
+    })
+  ).json();
+  const save = (count: number) =>
+    app.inject({
+      method: 'PUT',
+      url: repertoirePath(performance.id),
+      headers: { cookie },
+      payload: {
+        pieces: Array.from({ length: count }, (_, i) => ({ title: `Baile ${i}`, type: 'dance' })),
+      },
+    });
+
+  expect((await save(3)).statusCode).toBe(200);
+  const fourth = await save(4);
+  expect(fourth.statusCode).toBe(403);
+  expect(fourth.json().code).toBe('TRIAL_PIECE_LIMIT');
+  await app.close();
 });
