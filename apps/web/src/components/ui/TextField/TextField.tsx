@@ -1,15 +1,18 @@
 import { Label } from 'radix-ui';
 import { type ComponentProps, useId } from 'react';
 
+import { RequiredMark } from '../RequiredMark/RequiredMark';
 import styles from './TextField.module.scss';
 
 interface TextFieldProps extends ComponentProps<'input'> {
   label: string;
   hint?: string;
   error?: string;
+  /** Shows "(*)" after the label. */
+  requiredMark?: boolean;
 }
 
-export function TextField({ label, hint, error, id, ...props }: TextFieldProps) {
+export function TextField({ label, hint, error, requiredMark, id, ...props }: TextFieldProps) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const messageId = `${inputId}-message`;
@@ -19,6 +22,7 @@ export function TextField({ label, hint, error, id, ...props }: TextFieldProps) 
     <div className={styles.root}>
       <Label.Root className={styles.label} htmlFor={inputId}>
         {label}
+        {requiredMark && <RequiredMark />}
       </Label.Root>
       <input
         id={inputId}

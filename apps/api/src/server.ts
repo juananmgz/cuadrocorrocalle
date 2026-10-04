@@ -9,6 +9,7 @@ import { createPrismaPersonRepository } from './modules/people/people.repository
 import { createPersonService } from './modules/people/people.service';
 import { createPrismaPerformanceRepository } from './modules/performances/performances.repository';
 import { createPrismaCallUpRepository } from './modules/performances/callUps.repository';
+import { createPrismaPieceRepository } from './modules/performances/pieces.repository';
 import { createPerformanceService } from './modules/performances/performances.service';
 import { createBrevoMailer, createConsoleMailer, type SendEmail } from './modules/email/mailer';
 
@@ -45,6 +46,7 @@ const performances =
         groups,
         people: personRepository,
         callUps: createPrismaCallUpRepository(database.prisma),
+        pieces: createPrismaPieceRepository(database.prisma),
       })
     : undefined;
 

@@ -7,6 +7,10 @@
   padding: var(--space-4);
   animation: enter 280ms ease-out both;
 
+  &[data-closed] {
+    cursor: pointer;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
@@ -23,13 +27,6 @@
 .stack {
   display: grid;
   gap: var(--space-3);
-
-  // Room for the action buttons fixed at the bottom on phones.
-  padding-bottom: 88px;
-
-  @include mixins.from-tablet {
-    padding-bottom: 0;
-  }
 }
 
 .title {
@@ -63,6 +60,76 @@
   }
 }
 
+.titleField {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.titleRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  max-width: 100%;
+  cursor: text;
+}
+
+// Input and hidden copy share one cell, so the field is as wide as its text.
+.titleBox {
+  display: inline-grid;
+  min-width: 0;
+}
+
+.titleSizer,
+.titleInput {
+  @include mixins.heading;
+
+  grid-area: 1 / 1;
+  min-width: 2ch;
+  padding: var(--space-2);
+  font-size: 2rem;
+  border: var(--border-width) solid transparent;
+}
+
+.titleSizer {
+  overflow: hidden;
+  white-space: pre;
+  visibility: hidden;
+}
+
+// The pencil hints that the title can be changed; it goes away once the field shows.
+.editIcon {
+  flex: none;
+  color: var(--ink-soft);
+  transition: opacity 150ms;
+
+  .titleRow:hover &,
+  .titleRow:focus-within & {
+    opacity: 0;
+  }
+}
+
+// Reads as a heading; the border only shows on hover and focus, like a document name.
+.titleInput {
+  width: 100%;
+  color: var(--ink);
+  background: transparent;
+  border-radius: var(--radius);
+
+  &:hover {
+    border-color: var(--ctl);
+  }
+
+  &:focus-visible {
+    background: var(--surface);
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  &[aria-invalid='true'] {
+    border-color: var(--danger);
+  }
+}
+
 .summary {
   margin: var(--space-2) 0 0;
   color: var(--ink-soft);
@@ -82,24 +149,18 @@
 }
 
 // Width, depth and border on one row.
+// Bottom-aligned, so the inputs line up even when a label with "(*)" wraps.
 .triple {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-2);
+  align-items: end;
 }
 
 .pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
-}
-
-// Line above the stage section; a separate element because browsers draw a fieldset's
-// border or background around its legend.
-.divider {
-  margin: var(--space-1) 0 0;
-  border: 0;
-  border-top: var(--border-width) solid var(--line);
 }
 
 .stage {
@@ -109,17 +170,6 @@
   padding: 0;
   margin: 0;
   border: 0;
-}
-
-// Section title: same style as the card title, a little smaller.
-.legend {
-  @include mixins.heading;
-
-  float: left;
-  font-size: 1.25rem;
-  width: 100%;
-  padding: 0;
-  margin-bottom: var(--space-3);
 }
 
 .scaleNote {
@@ -188,11 +238,28 @@
 }
 
 .actions {
-  position: fixed;
-  bottom: var(--space-4);
-  z-index: 3;
   display: flex;
   gap: var(--space-2);
-  justify-content: center;
-  transform: translateX(-50%);
+}
+
+.missing {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+// Main action: as tall as "Cancelar" but filling the row, in the colour opposite the group's grid.
+.actions .create[data-variant] {
+  flex: 1;
+  color: var(--on-cta);
+  background: var(--cta);
+  border-color: var(--cta);
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+
+  &:active:not(:disabled) {
+    filter: brightness(0.95);
+  }
 }

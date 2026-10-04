@@ -146,6 +146,7 @@ model Performance {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   callUps      CallUp[]
+  pieces       Piece[]
 
   @@index([groupId])
   @@map("performances")
@@ -162,4 +163,23 @@ model CallUp {
   @@id([performanceId, personId])
   @@index([personId])
   @@map("call_ups")
+}
+
+// A dance or song of a performance's repertoire (step 1.10), in order.
+model Piece {
+  id              String      @id @default(cuid())
+  performanceId   String      @map("performance_id")
+  performance     Performance @relation(fields: [performanceId], references: [id], onDelete: Cascade)
+  position        Int
+  title           String
+  // "dance", "song" or "recorded" (voice-over or recorded music).
+  type            String
+  durationSeconds Int?        @map("duration_s")
+  structure       String?
+  optional        Boolean     @default(false)
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  @@index([performanceId, position])
+  @@map("pieces")
 }

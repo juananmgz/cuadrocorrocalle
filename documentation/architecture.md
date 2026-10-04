@@ -6,8 +6,8 @@ La web habla solo con su propia dirección: en producción, una Pages Function r
 
 ```mermaid
 flowchart LR
-  U["Navegador: móvil, tablet, PC"] --> W["apps/web<br>Vite, React 19, React Router<br>tokens Tiza claro y oscuro (0.2)<br>componentes base sobre Radix (0.7)<br>selector de tema y 20 colores de persona (0.8)"]
-  W -->|"/api (Pages Function en producción, proxy de Vite en local)"| A["apps/api<br>Fastify, puerto 3000<br>GET /api/health: API y base de datos<br>/api/auth/*: Better Auth con email y contraseña (1.2)<br>confirmar correo y recuperar contraseña (1.3)<br>entrar con Google (1.4)<br>/api/cuentas/grupos: listar, crear y editar grupos (1.5), borrarlos (1.6)<br>…/:groupId/personas: personas del grupo (1.7)<br>/api/actuaciones: actuaciones (1.8)<br>personas y actuaciones (fase 1)"]
+  U["Navegador: móvil, tablet, PC"] --> W["apps/web<br>Vite, React 19, React Router<br>tokens Tiza claro y oscuro (0.2)<br>componentes base sobre Radix (0.7)<br>selector de tema y 20 colores de persona (0.8)<br>reordenar arrastrando con dnd-kit (1.10)"]
+  W -->|"/api (Pages Function en producción, proxy de Vite en local)"| A["apps/api<br>Fastify, puerto 3000<br>GET /api/health: API y base de datos<br>/api/auth/*: Better Auth con email y contraseña (1.2)<br>confirmar correo y recuperar contraseña (1.3)<br>entrar con Google (1.4)<br>/api/cuentas/grupos: listar, crear y editar grupos (1.5), borrarlos (1.6)<br>…/:groupId/personas: personas del grupo (1.7)<br>/api/actuaciones: actuaciones (1.8), convocatoria (1.9) y repertorio (1.10)<br>personas y actuaciones (fase 1)"]
   A --> D[("PostgreSQL en Neon<br>Prisma 7 con adaptador pg<br>rama dev para desarrollo (0.4)")]
   W -.->|"solo si se aceptan las cookies (1.1)"| GA["Google Analytics 4"]
   A -->|"correos de cuenta (1.3)"| BR["Brevo<br>API transaccional"]

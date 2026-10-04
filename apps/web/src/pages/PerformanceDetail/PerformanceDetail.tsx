@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { PerformanceDialog } from '../../components/PerformanceDialog/PerformanceDialog';
+import { RepertoireCard } from '../../components/RepertoireSection/RepertoireCard';
 import { Button } from '../../components/ui/Button/Button';
 import { Card } from '../../components/ui/Card/Card';
 import { useToast } from '../../components/ui/Toast/toastContext';
@@ -82,6 +83,7 @@ export function PerformanceDetail() {
           </Button>
         </div>
       </Card>
+      <RepertoireCard performanceId={performance.id} />
       <PerformanceDialog
         open={editing}
         onOpenChange={setEditing}

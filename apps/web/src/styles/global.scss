@@ -15,9 +15,11 @@
   @include tokens.tiza-dark;
 }
 
-// The active group's grid colour (set as data-grid on <html>) tints the grid lines.
+// The active group's grid colour (set as data-grid on <html>) tints the grid lines and picks
+// the opposite colour for the main call to action.
 :root {
   @include tokens.group-grid(1);
+  @include tokens.group-cta;
 }
 
 @media (prefers-color-scheme: dark) {
