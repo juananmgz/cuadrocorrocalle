@@ -173,3 +173,105 @@
 .limit {
   color: var(--ink-soft);
 }
+
+.peopleCount {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.participants {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.participantsTitle {
+  @include mixins.label;
+
+  margin: 0;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.participantList {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.participant {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.removePerson {
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  font: inherit;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  &:hover {
+    color: var(--danger);
+    background: var(--sel-bg);
+  }
+}
+
+.saveStatus {
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.finish {
+  margin-left: auto;
+}
+
+// Repertoire and people tray side by side (60 / 40) when the column is wide enough,
+// one under the other otherwise (phones, narrow windows).
+.workspace {
+  container-type: inline-size;
+}
+
+.workspaceGrid {
+  display: grid;
+  gap: var(--space-3);
+  align-items: start;
+
+  @container (min-width: 500px) {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+// Filling: both panels reach the bottom of the column and scroll inside (tablets and PCs).
+.workspace[data-fill] {
+  @include mixins.from-tablet {
+    height: 100%;
+
+    .workspaceGrid {
+      height: 100%;
+    }
+
+    @container (min-width: 500px) {
+      .workspaceGrid > * {
+        height: 100%;
+        max-height: none;
+        overflow: hidden auto;
+      }
+    }
+  }
+}
+
+.repertoireCard {
+  min-width: 0;
+}

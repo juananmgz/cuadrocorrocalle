@@ -16,6 +16,7 @@ Migraciones:
 - `20261003100841_call_ups` (paso 1.9): tipo de persona (miembro o colaborador) y convocatoria de cada actuación.
 - `20261003123935_person_roles`: roles de cada persona (baile, música, canto…).
 - `20261004093000_pieces` (paso 1.10): repertorio de cada actuación, en orden.
+- `20261004193000_participations` (paso 1.11): quién sale en cada pieza y qué hace.
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -109,6 +110,14 @@ erDiagram
     int duration_s
     text structure
     boolean optional
+  }
+  pieces ||--o{ participations : "quién sale"
+  call_ups ||--o{ participations : "solo convocados"
+  participations {
+    text piece_id PK,FK
+    text person_id PK,FK
+    text performance_id FK
+    text_array roles "dance, music, singing"
   }
   verification {
     text id PK
@@ -260,12 +269,10 @@ erDiagram
     text music_side "si cambia"
   }
   participations {
-    text id PK
-    text piece_id FK
+    text piece_id PK,FK
+    text person_id PK,FK
     text performance_id FK
-    text person_id FK
-    text role "baila, toca, canta"
-    text instrument
+    text_array roles "baila, toca, canta"
   }
   figures {
     text id PK

@@ -6,7 +6,6 @@ import {
   MIN_EDGE_DISTANCE,
   MIN_STAGE_DEPTH,
   MIN_STAGE_WIDTH,
-  TRIAL_PIECE_LIMIT,
   type CallUpEntry,
   type Performance,
 } from '@cuadrocorrocalle/shared';
@@ -22,18 +21,16 @@ import {
 } from 'react';
 
 import type { GridStage } from '../../components/GridBackground/GridBackground';
-import { RepertoireSection } from '../../components/RepertoireSection/RepertoireSection';
 import { Button } from '../../components/ui/Button/Button';
 import { Dialog, DialogClose } from '../../components/ui/Dialog/Dialog';
 import { RequiredMark } from '../../components/ui/RequiredMark/RequiredMark';
 import { TextField } from '../../components/ui/TextField/TextField';
-import { saveCallUp } from '../../callUps/callUpApi';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { callUpKey, saveCallUp } from '../../callUps/callUpApi';
 import { formatDay, formatDuration } from '../../performances/format';
 import { usePerformanceMutations } from '../../performances/performancesApi';
 import { cleanDecimal, cleanInteger, cleanText } from '../../performances/sanitize';
-import { saveRepertoire } from '../../pieces/repertoireApi';
-import { formatClock } from '../../pieces/clock';
-import { draftError, type PieceDraft, toPieceInput, totalSeconds } from '../../pieces/draft';
 import { CallUpSection } from './CallUpSection';
 import styles from './CreatePerformanceCard.module.scss';
 
@@ -44,13 +41,16 @@ interface StageValues {
   edgeDistance: string;
 }
 
-type Step = 'data' | 'stage' | 'callUp' | 'repertoire';
+type Step = 'data' | 'stage' | 'callUp';
 
 interface CreatePerformanceCardProps {
   groupId: string;
-  /** The "Grupo de Prueba" allows up to TRIAL_PIECE_LIMIT pieces. */
-  isTrial?: boolean;
+  /** The performance to edit; without it, a new one is created. */
+  performance?: Performance;
+  /** Its saved call-up, when editing. */
+  initialCallUp?: CallUpEntry[];
   onCancel: () => void;
+  /** Called with the performance once created or saved. */
   onCreated: (performance: Performance) => void;
   /** Reports the stage to preview on the grid. */
   onStageChange: (stage: GridStage | null) => void;
@@ -110,6 +110,8 @@ function nextFieldOnEnter(event: KeyboardEvent<HTMLFormElement>) {
 interface StepPanelProps {
   id: Step;
   title: string;
+  /** Marks the block with "(*)" when something in it must be filled in. */
+  required?: boolean;
   summary: string;
   open: boolean;
   onOpen: () => void;
@@ -117,7 +119,7 @@ interface StepPanelProps {
 }
 
 /** One block of the form; only one is open at a time, like an accordion. */
-function StepPanel({ id, title, summary, open, onOpen, children }: StepPanelProps) {
+function StepPanel({ id, title, required, summary, open, onOpen, children }: StepPanelProps) {
   return (
     // A closed block opens on a click anywhere on it; the title button keeps keyboard access.
     <section
@@ -139,6 +141,7 @@ function StepPanel({ id, title, summary, open, onOpen, children }: StepPanelProp
           }}
         >
           {title}
+          {required && <RequiredMark />}
         </button>
       </h2>
       {!open && summary && <p className={styles.summary}>{summary}</p>}
@@ -157,36 +160,46 @@ function StepPanel({ id, title, summary, open, onOpen, children }: StepPanelProp
   );
 }
 
-/** "Crear actuación" on the home page, previewing the stage on the grid seen from above. */
+/**
+ * Performance settings (data, stage and call-up), previewing the stage on the grid seen from above.
+ * Creates a new performance, or edits one with its data already filled in.
+ */
 export function CreatePerformanceCard({
   groupId,
-  isTrial,
+  performance,
+  initialCallUp,
   onCancel,
   onCreated,
   onStageChange,
 }: CreatePerformanceCardProps) {
-  const { create } = usePerformanceMutations();
-  // New performances start with a 10 × 8 m stage.
-  const [stage, setStage] = useState<StageValues>({
-    width: '10',
-    depth: '8',
-    squareSize: formatNumber(String(DEFAULT_SQUARE_SIZE)),
-    edgeDistance: formatNumber(String(MIN_EDGE_DISTANCE)),
-  });
+  const { create, update: updatePerformance } = usePerformanceMutations();
+  const queryClient = useQueryClient();
+  const editing = Boolean(performance);
+  // New performances start with a 10 × 8 m stage; an edited one shows its own.
+  const [stage, setStage] = useState<StageValues>(() => ({
+    width: String(performance?.stageWidth ?? (performance ? '' : 10)),
+    depth: String(performance?.stageDepth ?? (performance ? '' : 8)),
+    squareSize: formatNumber(String(performance?.squareSize ?? DEFAULT_SQUARE_SIZE)),
+    edgeDistance: formatNumber(String(performance?.edgeDistance ?? MIN_EDGE_DISTANCE)),
+  }));
   // Values shown on the grid: they only change when a field loses focus, so typing "9" over "10"
   // does not flash a 1 m stage.
   const [settled, setSettled] = useState<StageValues>(stage);
   const [scaleOpen, setScaleOpen] = useState(false);
   const [step, setStep] = useState<Step | null>('data');
-  const [title, setTitle] = useState(DEFAULT_TITLE);
+  const [title, setTitle] = useState(performance?.title ?? DEFAULT_TITLE);
   const [titleError, setTitleError] = useState('');
   // Data fields are uncontrolled; these copies only feed the closed block's summary.
-  const [info, setInfo] = useState<Record<string, string>>({});
+  const [info, setInfo] = useState<Record<string, string>>(() => ({
+    place: performance?.place ?? '',
+    date: performance?.date ?? '',
+    minMinutes: String(performance?.minMinutes ?? ''),
+    maxMinutes: String(performance?.maxMinutes ?? ''),
+  }));
   const [callUp, setCallUp] = useState<{ entries: CallUpEntry[]; pending: boolean }>({
-    entries: [],
+    entries: initialCallUp ?? [],
     pending: false,
   });
-  const [pieces, setPieces] = useState<PieceDraft[]>([]);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -239,56 +252,46 @@ export function CreatePerformanceCard({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!checkTitle() || missing.length) return;
-    if (piecesInvalid) {
-      setStep('repertoire');
-      setSaveError('Revisa las piezas marcadas en rojo');
-      return;
-    }
     const form = new FormData(event.currentTarget);
     const minutes = (name: string) => toNumber(String(form.get(name) ?? ''));
 
     setSaving(true);
     setSaveError('');
+    const values = {
+      title,
+      place: String(form.get('place')),
+      date: String(form.get('date')) || null,
+      minMinutes: minutes('minMinutes'),
+      maxMinutes: minutes('maxMinutes'),
+      stageWidth: toNumber(stage.width),
+      stageDepth: toNumber(stage.depth),
+      squareSize: toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE,
+      edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(stage.edgeDistance)),
+    };
     try {
-      const performance = await create.mutateAsync({
-        groupId,
-        title,
-        place: String(form.get('place')),
-        date: String(form.get('date')) || null,
-        minMinutes: minutes('minMinutes'),
-        maxMinutes: minutes('maxMinutes'),
-        stageWidth: toNumber(stage.width),
-        stageDepth: toNumber(stage.depth),
-        squareSize: toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE,
-        edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(stage.edgeDistance)),
-      });
-      if (callUp.entries.length) await saveCallUp(performance.id, callUp.entries);
-      if (pieces.length) await saveRepertoire(performance.id, pieces.map(toPieceInput));
-      onCreated(performance);
+      const saved = performance
+        ? await updatePerformance.mutateAsync({ id: performance.id, ...values })
+        : await create.mutateAsync({ groupId, ...values });
+      await saveCallUp(saved.id, callUp.entries);
+      await queryClient.invalidateQueries({ queryKey: callUpKey(saved.id) });
+      setSaving(false);
+      onCreated(saved);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'No se ha podido crear');
+      setSaveError(error instanceof Error ? error.message : 'No se ha podido guardar');
       setSaving(false);
     }
   };
 
   const square = formatNumber(String(toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE));
 
-  const piecesInvalid = pieces.some((piece) => draftError(piece));
-  const repertoireSummary = pieces.length
-    ? [
-        `${pieces.length} ${pieces.length === 1 ? 'pieza' : 'piezas'}`,
-        totalSeconds(pieces) > 0 && formatClock(totalSeconds(pieces)),
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : 'Sin repertorio todavía';
   // What still has to be filled in before creating; the button stays blocked until it is empty.
   const missing = [
     // The default "Nueva actuación" does not count: the performance needs its own name.
     (!title.trim() || title.trim() === DEFAULT_TITLE) && 'ponerle título',
     !toNumber(stage.width) && 'el ancho del escenario',
     !toNumber(stage.depth) && 'el fondo del escenario',
-    piecesInvalid && 'las piezas marcadas en rojo',
+    // Someone has to come, or at least may come.
+    !callUp.entries.some((entry) => entry.status !== 'no') && 'convocar al menos a una persona',
     callUp.pending && 'las personas de la convocatoria por crear',
   ].filter(Boolean);
   const calledCount = callUp.entries.filter((entry) => entry.status === 'yes').length;
@@ -331,6 +334,8 @@ export function CreatePerformanceCard({
               ref={titleRef}
               className={styles.titleInput}
               aria-label="Título de la actuación"
+              // When creating, the title is the first thing to fill in; focusing selects it.
+              autoFocus={!editing}
               size={1}
               aria-invalid={titleError ? true : undefined}
               aria-describedby={titleError ? 'title-error' : undefined}
@@ -383,14 +388,15 @@ export function CreatePerformanceCard({
           label="Lugar (opcional)"
           name="place"
           maxLength={120}
-          autoFocus
+          defaultValue={performance?.place ?? ''}
           onInput={textField}
         />
-        <TextField label="Fecha" name="date" type="date" />
+        <TextField label="Fecha" name="date" type="date" defaultValue={performance?.date ?? ''} />
         <div className={styles.pair}>
           <TextField
             label="Duración mínima"
             name="minMinutes"
+            defaultValue={performance?.minMinutes ?? ''}
             inputMode="numeric"
             autoComplete="off"
             onInput={minutesField}
@@ -399,6 +405,7 @@ export function CreatePerformanceCard({
           <TextField
             label="Duración máxima"
             name="maxMinutes"
+            defaultValue={performance?.maxMinutes ?? ''}
             inputMode="numeric"
             autoComplete="off"
             onInput={minutesField}
@@ -489,35 +496,14 @@ export function CreatePerformanceCard({
       <StepPanel
         id="callUp"
         title="Convocatoria"
+        required
         summary={callUpSummary}
         open={step === 'callUp'}
         onOpen={() => setStep(step === 'callUp' ? null : 'callUp')}
       >
-        <CallUpSection groupId={groupId} onChange={reportCallUp} />
+        <CallUpSection groupId={groupId} initial={initialCallUp} onChange={reportCallUp} />
         <div className={styles.next}>
-          <Button variant="primary" onClick={() => setStep('repertoire')} disabled={callUp.pending}>
-            Continuar
-          </Button>
-        </div>
-      </StepPanel>
-
-      <StepPanel
-        id="repertoire"
-        title="Repertorio"
-        summary={repertoireSummary}
-        open={step === 'repertoire'}
-        onOpen={() => setStep(step === 'repertoire' ? null : 'repertoire')}
-      >
-        <RepertoireSection
-          pieces={pieces}
-          onChange={(next) => {
-            setPieces(next);
-            setSaveError('');
-          }}
-          limit={isTrial ? TRIAL_PIECE_LIMIT : undefined}
-        />
-        <div className={styles.next}>
-          <Button variant="primary" onClick={() => setStep(null)} disabled={piecesInvalid}>
+          <Button variant="primary" onClick={() => setStep(null)} disabled={callUp.pending}>
             Continuar
           </Button>
         </div>
@@ -528,7 +514,7 @@ export function CreatePerformanceCard({
           {saveError}
         </p>
       )}
-      {/* Under the last block; leaving asks first because nothing is saved until created. */}
+      {/* Under the last block; leaving asks first because nothing is saved until then. */}
       <div className={styles.actions}>
         <Button onClick={() => setConfirmingCancel(true)}>Cancelar</Button>
         <Button
@@ -538,7 +524,13 @@ export function CreatePerformanceCard({
           disabled={saving || missing.length > 0}
           title={missing.length ? `Falta: ${missing.join(', ')}` : undefined}
         >
-          {saving ? 'Creando…' : 'Crear actuación'}
+          {editing
+            ? saving
+              ? 'Guardando…'
+              : 'Guardar cambios'
+            : saving
+              ? 'Creando…'
+              : 'Crear actuación'}
         </Button>
       </div>
       {missing.length > 0 && (
@@ -549,7 +541,7 @@ export function CreatePerformanceCard({
       <Dialog
         open={confirmingCancel}
         onOpenChange={setConfirmingCancel}
-        title="¿Salir sin crear la actuación?"
+        title={editing ? '¿Salir sin guardar los cambios?' : '¿Salir sin crear la actuación?'}
         description="Los cambios no se guardarán. ¿Quieres continuar?"
         footer={
           <>

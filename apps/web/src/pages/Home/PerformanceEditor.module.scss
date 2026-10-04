@@ -1,0 +1,82 @@
+@use '../../styles/mixins';
+
+// On tablets and PCs the editor fills the column height: the switch on top and the view below,
+// which scrolls on its own.
+.root {
+  display: grid;
+  gap: var(--space-3);
+
+  @include mixins.from-tablet {
+    grid-template-rows: auto minmax(0, 1fr);
+
+    // Same height as the fixed column: below the top bar and its margins.
+    height: calc(100vh - 56px - 2 * var(--space-4));
+  }
+}
+
+// "Actuación" / "Piezas", like two halves of one button.
+.switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: var(--border-width) solid var(--ink);
+  border-radius: var(--radius);
+}
+
+.option {
+  @include mixins.heading;
+
+  min-height: 40px;
+  font-size: 1.125rem;
+  color: var(--ink);
+  cursor: pointer;
+  background: var(--surface);
+  border: 0;
+
+  & + & {
+    border-left: var(--border-width) solid var(--ink);
+  }
+
+  &[aria-pressed='true'] {
+    color: var(--on-accent);
+    background: var(--accent);
+  }
+
+  &:hover:not(:disabled, [aria-pressed='true']) {
+    background: var(--sel-bg);
+  }
+
+  &:disabled {
+    color: var(--ctl);
+    cursor: not-allowed;
+  }
+}
+
+.view {
+  min-height: 0;
+
+  @include mixins.from-tablet {
+    overflow-y: auto;
+  }
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.pieces {
+  display: grid;
+  gap: var(--space-3);
+
+  @include mixins.from-tablet {
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+  }
+}
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: 2rem;
+  overflow-wrap: anywhere;
+}

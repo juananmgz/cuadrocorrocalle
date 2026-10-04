@@ -125,6 +125,9 @@ export async function performanceRoutes(
       input.pieces,
     );
     if (pieces === 'TRIAL_PIECE_LIMIT') return reply.status(403).send(TRIAL_PIECE_LIMIT);
+    if (pieces === 'NOT_CALLED_UP') {
+      return reply.status(400).send({ message: 'Alguna persona no está convocada' });
+    }
     if (pieces === 'UNKNOWN_PIECE') {
       return reply.status(400).send({ message: 'Alguna pieza no es de esta actuación' });
     }

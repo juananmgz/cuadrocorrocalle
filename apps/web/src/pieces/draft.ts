@@ -1,4 +1,4 @@
-import type { Piece, PieceInput, PieceType } from '@cuadrocorrocalle/shared';
+import type { Participant, Piece, PieceInput, PieceType } from '@cuadrocorrocalle/shared';
 
 import { formatClock, parseClock } from './clock';
 
@@ -11,6 +11,7 @@ export interface PieceDraft {
   duration: string;
   structure: string;
   optional: boolean;
+  participants: Participant[];
 }
 
 let lastKey = 0;
@@ -23,6 +24,7 @@ export const emptyDraft = (): PieceDraft => ({
   duration: '',
   structure: '',
   optional: false,
+  participants: [],
 });
 
 export const toDraft = (piece: Piece): PieceDraft => ({
@@ -33,6 +35,7 @@ export const toDraft = (piece: Piece): PieceDraft => ({
   duration: formatClock(piece.durationSeconds) ?? '',
   structure: piece.structure ?? '',
   optional: piece.optional,
+  participants: piece.participants,
 });
 
 /** Seconds of a draft, or null when blank or invalid. */
@@ -55,6 +58,7 @@ export const toPieceInput = (draft: PieceDraft): PieceInput => ({
   durationSeconds: draftSeconds(draft) || null,
   structure: draft.structure.trim() || null,
   optional: draft.optional,
+  participants: draft.participants,
 });
 
 /** Total seconds of the repertoire, leaving out pieces without duration. */

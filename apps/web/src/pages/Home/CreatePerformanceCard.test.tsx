@@ -101,6 +101,9 @@ test('asks before leaving without creating, and Enter does not create', async ()
     </QueryClientProvider>,
   );
 
+  // The title gets the focus first.
+  expect(screen.getByLabelText('Título de la actuación')).toHaveFocus();
+
   // Enter applies the field and moves on to the next one.
   await user.type(screen.getByLabelText('Lugar (opcional)'), 'Plaza Mayor{Enter}');
   expect(screen.getByLabelText('Fecha')).toHaveFocus();
@@ -112,10 +115,12 @@ test('asks before leaving without creating, and Enter does not create', async ()
   expect(screen.getByText(/Falta ponerle título/)).toBeInTheDocument();
   await user.clear(screen.getByLabelText('Título de la actuación'));
   await user.type(screen.getByLabelText('Título de la actuación'), 'Pasarón de la Vera');
-  expect(create).toBeEnabled();
-  await user.clear(screen.getByLabelText(/^Ancho/));
+  expect(screen.queryByText(/ponerle título/)).not.toBeInTheDocument();
+  // Nobody called up yet: it cannot be created either.
+  expect(screen.getByText(/Falta convocar al menos a una persona/)).toBeInTheDocument();
   expect(create).toBeDisabled();
-  expect(screen.getByText(/Falta el ancho del escenario/)).toBeInTheDocument();
+  await user.clear(screen.getByLabelText(/^Ancho/));
+  expect(screen.getByText(/el ancho del escenario/)).toBeInTheDocument();
 
   await user.click(screen.getByRole('button', { name: 'Cancelar' }));
   expect(screen.getByText('Los cambios no se guardarán. ¿Quieres continuar?')).toBeInTheDocument();

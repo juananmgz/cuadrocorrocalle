@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { roleSchema } from './people';
 import { PERFORMANCES_PATH } from './performances';
 
 export const repertoirePath = (performanceId: string) =>
@@ -19,6 +20,21 @@ export const PIECE_TYPE_LABELS = {
   recorded: 'Voz en off / Música enlatada',
 } as const;
 
+/** Someone who takes part in a piece and what they do in it (step 1.11). */
+export const participantSchema = z.object({
+  personId: z.string().min(1),
+  roles: z.array(roleSchema).max(3),
+});
+export type Participant = z.infer<typeof participantSchema>;
+
+const participantsSchema = z
+  .array(participantSchema)
+  .max(500)
+  .refine(
+    (people) => new Set(people.map((person) => person.personId)).size === people.length,
+    'Hay personas repetidas en una pieza',
+  );
+
 /** One piece as sent by the web; pieces without id are new. */
 export const pieceInputSchema = z.object({
   id: z.string().min(1).optional(),
@@ -33,6 +49,7 @@ export const pieceInputSchema = z.object({
     .optional(),
   structure: z.string().trim().max(300, 'Máximo 300 caracteres').nullable().optional(),
   optional: z.boolean().optional(),
+  participants: participantsSchema.optional(),
 });
 export type PieceInput = z.infer<typeof pieceInputSchema>;
 
@@ -55,6 +72,7 @@ export const pieceSchema = z.object({
   durationSeconds: z.number().nullable(),
   structure: z.string().nullable(),
   optional: z.boolean(),
+  participants: z.array(participantSchema),
 });
 export type Piece = z.infer<typeof pieceSchema>;
 

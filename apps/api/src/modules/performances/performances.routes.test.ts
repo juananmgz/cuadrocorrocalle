@@ -419,3 +419,65 @@ test('the "Grupo de Prueba" allows up to 3 pieces', async () => {
   expect(fourth.json().code).toBe('TRIAL_PIECE_LIMIT');
   await app.close();
 });
+
+test('lets only people who come or may come take part in a piece', async () => {
+  const app = buildTestApp();
+  const { cookie, group } = await signUp(app, 'participants@example.com');
+  const [julia, mario, lucia] = (
+    await app.inject({
+      method: 'POST',
+      url: `${peoplePath(group)}/lista`,
+      headers: { cookie },
+      payload: { names: ['Julia', 'Mario', 'Lucía'] },
+    })
+  ).json().people;
+  const performance = (
+    await app.inject({
+      method: 'POST',
+      url: PERFORMANCES_PATH,
+      headers: { cookie },
+      payload: { groupId: group, title: 'Pasarón de la Vera' },
+    })
+  ).json();
+  await app.inject({
+    method: 'PUT',
+    url: callUpPath(performance.id),
+    headers: { cookie },
+    payload: {
+      entries: [
+        { personId: julia.id, status: 'yes' },
+        { personId: mario.id, status: 'no' },
+        { personId: lucia.id, status: 'maybe' },
+      ],
+    },
+  });
+  const save = (participants: unknown[]) =>
+    app.inject({
+      method: 'PUT',
+      url: repertoirePath(performance.id),
+      headers: { cookie },
+      payload: { pieces: [{ title: 'Jota', type: 'dance', participants }] },
+    });
+
+  const saved = await save([
+    { personId: julia.id, roles: ['dance'] },
+    { personId: lucia.id, roles: ['music', 'singing'] },
+  ]);
+  expect(saved.statusCode).toBe(200);
+  expect(saved.json().pieces[0].participants).toEqual([
+    { personId: julia.id, roles: ['dance'] },
+    { personId: lucia.id, roles: ['music', 'singing'] },
+  ]);
+
+  // Mario does not come, so he cannot take part; nor can the same person twice.
+  expect((await save([{ personId: mario.id, roles: ['dance'] }])).statusCode).toBe(400);
+  expect(
+    (
+      await save([
+        { personId: julia.id, roles: ['dance'] },
+        { personId: julia.id, roles: ['singing'] },
+      ])
+    ).statusCode,
+  ).toBe(400);
+  await app.close();
+});

@@ -16,12 +16,15 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { PIECE_TYPE_LABELS, type PieceType } from '@cuadrocorrocalle/shared';
-import { useState } from 'react';
+import { type Participant, PIECE_TYPE_LABELS, type PieceType } from '@cuadrocorrocalle/shared';
+import { useMemo, useState } from 'react';
 
 import { formatClock } from '../../pieces/clock';
 import { draftError, emptyDraft, type PieceDraft, totalSeconds } from '../../pieces/draft';
 import { cleanText } from '../../performances/sanitize';
+import type { TrayPerson } from '../PeopleTray/PeopleTray';
+import { RoleToggles } from '../PersonFields/PersonFields';
+import { PersonChip } from '../ui/PersonChip/PersonChip';
 import { Button } from '../ui/Button/Button';
 import { Select } from '../ui/Select/Select';
 import { TextField } from '../ui/TextField/TextField';
@@ -41,6 +44,11 @@ interface RepertoireSectionProps {
   limit?: number;
   /** Called after "Guardar" closes a piece, e.g. to store the repertoire. */
   onSave?: () => void;
+  /** Called-up people; when given, each piece lists who takes part in it. */
+  people?: TrayPerson[];
+  /** Open piece, when someone else (e.g. the people tray) needs to know it. */
+  openKey?: string | null;
+  onOpenKeyChange?: (key: string | null) => void;
 }
 
 interface PieceRowProps {
@@ -51,10 +59,72 @@ interface PieceRowProps {
   onChange: (draft: PieceDraft) => void;
   onRemove: () => void;
   onSave: () => void;
+  people?: Map<string, TrayPerson>;
+}
+
+interface ParticipantsProps {
+  participants: Participant[];
+  people: Map<string, TrayPerson>;
+  onChange: (participants: Participant[]) => void;
+}
+
+/** Who takes part in a piece and what each one does. */
+function Participants({ participants, people, onChange }: ParticipantsProps) {
+  const set = (personId: string, changes: Partial<Participant>) =>
+    onChange(
+      participants.map((participant) =>
+        participant.personId === personId ? { ...participant, ...changes } : participant,
+      ),
+    );
+
+  return (
+    <div className={styles.participants}>
+      <p className={styles.participantsTitle}>Quién sale ({participants.length})</p>
+      {participants.length === 0 && (
+        <p className={styles.hint}>Elige a las personas en la bandeja de personas.</p>
+      )}
+      <ul className={styles.participantList}>
+        {participants.map((participant) => {
+          const person = people.get(participant.personId);
+          if (!person) return null;
+          return (
+            <li key={participant.personId} className={styles.participant}>
+              <PersonChip name={person.name} color={person.mainColor} />
+              <RoleToggles
+                compact
+                label={`Qué hace ${person.name}`}
+                value={participant.roles}
+                onChange={(roles) => set(participant.personId, { roles })}
+              />
+              <button
+                type="button"
+                className={styles.removePerson}
+                aria-label={`Sacar a ${person.name} de la pieza`}
+                onClick={() =>
+                  onChange(participants.filter((item) => item.personId !== participant.personId))
+                }
+              >
+                ✕
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 /** One piece: a summary row that can be dragged, opening into its fields. */
-function PieceRow({ draft, index, open, onToggle, onChange, onRemove, onSave }: PieceRowProps) {
+function PieceRow({
+  draft,
+  index,
+  open,
+  onToggle,
+  onChange,
+  onRemove,
+  onSave,
+  people,
+}: PieceRowProps) {
   const {
     attributes,
     listeners,
@@ -100,6 +170,12 @@ function PieceRow({ draft, index, open, onToggle, onChange, onRemove, onSave }: 
               {PIECE_TYPE_LABELS[draft.type]}
             </span>
             {draft.optional && <span className={styles.optional}>Opcional</span>}
+            {people && (
+              <span className={styles.peopleCount}>
+                {draft.participants.length}{' '}
+                {draft.participants.length === 1 ? 'persona' : 'personas'}
+              </span>
+            )}
             <span className={styles.duration}>{draft.duration || '—'}</span>
           </span>
         </button>
@@ -140,6 +216,13 @@ function PieceRow({ draft, index, open, onToggle, onChange, onRemove, onSave }: 
             value={draft.structure}
             onChange={(event) => set({ structure: cleanText(event.target.value) })}
           />
+          {people && (
+            <Participants
+              participants={draft.participants}
+              people={people}
+              onChange={(participants) => set({ participants })}
+            />
+          )}
           <div className={styles.footer}>
             <label className={styles.check}>
               <input
@@ -165,8 +248,24 @@ function PieceRow({ draft, index, open, onToggle, onChange, onRemove, onSave }: 
 }
 
 /** The repertoire of a performance: pieces in order, reordered by dragging. */
-export function RepertoireSection({ pieces, onChange, limit, onSave }: RepertoireSectionProps) {
-  const [openKey, setOpenKey] = useState<string | null>(null);
+export function RepertoireSection({
+  pieces,
+  onChange,
+  limit,
+  onSave,
+  people,
+  openKey: controlledKey,
+  onOpenKeyChange,
+}: RepertoireSectionProps) {
+  const [ownKey, setOwnKey] = useState<string | null>(null);
+  const openKey = controlledKey !== undefined ? controlledKey : ownKey;
+  const setOpenKey = onOpenKeyChange ?? setOwnKey;
+  const peopleById = useMemo(
+    () => (people ? new Map(people.map((person) => [person.id, person])) : undefined),
+    [people],
+  );
+  const updatePiece = (next: PieceDraft) =>
+    onChange(pieces.map((piece) => (piece.key === next.key ? next : piece)));
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } }),
@@ -212,9 +311,8 @@ export function RepertoireSection({ pieces, onChange, limit, onSave }: Repertoir
                 index={index}
                 open={openKey === draft.key}
                 onToggle={() => setOpenKey(openKey === draft.key ? null : draft.key)}
-                onChange={(next) =>
-                  onChange(pieces.map((piece) => (piece.key === next.key ? next : piece)))
-                }
+                onChange={updatePiece}
+                people={peopleById}
                 onRemove={() => onChange(pieces.filter((piece) => piece.key !== draft.key))}
                 onSave={() => {
                   setOpenKey(null);
