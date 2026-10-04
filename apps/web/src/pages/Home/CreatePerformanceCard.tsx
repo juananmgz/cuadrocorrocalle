@@ -13,6 +13,7 @@ import {
 import {
   type FormEvent,
   type InputEvent,
+  type KeyboardEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -23,8 +24,11 @@ import {
 import type { GridStage } from '../../components/GridBackground/GridBackground';
 import { RepertoireSection } from '../../components/RepertoireSection/RepertoireSection';
 import { Button } from '../../components/ui/Button/Button';
+import { Dialog, DialogClose } from '../../components/ui/Dialog/Dialog';
+import { RequiredMark } from '../../components/ui/RequiredMark/RequiredMark';
 import { TextField } from '../../components/ui/TextField/TextField';
 import { saveCallUp } from '../../callUps/callUpApi';
+import { formatDay, formatDuration } from '../../performances/format';
 import { usePerformanceMutations } from '../../performances/performancesApi';
 import { cleanDecimal, cleanInteger, cleanText } from '../../performances/sanitize';
 import { saveRepertoire } from '../../pieces/repertoireApi';
@@ -46,8 +50,6 @@ interface CreatePerformanceCardProps {
   groupId: string;
   /** The "Grupo de Prueba" allows up to TRIAL_PIECE_LIMIT pieces. */
   isTrial?: boolean;
-  /** Width covered on the left; the action buttons centre on the rest, under the stage. */
-  inset: number;
   onCancel: () => void;
   onCreated: (performance: Performance) => void;
   /** Reports the stage to preview on the grid. */
@@ -82,6 +84,29 @@ const filtered = (clean: (value: string) => string) => (event: InputEvent<HTMLIn
 const minutesField = filtered((value) => cleanInteger(value, 4));
 const textField = filtered(cleanText);
 
+const DEFAULT_TITLE = 'Nueva actuación';
+
+// Fields that Enter moves between; buttons, checkboxes and multi-line fields keep their own Enter.
+const FIELDS = 'input:not([type=checkbox]):not([type=hidden]), [role=combobox], textarea';
+
+/** Enter in a one-line field applies it and moves to the next field instead of submitting. */
+function nextFieldOnEnter(event: KeyboardEvent<HTMLFormElement>) {
+  const form = event.currentTarget;
+  const target = event.target as HTMLElement;
+  // Dialogs are portals: their events bubble here but they are not inside the form.
+  if (event.key !== 'Enter' || !form.contains(target) || !(target instanceof HTMLInputElement)) {
+    return;
+  }
+  if (target.type === 'checkbox') return;
+  event.preventDefault();
+  const fields = [...form.querySelectorAll<HTMLElement>(FIELDS)].filter(
+    (field) => !field.closest('[inert]') && !field.hasAttribute('disabled') && field.tabIndex >= 0,
+  );
+  const next = fields[fields.indexOf(target) + 1];
+  if (next) next.focus();
+  else target.blur();
+}
+
 interface StepPanelProps {
   id: Step;
   title: string;
@@ -94,14 +119,24 @@ interface StepPanelProps {
 /** One block of the form; only one is open at a time, like an accordion. */
 function StepPanel({ id, title, summary, open, onOpen, children }: StepPanelProps) {
   return (
-    <section className={styles.root} aria-labelledby={`${id}-title`}>
+    // A closed block opens on a click anywhere on it; the title button keeps keyboard access.
+    <section
+      className={styles.root}
+      aria-labelledby={`${id}-title`}
+      data-closed={open ? undefined : ''}
+      onClick={open ? undefined : onOpen}
+    >
       <h2 id={`${id}-title`} className={styles.title}>
         <button
           type="button"
           className={styles.header}
           aria-expanded={open}
           aria-controls={`${id}-body`}
-          onClick={onOpen}
+          onClick={(event) => {
+            // Avoid a second toggle from the section's own click.
+            event.stopPropagation();
+            onOpen();
+          }}
         >
           {title}
         </button>
@@ -126,7 +161,6 @@ function StepPanel({ id, title, summary, open, onOpen, children }: StepPanelProp
 export function CreatePerformanceCard({
   groupId,
   isTrial,
-  inset,
   onCancel,
   onCreated,
   onStageChange,
@@ -144,13 +178,16 @@ export function CreatePerformanceCard({
   const [settled, setSettled] = useState<StageValues>(stage);
   const [scaleOpen, setScaleOpen] = useState(false);
   const [step, setStep] = useState<Step | null>('data');
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(DEFAULT_TITLE);
   const [titleError, setTitleError] = useState('');
+  // Data fields are uncontrolled; these copies only feed the closed block's summary.
+  const [info, setInfo] = useState<Record<string, string>>({});
   const [callUp, setCallUp] = useState<{ entries: CallUpEntry[]; pending: boolean }>({
     entries: [],
     pending: false,
   });
   const [pieces, setPieces] = useState<PieceDraft[]>([]);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
@@ -191,10 +228,9 @@ export function CreatePerformanceCard({
       setStage((current) => ({ ...current, [field]: clean(event.target.value) }));
   const metres = (value: string) => cleanInteger(value, 3);
 
-  // The title is the only required field; without it the data block opens again.
+  // The title is the only required field; without it the focus goes back to it.
   const checkTitle = () => {
     if (title.trim()) return true;
-    setStep('data');
     setTitleError('Ponle un título');
     window.setTimeout(() => titleRef.current?.focus(), 0);
     return false;
@@ -202,7 +238,7 @@ export function CreatePerformanceCard({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!checkTitle() || callUp.pending) return;
+    if (!checkTitle() || missing.length) return;
     if (piecesInvalid) {
       setStep('repertoire');
       setSaveError('Revisa las piezas marcadas en rojo');
@@ -246,8 +282,24 @@ export function CreatePerformanceCard({
         .filter(Boolean)
         .join(' · ')
     : 'Sin repertorio todavía';
+  // What still has to be filled in before creating; the button stays blocked until it is empty.
+  const missing = [
+    // The default "Nueva actuación" does not count: the performance needs its own name.
+    (!title.trim() || title.trim() === DEFAULT_TITLE) && 'ponerle título',
+    !toNumber(stage.width) && 'el ancho del escenario',
+    !toNumber(stage.depth) && 'el fondo del escenario',
+    piecesInvalid && 'las piezas marcadas en rojo',
+    callUp.pending && 'las personas de la convocatoria por crear',
+  ].filter(Boolean);
   const calledCount = callUp.entries.filter((entry) => entry.status === 'yes').length;
-  const dataSummary = title.trim();
+  const dataSummary =
+    [
+      info.place?.trim(),
+      formatDay(info.date || null),
+      formatDuration(toNumber(info.minMinutes ?? ''), toNumber(info.maxMinutes ?? '')),
+    ]
+      .filter(Boolean)
+      .join(' · ') || 'Sin datos todavía';
   const stageSummary = settled.width ? `${settled.width} × ${settled.depth} m` : '';
   const callUpSummary = callUp.pending
     ? 'Faltan personas por crear'
@@ -256,29 +308,84 @@ export function CreatePerformanceCard({
       : 'Sin convocatoria todavía';
 
   return (
-    <form id="create-performance" className={styles.stack} noValidate onSubmit={submit}>
+    <form
+      id="create-performance"
+      className={styles.stack}
+      noValidate
+      onSubmit={submit}
+      onKeyDown={nextFieldOnEnter}
+      onChange={(event) => {
+        const { name, value } = event.target as unknown as HTMLInputElement;
+        if (name) setInfo((current) => ({ ...current, [name]: value }));
+      }}
+    >
+      {/* Big editable title, like a document name; it goes back to the default if left empty. */}
+      <div className={styles.titleField}>
+        {/* The label makes the pencil focus the field too; the hidden copy sizes it to its text. */}
+        <label className={styles.titleRow}>
+          <span className={styles.titleBox}>
+            <span className={styles.titleSizer} aria-hidden="true">
+              {title || ' '}
+            </span>
+            <input
+              ref={titleRef}
+              className={styles.titleInput}
+              aria-label="Título de la actuación"
+              size={1}
+              aria-invalid={titleError ? true : undefined}
+              aria-describedby={titleError ? 'title-error' : undefined}
+              maxLength={120}
+              autoComplete="off"
+              value={title}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => {
+                setTitle(cleanText(event.target.value));
+                setTitleError('');
+              }}
+              onBlur={() => {
+                if (!title.trim()) setTitle(DEFAULT_TITLE);
+              }}
+            />
+          </span>
+          <svg
+            className={styles.editIcon}
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            aria-hidden="true"
+          >
+            <path
+              d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3zM14 8l2 2"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <RequiredMark />
+        </label>
+        {titleError && (
+          <p id="title-error" className={styles.error} role="alert">
+            {titleError}
+          </p>
+        )}
+      </div>
+
       <StepPanel
         id="data"
-        title="Nueva actuación"
+        title="Información general"
         summary={dataSummary}
         open={step === 'data'}
         onOpen={() => setStep(step === 'data' ? null : 'data')}
       >
         <TextField
-          ref={titleRef}
-          label="Título"
-          name="title"
+          label="Lugar (opcional)"
+          name="place"
           maxLength={120}
-          required
           autoFocus
-          value={title}
-          onChange={(event) => {
-            setTitle(cleanText(event.target.value));
-            setTitleError('');
-          }}
-          error={titleError}
+          onInput={textField}
         />
-        <TextField label="Lugar (opcional)" name="place" maxLength={120} onInput={textField} />
         <TextField label="Fecha" name="date" type="date" />
         <div className={styles.pair}>
           <TextField
@@ -316,6 +423,7 @@ export function CreatePerformanceCard({
           <div className={styles.triple}>
             <TextField
               label="Ancho (m)"
+              requiredMark
               inputMode="numeric"
               autoComplete="off"
               value={stage.width}
@@ -324,6 +432,7 @@ export function CreatePerformanceCard({
             />
             <TextField
               label="Fondo (m)"
+              requiredMark
               inputMode="numeric"
               autoComplete="off"
               value={stage.depth}
@@ -419,21 +528,40 @@ export function CreatePerformanceCard({
           {saveError}
         </p>
       )}
-      {/* Under the stage, centred on the free area. */}
-      <div
-        className={styles.actions}
-        style={{ left: `calc(${inset}px + (100% - ${inset}px) / 2)` }}
-      >
-        <Button onClick={onCancel}>Cancelar</Button>
+      {/* Under the last block; leaving asks first because nothing is saved until created. */}
+      <div className={styles.actions}>
+        <Button onClick={() => setConfirmingCancel(true)}>Cancelar</Button>
         <Button
           type="submit"
           variant="primary"
-          disabled={saving || callUp.pending}
-          title={callUp.pending ? 'Faltan personas de la convocatoria por crear' : undefined}
+          className={styles.create}
+          disabled={saving || missing.length > 0}
+          title={missing.length ? `Falta: ${missing.join(', ')}` : undefined}
         >
           {saving ? 'Creando…' : 'Crear actuación'}
         </Button>
       </div>
+      {missing.length > 0 && (
+        <p className={styles.missing}>
+          <RequiredMark /> Falta {missing.join(', ')}.
+        </p>
+      )}
+      <Dialog
+        open={confirmingCancel}
+        onOpenChange={setConfirmingCancel}
+        title="¿Salir sin crear la actuación?"
+        description="Los cambios no se guardarán. ¿Quieres continuar?"
+        footer={
+          <>
+            <DialogClose asChild>
+              <Button>Seguir editando</Button>
+            </DialogClose>
+            <Button variant="danger" onClick={onCancel}>
+              Salir sin guardar
+            </Button>
+          </>
+        }
+      />
     </form>
   );
 }

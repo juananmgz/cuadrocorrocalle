@@ -22,7 +22,7 @@ flowchart TD
   AW --> VT["Vitest + Testing Library (jsdom)"]
   AW --> FS["src: components/, pages/, styles/ (_tokens, _mixins, global)"]
   AW --> TQ["TanStack Query; proxy de Vite /api a localhost:3000"]
-  AW --> UI["components/ui: componentes sobre Radix (radix-ui), cada uno con su SCSS<br>Button, TextField, Select, Dialog, Menu, Tabs, Toast (información, éxito, peligro, error),<br>Card, PersonChip, ColorPicker (20 colores de persona)"]
+  AW --> UI["components/ui: componentes sobre Radix (radix-ui), cada uno con su SCSS<br>Button, TextField, Select, Dialog, Menu, Tabs, Toast (información, éxito, peligro, error),<br>Card, PersonChip, ColorPicker (20 colores de persona), RequiredMark («(*)» de campo obligatorio)"]
   AW --> TB["components/TopBar: logo CuadroCorroCalle; en tablet y PC recuadro del grupo (GroupBox) y menú de usuario,<br>en móvil menú hamburguesa (components/SideMenu): usuario, grupo, Mi grupo, Ajustes y Mi cuenta<br>components/AppLayout: marco de las páginas con sesión (barra, cuadrícula y grupo activo)<br>página /componentes (carga diferida)"]
   AW --> TH["src/theme: preferencia de tema guardada en el dispositivo<br>script en index.html que la aplica antes de pintar"]
   AW --> GR["src/groups: grupo activo (7 días), API de grupos, colores de cuadrícula<br>components/GroupChooser: diálogo «Elegir grupo»"]

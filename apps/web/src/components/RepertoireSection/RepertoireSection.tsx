@@ -108,6 +108,7 @@ function PieceRow({ draft, index, open, onToggle, onChange, onRemove, onSave }: 
         <div id={`${draft.key}-fields`} className={styles.fields}>
           <TextField
             label="Título"
+            requiredMark
             maxLength={120}
             autoFocus={!draft.title}
             value={draft.title}

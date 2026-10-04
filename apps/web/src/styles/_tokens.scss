@@ -1,5 +1,6 @@
 @use 'sass:color';
 @use 'sass:list';
+@use 'sass:map';
 
 // Tiza design tokens, exposed as CSS custom properties.
 
@@ -38,6 +39,30 @@ $grid-colors: (
     #d97ab8,
   ),
 );
+
+// Call-to-action colour opposite each grid colour on the colour wheel, so it stands out on the
+// floor; a little muted so it does not glare. The same in light and dark mode, with dark text.
+$cta-colors: (
+  azul: #eabe4c,
+  granate: #66c7a1,
+  verde: #f19d4f,
+  morado: #ced555,
+  petroleo: #ef8d6e,
+  marron: #69b0ea,
+  pizarra: #efb055,
+  vino: #8fd36f,
+);
+
+@mixin group-cta {
+  --cta: #{map.get($cta-colors, azul)};
+  --on-cta: #16181c;
+
+  @each $name, $color in $cta-colors {
+    &[data-grid='#{$name}'] {
+      --cta: #{$color};
+    }
+  }
+}
 
 @mixin group-colors($index) {
   @each $name, $shades in $grid-colors {

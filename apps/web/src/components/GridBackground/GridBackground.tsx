@@ -27,8 +27,8 @@ const FOG_LEVELS = 6;
 const MIN_CELL = 3;
 const MARGIN_SQUARES = 1;
 const TOP_BAR = 56;
-// Room kept under the stage for "PÚBLICO" and the form buttons fixed at the bottom.
-const BOTTOM_ROOM = 100;
+// Room kept under the stage for "PÚBLICO".
+const BOTTOM_ROOM = 48;
 const DURATION = 1200;
 const STAGE_DURATION = 350;
 const RESIZE_DURATION = 450;
@@ -129,7 +129,7 @@ function fittingCell(frame: Pick<Frame, 'width' | 'height' | 'leftInset' | 'stag
   const { areaWidth, centerY } = freeArea(frame);
   const halfRows = frame.stage.rows / 2;
   // The centre sits above the middle, so each half is fitted on its own: the top keeps the
-  // same margin as the sides and the bottom leaves room for "PÚBLICO" and the buttons.
+  // same margin as the sides and the bottom leaves room for "PÚBLICO".
   const fit = Math.min(
     areaWidth / (frame.stage.cols + MARGIN_SQUARES * 2),
     (centerY - TOP_BAR) / (halfRows + MARGIN_SQUARES),
