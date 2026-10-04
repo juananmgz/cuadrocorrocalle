@@ -6,7 +6,7 @@ Documentación técnica de la herramienta. Se actualiza con cada commit. Las ide
 
 ## Estado
 
-- `main` publica la v0.1.1 (fase 0, pasos 0.1 a 0.8). En `devel` se trabaja en la fase 1.
+- `main` publica la v0.2.0 (fases 0 y 1, pasos 0.1 a 1.14). En `devel` se trabaja en la fase 2.
 - Web: <https://cuadrocorrocalle.pages.dev>
 - API: <https://cuadrocorrocalle-api.onrender.com>
 
