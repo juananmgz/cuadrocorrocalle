@@ -61,3 +61,23 @@ export function resetPasswordMessage(user: Recipient, url: string): Email {
     text: `${hello}\n\nElige una contraseña nueva abriendo este enlace:\n${url}\n\n${outro}`,
   };
 }
+
+/** Sent to the new address when someone changes their account's email (step 1.14). */
+export function changeEmailMessage(user: Recipient, url: string): Email {
+  const hello = `Hola, ${user.name.split(' ')[0]}:`;
+  const outro =
+    'Hasta que lo confirmes, tu cuenta sigue con el correo anterior. Si no has pedido este cambio, ignora este correo.';
+
+  return {
+    to: { email: user.email, name: user.name },
+    subject: 'Confirma tu nuevo correo en CuadroCorroCalle',
+    html: layout(
+      'Confirma tu nuevo correo',
+      `${escape(hello)} pulsa el botón para usar este correo en tu cuenta de CuadroCorroCalle.`,
+      'Confirmar nuevo correo',
+      url,
+      escape(outro),
+    ),
+    text: `${hello}\n\nConfirma tu nuevo correo abriendo este enlace:\n${url}\n\n${outro}`,
+  };
+}

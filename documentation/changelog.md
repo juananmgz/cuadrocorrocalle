@@ -41,6 +41,8 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0028](https://github.com/juananmgz/cuadrocorrocalle/pull/28) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/28/commits) | ✨ Choose who takes part in each piece and edit performances like creating them (paso 1.11) |
 | [CCC-0029](https://github.com/juananmgz/cuadrocorrocalle/pull/29) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/29/commits) | ✨ Add the repertoire summary and an encore list (paso 1.12)                                |
 | [CCC-0030](https://github.com/juananmgz/cuadrocorrocalle/pull/30) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/30/commits) | ✨ Add the guided start for new accounts (paso 1.13)                                        |
+| [CCC-0031](https://github.com/juananmgz/cuadrocorrocalle/pull/31) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/31/commits) | ✨ Let users change their name, email and password and delete their account (paso 1.14)     |
+| [CCC-0031](https://github.com/juananmgz/cuadrocorrocalle/pull/31) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/31/commits) | 🐛 Offer to retry instead of signing out when the API does not answer                       |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 
