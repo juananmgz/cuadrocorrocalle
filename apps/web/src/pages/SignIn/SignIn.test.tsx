@@ -70,6 +70,8 @@ test('starts Google sign-in and returns to the requested page', async () => {
   expect(signInSocial).toHaveBeenCalledWith({
     provider: 'google',
     callbackURL: '/inicio',
+    // A brand-new account goes to the guided start instead.
+    newUserCallbackURL: '/empezar',
     errorCallbackURL: '/entrar',
   });
 });

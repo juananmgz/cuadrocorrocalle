@@ -19,6 +19,7 @@ Documentación técnica de la herramienta. Se actualiza con cada commit. Las ide
 - [Publicación](deployment.md): Neon, Render y Cloudflare Pages.
 - [Analítica y cookies](analytics.md): Google Analytics 4 con consentimiento.
 - [Seguridad de las cuentas](security.md): contraseñas, sesiones y límites de intentos.
+- [Alta guiada](onboarding.md): las tres preguntas de una cuenta nueva.
 - [Grupos](groups.md): elegir y crear grupo, color de cuadrícula.
 - [Personas](people.md): «Mi grupo», añadir, pegar una lista y editar personas.
 - [Actuaciones](performances.md): crear, editar, duplicar y borrar actuaciones.

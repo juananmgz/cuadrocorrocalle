@@ -36,7 +36,8 @@ export function SignUp() {
     setPending(false);
 
     if (signUpError) setError(authErrorMessage(signUpError));
-    else navigate('/inicio', { replace: true });
+    // A new account starts with the guided questions (step 1.13).
+    else navigate('/empezar', { replace: true });
   };
 
   return (
@@ -48,7 +49,7 @@ export function SignUp() {
         </>
       }
     >
-      <GoogleButton callbackURL="/inicio" onError={setError} />
+      <GoogleButton callbackURL="/inicio" newUserCallbackURL="/empezar" onError={setError} />
       <p className={styles.divider}>o con tu correo</p>
       <form className={styles.form} onSubmit={submit}>
         <TextField label="Nombre" name="name" autoComplete="name" required />

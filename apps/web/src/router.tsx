@@ -36,6 +36,12 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       {
+        path: '/empezar',
+        lazy: async () => ({
+          Component: (await import('./pages/Onboarding/Onboarding')).Onboarding,
+        }),
+      },
+      {
         path: '/inicio',
         lazy: async () => ({ Component: (await import('./pages/Home/Home')).Home }),
       },

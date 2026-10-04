@@ -15,6 +15,8 @@ interface PerformanceEditorProps {
   /** The performance to edit; without it, the editor starts by creating one. */
   performance?: Performance;
   initialView?: EditorView;
+  /** Title to start with when creating. */
+  initialTitle?: string;
   /** Leaving without saving. */
   onCancel: () => void;
   /** "Terminar" in the pieces view. */
@@ -32,6 +34,7 @@ export function PerformanceEditor({
   groupId,
   performance: initial,
   initialView = 'settings',
+  initialTitle,
   onCancel,
   onFinish,
   onStageChange,
@@ -81,6 +84,7 @@ export function PerformanceEditor({
             groupId={groupId}
             performance={performance}
             initialCallUp={callUp}
+            initialTitle={initialTitle}
             onCancel={onCancel}
             onCreated={(saved) => {
               const created = !performance;

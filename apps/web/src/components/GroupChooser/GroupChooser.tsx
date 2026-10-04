@@ -1,8 +1,7 @@
-import { GRID_COLORS, type GridColor, type Group } from '@cuadrocorrocalle/shared';
-import { RadioGroup } from 'radix-ui';
+import type { GridColor, Group } from '@cuadrocorrocalle/shared';
 import { type FormEvent, useState } from 'react';
 
-import { GRID_COLOR_LABELS, gridColorVar } from '../../groups/gridColors';
+import { gridColorVar } from '../../groups/gridColors';
 import { clearActiveGroup } from '../../groups/activeGroup';
 import {
   licenseQuotaText,
@@ -16,6 +15,7 @@ import { Button } from '../ui/Button/Button';
 import { Dialog } from '../ui/Dialog/Dialog';
 import { TextField } from '../ui/TextField/TextField';
 import { useToast } from '../ui/Toast/toastContext';
+import { GridColorPicker } from './GridColorPicker';
 import styles from './GroupChooser.module.scss';
 
 interface GroupChooserProps {
@@ -197,31 +197,7 @@ function GroupForm({ group, submitLabel, onCancel, onSaved, onDelete }: GroupFor
         autoFocus
         error={mutation.error?.message}
       />
-      <div className={styles.colors}>
-        <span id="grid-color-label" className={styles.label}>
-          Color de la cuadrícula
-        </span>
-        <RadioGroup.Root
-          className={styles.swatches}
-          aria-labelledby="grid-color-label"
-          orientation="horizontal"
-          value={color}
-          onValueChange={(value) => setColor(value as GridColor)}
-        >
-          {GRID_COLORS.map((id) => (
-            <RadioGroup.Item
-              key={id}
-              value={id}
-              className={styles.swatch}
-              style={{ background: gridColorVar(id) }}
-              aria-label={GRID_COLOR_LABELS[id]}
-              title={GRID_COLOR_LABELS[id]}
-            >
-              <RadioGroup.Indicator className={styles.check}>✓</RadioGroup.Indicator>
-            </RadioGroup.Item>
-          ))}
-        </RadioGroup.Root>
-      </div>
+      <GridColorPicker value={color} onChange={setColor} />
       <div className={styles.actions}>
         {group && onDelete && !group.isTrial && (
           <Button variant="danger" className={styles.deleteButton} onClick={onDelete}>

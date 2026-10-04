@@ -49,6 +49,8 @@ interface CreatePerformanceCardProps {
   performance?: Performance;
   /** Its saved call-up, when editing. */
   initialCallUp?: CallUpEntry[];
+  /** Title to start with when creating, e.g. from the guided start. */
+  initialTitle?: string;
   onCancel: () => void;
   /** Called with the performance once created or saved. */
   onCreated: (performance: Performance) => void;
@@ -168,6 +170,7 @@ export function CreatePerformanceCard({
   groupId,
   performance,
   initialCallUp,
+  initialTitle,
   onCancel,
   onCreated,
   onStageChange,
@@ -187,7 +190,7 @@ export function CreatePerformanceCard({
   const [settled, setSettled] = useState<StageValues>(stage);
   const [scaleOpen, setScaleOpen] = useState(false);
   const [step, setStep] = useState<Step | null>('data');
-  const [title, setTitle] = useState(performance?.title ?? DEFAULT_TITLE);
+  const [title, setTitle] = useState(performance?.title ?? (initialTitle || DEFAULT_TITLE));
   const [titleError, setTitleError] = useState('');
   // Data fields are uncontrolled; these copies only feed the closed block's summary.
   const [info, setInfo] = useState<Record<string, string>>(() => ({

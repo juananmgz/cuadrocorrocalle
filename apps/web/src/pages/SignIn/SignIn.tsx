@@ -53,7 +53,7 @@ export function SignIn() {
         </>
       }
     >
-      <GoogleButton callbackURL={returnTo} onError={setError} />
+      <GoogleButton callbackURL={returnTo} newUserCallbackURL="/empezar" onError={setError} />
       <p className={styles.divider}>o con tu correo</p>
       <form className={styles.form} onSubmit={submit}>
         <TextField

@@ -21,3 +21,5 @@ Paso 1.5 (caso OA-26). Un usuario puede dirigir varios grupos; solo él los ve y
 | POST   | `/api/cuentas/grupos` | Crea un grupo `{ name, gridColor }`                                |
 
 Sin sesión responden 401. Los esquemas están en `packages/shared/src/groups.ts`.
+
+- **Color en directo:** al elegir un color de cuadrícula (al crear o editar un grupo, o en el alta guiada), la cuadrícula cambia al momento con un fundido de 0,45 s. Si se sale sin guardar, vuelve el color anterior.

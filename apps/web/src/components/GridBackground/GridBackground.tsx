@@ -34,6 +34,8 @@ const LABEL_ROOM = 44;
 const DURATION = 1200;
 const STAGE_DURATION = 350;
 const RESIZE_DURATION = 450;
+// Cross-fade when the grid colour or the theme changes.
+const COLOR_FADE = 450;
 
 export interface GridStage {
   /** Stage size in grid squares (metres divided by metres per square). */
@@ -425,6 +427,8 @@ export function GridBackground({
   label = null,
 }: GridBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Copy of the last frame laid over the canvas, faded out when the colours change.
+  const fadeRef = useRef<HTMLCanvasElement>(null);
   // Animated values survive re-renders; props only move their targets.
   const animation = useRef({
     view: view === 'top' ? 1 : 0,
@@ -550,8 +554,24 @@ export function GridBackground({
     const resize = new ResizeObserver(redraw);
     resize.observe(canvas);
     const recolor = () => {
+      crossFade();
       colors = readColors();
       redraw();
+    };
+
+    // The old frame stays on top and fades out while the grid redraws with the new colours.
+    const crossFade = () => {
+      const fade = fadeRef.current;
+      if (!fade || reduceMotion || !canvas.width) return;
+      fade.width = canvas.width;
+      fade.height = canvas.height;
+      fade.getContext('2d')?.drawImage(canvas, 0, 0);
+      fade.style.transition = 'none';
+      fade.style.opacity = '1';
+      // Read the layout so the next change animates from fully visible.
+      void fade.offsetWidth;
+      fade.style.transition = `opacity ${COLOR_FADE}ms ease`;
+      fade.style.opacity = '0';
     };
     const theme = new MutationObserver(recolor);
     theme.observe(document.documentElement, { attributeFilter: ['data-theme', 'data-grid'] });
@@ -570,6 +590,7 @@ export function GridBackground({
   return (
     <div className={styles.root} aria-hidden="true">
       <canvas ref={canvasRef} className={styles.floor} />
+      <canvas ref={fadeRef} className={styles.fade} />
     </div>
   );
 }
