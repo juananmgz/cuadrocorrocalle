@@ -1,11 +1,11 @@
 import type { Performance } from '@cuadrocorrocalle/shared';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useCallUp } from '../../callUps/callUpApi';
 import type { GridStage } from '../../components/GridBackground/GridBackground';
 import { RepertoireCard } from '../../components/RepertoireSection/RepertoireCard';
 import { useToast } from '../../components/ui/Toast/toastContext';
-import { CreatePerformanceCard } from './CreatePerformanceCard';
+import { CreatePerformanceCard, type PerformanceFormHandle } from './CreatePerformanceCard';
 import styles from './PerformanceEditor.module.scss';
 
 export type EditorView = 'settings' | 'pieces';
@@ -46,6 +46,14 @@ export function PerformanceEditor({
   const { data: callUp } = useCallUp(performance?.id ?? '', Boolean(performance));
   // The settings form needs the saved call-up before it starts, when editing.
   const ready = !performance || callUp;
+  const formRef = useRef<PerformanceFormHandle>(null);
+  // Whether the settings still miss something required (only matters before creating).
+  const [missing, setMissing] = useState(true);
+  const piecesHint = performance
+    ? undefined
+    : missing
+      ? 'Rellena los campos necesarios'
+      : 'Crea la actuación y pasa a sus piezas';
 
   const show = (next: EditorView) => {
     setView(next);
@@ -67,9 +75,10 @@ export function PerformanceEditor({
           type="button"
           className={styles.option}
           aria-pressed={view === 'pieces'}
-          disabled={!performance}
-          title={performance ? undefined : 'Crea la actuación para añadir sus piezas'}
-          onClick={() => show('pieces')}
+          // Before the performance exists, a click creates it, or points at what is missing.
+          aria-disabled={!performance && missing}
+          data-hint={piecesHint}
+          onClick={() => (performance ? show('pieces') : formRef.current?.attempt())}
         >
           Piezas
         </button>
@@ -93,6 +102,8 @@ export function PerformanceEditor({
               else toast.show({ title: 'Cambios guardados', tone: 'success' });
             }}
             onStageChange={onStageChange}
+            onMissingChange={setMissing}
+            handleRef={formRef}
           />
         )}
       </div>

@@ -14,8 +14,10 @@ import {
   type InputEvent,
   type KeyboardEvent,
   type ReactNode,
+  type Ref,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
 } from 'react';
@@ -56,6 +58,9 @@ interface CreatePerformanceCardProps {
   onCreated: (performance: Performance) => void;
   /** Reports the stage to preview on the grid. */
   onStageChange: (stage: GridStage | null) => void;
+  /** Reports whether something required is still missing. */
+  onMissingChange?: (missing: boolean) => void;
+  handleRef?: Ref<PerformanceFormHandle>;
 }
 
 const toNumber = (value: string) => {
@@ -109,9 +114,21 @@ function nextFieldOnEnter(event: KeyboardEvent<HTMLFormElement>) {
   else target.blur();
 }
 
+/** Lets the editor try to create from outside, e.g. from the "Piezas" switch. */
+export interface PerformanceFormHandle {
+  /** Creates (or saves) if nothing required is missing; otherwise marks what is missing. */
+  attempt: () => void;
+}
+
+/** Two yellow beats over an element that still needs filling in; a new key replays it. */
+const Heartbeat = ({ beat }: { beat: number }) =>
+  beat > 0 ? <span key={beat} className={styles.heartbeat} aria-hidden="true" /> : null;
+
 interface StepPanelProps {
   id: Step;
   title: string;
+  /** Replays the heartbeat when it changes; 0 shows nothing. */
+  attention?: number;
   /** Marks the block with "(*)" when something in it must be filled in. */
   required?: boolean;
   summary: string;
@@ -121,7 +138,16 @@ interface StepPanelProps {
 }
 
 /** One block of the form; only one is open at a time, like an accordion. */
-function StepPanel({ id, title, required, summary, open, onOpen, children }: StepPanelProps) {
+function StepPanel({
+  id,
+  title,
+  attention = 0,
+  required,
+  summary,
+  open,
+  onOpen,
+  children,
+}: StepPanelProps) {
   return (
     // A closed block opens on a click anywhere on it; the title button keeps keyboard access.
     <section
@@ -130,6 +156,7 @@ function StepPanel({ id, title, required, summary, open, onOpen, children }: Ste
       data-closed={open ? undefined : ''}
       onClick={open ? undefined : onOpen}
     >
+      <Heartbeat beat={attention} />
       <h2 id={`${id}-title`} className={styles.title}>
         <button
           type="button"
@@ -174,6 +201,8 @@ export function CreatePerformanceCard({
   onCancel,
   onCreated,
   onStageChange,
+  onMissingChange,
+  handleRef,
 }: CreatePerformanceCardProps) {
   const { create, update: updatePerformance } = usePerformanceMutations();
   const queryClient = useQueryClient();
@@ -207,6 +236,9 @@ export function CreatePerformanceCard({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  // Counts the attempts with something missing, to replay the heartbeat on each one.
+  const [beat, setBeat] = useState(0);
   const reportCallUp = useCallback(
     (entries: CallUpEntry[], pending: boolean) => setCallUp({ entries, pending }),
     [],
@@ -297,6 +329,17 @@ export function CreatePerformanceCard({
     !callUp.entries.some((entry) => entry.status !== 'no') && 'convocar al menos a una persona',
     callUp.pending && 'las personas de la convocatoria por crear',
   ].filter(Boolean);
+  const missingTitle = !title.trim() || title.trim() === DEFAULT_TITLE;
+  const missingStage = !toNumber(stage.width) || !toNumber(stage.depth);
+  const missingCallUp = callUp.pending || !callUp.entries.some((entry) => entry.status !== 'no');
+  const attempt = () => {
+    if (missing.length) setBeat((current) => current + 1);
+    else formRef.current?.requestSubmit();
+  };
+
+  useImperativeHandle(handleRef, () => ({ attempt }));
+  useEffect(() => onMissingChange?.(missing.length > 0), [missing.length, onMissingChange]);
+
   const calledCount = callUp.entries.filter((entry) => entry.status === 'yes').length;
   const dataSummary =
     [
@@ -315,6 +358,7 @@ export function CreatePerformanceCard({
 
   return (
     <form
+      ref={formRef}
       id="create-performance"
       className={styles.stack}
       noValidate
@@ -327,6 +371,7 @@ export function CreatePerformanceCard({
     >
       {/* Big editable title, like a document name; it goes back to the default if left empty. */}
       <div className={styles.titleField}>
+        <Heartbeat beat={missingTitle ? beat : 0} />
         {/* The label makes the pencil focus the field too; the hidden copy sizes it to its text. */}
         <label className={styles.titleRow}>
           <span className={styles.titleBox}>
@@ -424,6 +469,7 @@ export function CreatePerformanceCard({
 
       <StepPanel
         id="stage"
+        attention={missingStage ? beat : 0}
         title="Escenario"
         summary={stageSummary}
         open={step === 'stage'}
@@ -498,6 +544,7 @@ export function CreatePerformanceCard({
 
       <StepPanel
         id="callUp"
+        attention={missingCallUp ? beat : 0}
         title="Convocatoria"
         required
         summary={callUpSummary}
@@ -524,8 +571,15 @@ export function CreatePerformanceCard({
           type="submit"
           variant="primary"
           className={styles.create}
-          disabled={saving || missing.length > 0}
-          title={missing.length ? `Falta: ${missing.join(', ')}` : undefined}
+          // Not disabled, so a click can point at what is missing.
+          disabled={saving}
+          aria-disabled={missing.length > 0}
+          title={missing.length ? 'Rellena los campos necesarios' : undefined}
+          onClick={(event) => {
+            if (!missing.length) return;
+            event.preventDefault();
+            attempt();
+          }}
         >
           {editing
             ? saving

@@ -111,16 +111,19 @@ test('asks before leaving without creating, and Enter does not create', async ()
 
   // The default title and a required field left blank block "Crear actuación" and say what is missing.
   const create = screen.getByRole('button', { name: 'Crear actuación' });
-  expect(create).toBeDisabled();
+  expect(create).toHaveAttribute('aria-disabled', 'true');
   expect(screen.getByText(/Falta ponerle título/)).toBeInTheDocument();
   await user.clear(screen.getByLabelText('Título de la actuación'));
   await user.type(screen.getByLabelText('Título de la actuación'), 'Pasarón de la Vera');
   expect(screen.queryByText(/ponerle título/)).not.toBeInTheDocument();
   // Nobody called up yet: it cannot be created either.
   expect(screen.getByText(/Falta convocar al menos a una persona/)).toBeInTheDocument();
-  expect(create).toBeDisabled();
+  expect(create).toHaveAttribute('aria-disabled', 'true');
   await user.clear(screen.getByLabelText(/^Ancho/));
   expect(screen.getByText(/el ancho del escenario/)).toBeInTheDocument();
+  // Clicking it while blocked does not create anything.
+  await user.click(create);
+  expect(onCreated).not.toHaveBeenCalled();
 
   await user.click(screen.getByRole('button', { name: 'Cancelar' }));
   expect(screen.getByText('Los cambios no se guardarán. ¿Quieres continuar?')).toBeInTheDocument();
