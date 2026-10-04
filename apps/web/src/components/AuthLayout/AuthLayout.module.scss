@@ -8,17 +8,15 @@
   justify-content: center;
   min-height: 100dvh;
   padding: var(--space-3);
-
-  @include mixins.from-tablet {
-    padding: var(--space-5);
-  }
 }
 
 .card {
   @include mixins.panel;
 
+  display: grid;
+  gap: var(--space-3);
   width: 100%;
-  max-width: 560px;
+  max-width: 440px;
   padding: var(--space-4);
 
   @include mixins.from-tablet {
@@ -29,45 +27,27 @@
 .brand {
   @include mixins.heading;
 
-  margin: 0 0 var(--space-2);
+  justify-self: start;
   font-size: 1.125rem;
   font-weight: 600;
   color: var(--accent);
+  text-decoration: none;
 }
 
 .title {
   @include mixins.heading;
 
   margin: 0;
-  font-size: clamp(2.25rem, 9vw, 4rem);
-  overflow-wrap: anywhere;
+  font-size: clamp(2rem, 8vw, 2.75rem);
 }
 
-.lead {
-  margin: var(--space-3) 0 0;
-  font-size: 1.125rem;
-}
-
-.status {
-  margin: var(--space-4) 0 0;
+.footer {
   padding-top: var(--space-3);
   color: var(--ink-soft);
   border-top: var(--border-width) solid var(--line);
-}
 
-.version {
-  margin: 0;
-}
-
-.link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  margin-top: var(--space-3);
-  font-weight: 700;
-  color: var(--accent);
-}
-
-.mono {
-  font-family: var(--font-mono);
+  a {
+    font-weight: 700;
+    color: var(--accent);
+  }
 }

@@ -26,43 +26,51 @@
   text-decoration: none;
 }
 
-.actions {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  min-width: 0;
+.sections {
+  display: none;
+  flex: 1;
+  gap: var(--space-1);
+
+  @include mixins.from-tablet {
+    display: flex;
+  }
 }
 
-.group {
-  display: grid;
-  min-width: 0;
+.section {
+  display: inline-flex;
+  align-items: center;
   min-height: 44px;
-  padding: var(--space-1) var(--space-3);
-  font: inherit;
+  padding: 0 var(--space-3);
+  font-weight: 700;
   color: inherit;
-  text-align: left;
-  cursor: pointer;
-  background: transparent;
-  border: var(--border-width) solid var(--topbar-ink);
+  text-decoration: none;
   border-radius: var(--radius);
 
   &:hover {
     background: rgb(255 255 255 / 10%);
   }
+
+  &[aria-current='page'] {
+    color: var(--topbar);
+    background: var(--topbar-ink);
+  }
 }
 
-.groupLabel {
-  font-size: 0.75rem;
-  line-height: 1;
-  opacity: 0.75;
+.mobile {
+  @include mixins.from-tablet {
+    display: none;
+  }
 }
 
-.groupName {
-  overflow: hidden;
-  font-weight: 700;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.actions {
+  display: none;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+
+  @include mixins.from-tablet {
+    display: flex;
+  }
 }
 
 .user {

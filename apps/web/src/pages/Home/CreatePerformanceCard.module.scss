@@ -1,0 +1,331 @@
+@use '../../styles/mixins';
+
+.root {
+  @include mixins.panel;
+
+  position: relative;
+  display: grid;
+  padding: var(--space-4);
+  animation: enter 280ms ease-out both;
+
+  &[data-closed] {
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+// Both blocks of the form, one above the other.
+.stack {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+// The block title opens and closes it.
+.header {
+  width: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+
+  &::after {
+    float: right;
+    font-size: 1rem;
+    content: '▾';
+  }
+
+  &[aria-expanded='true']::after {
+    content: '▴';
+  }
+}
+
+.titleField {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.titleRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  max-width: 100%;
+  cursor: text;
+}
+
+// Input and hidden copy share one cell, so the field is as wide as its text.
+.titleBox {
+  display: inline-grid;
+  min-width: 0;
+}
+
+.titleSizer,
+.titleInput {
+  @include mixins.heading;
+
+  grid-area: 1 / 1;
+  min-width: 2ch;
+  padding: var(--space-2);
+  font-size: 2rem;
+  border: var(--border-width) solid transparent;
+}
+
+.titleSizer {
+  overflow: hidden;
+  white-space: pre;
+  visibility: hidden;
+}
+
+// The pencil hints that the title can be changed; it goes away once the field shows.
+.editIcon {
+  flex: none;
+  color: var(--ink-soft);
+  transition: opacity 150ms;
+
+  .titleRow:hover &,
+  .titleRow:focus-within & {
+    opacity: 0;
+  }
+}
+
+// Reads as a heading; the border only shows on hover and focus, like a document name.
+.titleInput {
+  width: 100%;
+  color: var(--ink);
+  background: transparent;
+  border-radius: var(--radius);
+
+  &:hover {
+    border-color: var(--ctl);
+  }
+
+  &:focus-visible {
+    background: var(--surface);
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  &[aria-invalid='true'] {
+    border-color: var(--danger);
+  }
+}
+
+.summary {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-soft);
+}
+
+.next {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+
+  // Space under the block title; the gap would also show while the block is closed.
+  padding-top: var(--space-3);
+}
+
+// Width, depth and border on one row.
+// Bottom-aligned, so the inputs line up even when a label with "(*)" wraps.
+.triple {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  align-items: end;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.stage {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.scaleNote {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+// Link-style secondary action.
+.change {
+  min-height: 32px;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.accordion {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms ease;
+
+  &[data-open] {
+    grid-template-rows: 1fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.accordionInner {
+  overflow: hidden;
+}
+
+.scale {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding-top: var(--space-1);
+  font-weight: 700;
+}
+
+.scaleInput {
+  @include mixins.control;
+
+  width: 96px;
+}
+
+.error {
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+  background: var(--danger-bg);
+  border-left: 6px solid var(--danger);
+  border-radius: var(--radius);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.missing {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+// Main action: as tall as "Cancelar" but filling the row, in the colour opposite the group's grid.
+.actions .create[data-variant] {
+  flex: 1;
+  color: var(--on-cta);
+  background: var(--cta);
+  border-color: var(--cta);
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+
+  &:active:not(:disabled) {
+    filter: brightness(0.95);
+  }
+}
+
+// Two yellow beats around an element that still needs filling in.
+.heartbeat {
+  position: absolute;
+  inset: -4px;
+  z-index: 1;
+  pointer-events: none;
+  border: 3px solid var(--warn);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 0 var(--warn);
+  animation: heartbeat 1.1s ease-out both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: heartbeat-fade 1.1s ease-out both;
+  }
+}
+
+@keyframes heartbeat {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+
+  12% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+
+  24% {
+    transform: scale(1);
+  }
+
+  38% {
+    transform: scale(1.04);
+    box-shadow: 0 0 12px 2px var(--warn);
+  }
+
+  55% {
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes heartbeat-fade {
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  30%,
+  60% {
+    opacity: 1;
+  }
+}
+
+// Blocked until the required fields are filled, but still clickable to show what is missing.
+.actions .create[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}

@@ -5,12 +5,15 @@ import { PrismaClient } from '../generated/prisma/client';
 export interface Database {
   isReachable(): Promise<boolean>;
   close(): Promise<void>;
+  /** Prisma client, absent when no connection string is configured. */
+  prisma?: PrismaClient;
 }
 
 export function createDatabase(connectionString: string): Database {
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
   return {
+    prisma,
     async isReachable() {
       try {
         await prisma.$queryRaw`SELECT 1`;

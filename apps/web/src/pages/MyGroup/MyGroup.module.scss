@@ -1,0 +1,409 @@
+@use '../../styles/mixins';
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3rem);
+}
+
+.info {
+  display: grid;
+  align-content: start;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+
+  @include mixins.from-desktop {
+    grid-template-columns: 1fr;
+  }
+
+  gap: var(--space-3);
+  margin: 0;
+
+  dt {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  dd {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    margin: var(--space-1) 0 0;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+}
+
+.swatch {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: var(--border-width) solid var(--token-stroke);
+  border-radius: 50%;
+}
+
+.empty {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.people {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.person,
+.columns {
+  display: grid;
+
+  // One person per row: name, roles and gender, in fixed columns so the titles line up.
+  grid-template-columns: minmax(0, 1fr) 228px;
+
+  &[data-figure] {
+    grid-template-columns: minmax(0, 1fr) 228px 96px;
+  }
+}
+
+.person {
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius);
+
+  &:hover {
+    background: var(--sel-bg);
+  }
+
+  // The name chip keeps its own width.
+  > :first-child {
+    justify-self: start;
+  }
+}
+
+.figure {
+  text-align: center;
+}
+
+// Gender chip: pastel red for boys and blue for girls.
+.gender {
+  --gender-color: var(--line);
+
+  display: inline-block;
+  min-width: 64px;
+  padding: 0 var(--space-2);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.6;
+  text-align: center;
+  border: 2px solid var(--gender-color);
+  border-radius: 999px;
+
+  &[data-gender='boy'] {
+    --gender-color: var(--p17);
+  }
+
+  &[data-gender='girl'] {
+    --gender-color: var(--p1);
+  }
+}
+
+.page {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+}
+
+.search {
+  @include mixins.control;
+
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+
+.check {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 36px;
+  font-weight: 700;
+  cursor: pointer;
+
+  input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+  }
+}
+
+// Boys on one side and girls on the other.
+.genders {
+  display: grid;
+  gap: var(--space-4);
+
+  @include mixins.from-tablet {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.section {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+
+.sectionTitle {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.subsection {
+  margin: var(--space-2) 0 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.roles {
+  display: grid;
+  grid-template-columns: repeat(3, 68px);
+  gap: var(--space-2);
+}
+
+.columns {
+  gap: var(--space-3);
+
+  // Same side padding as the rows, so the titles stay over their columns.
+  padding: var(--space-1) var(--space-3);
+  background: var(--sel-bg);
+  border-radius: var(--radius);
+}
+
+// Column title that sorts the list.
+.column {
+  display: flex;
+  align-items: center;
+
+  // Tall enough for the role chip shown while sorting by role, so the row keeps its height.
+  min-height: 34px;
+  padding: 0;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+
+  &[aria-pressed='true'],
+  &:hover {
+    color: var(--ink);
+  }
+
+  &[data-key='gender'] {
+    justify-content: center;
+  }
+
+  // The role brought to the top, with its colour.
+  .role {
+    margin-left: var(--space-2);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+}
+
+.role {
+  // Each role has its colour on the border: dance yellow, music purple, singing green.
+  --role-color: var(--line);
+
+  display: inline-block;
+  min-width: 68px;
+  padding: 0 var(--space-2);
+  text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.6;
+  border: 2px solid var(--role-color);
+  border-radius: 999px;
+
+  &[data-role='dance'] {
+    --role-color: var(--p3);
+  }
+
+  &[data-role='music'] {
+    --role-color: var(--p6);
+  }
+
+  &[data-role='singing'] {
+    --role-color: var(--p4);
+  }
+}
+
+.noRole {
+  grid-column: 1 / -1;
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.group {
+  display: grid;
+  gap: var(--space-1);
+}
+
+// Folds a group of people away.
+.groupToggle {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 36px;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+
+  &:hover {
+    color: var(--ink);
+  }
+}
+
+.fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms ease;
+
+  &[data-open] {
+    grid-template-rows: 1fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.foldInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+// Turns to point right while the group is folded.
+.chevron {
+  display: inline-block;
+  transition: transform 300ms ease;
+
+  [aria-expanded='false'] > & {
+    transform: rotate(-90deg);
+  }
+}
+
+.dialogForm {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.dialogActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+// Destructive action, in its own section under a separator.
+.dangerZone {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-3);
+  margin-top: var(--space-3);
+  border-top: var(--border-width) solid var(--line);
+}
+
+// Information beside the members from desktop width: 4 + 8 of 12 columns.
+.layout {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+
+  @include mixins.from-desktop {
+    grid-template-columns: 4fr 8fr;
+  }
+}
+
+// From desktop width the page fits the window: the cards keep a fixed height and only their
+// content scrolls.
+.page {
+  @include mixins.from-desktop {
+    grid-template-rows: auto minmax(0, 1fr);
+    height: calc(100dvh - 56px - 2 * var(--space-5));
+  }
+}
+
+.layout {
+  @include mixins.from-desktop {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+.panel {
+  @include mixins.from-desktop {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+// The scrolling part takes the remaining height.
+.scroll {
+  @include mixins.from-desktop {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+// Column titles stay at the top while the list scrolls.
+.columns {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}

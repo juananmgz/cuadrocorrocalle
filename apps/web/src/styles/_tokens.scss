@@ -1,4 +1,84 @@
+@use 'sass:color';
+@use 'sass:list';
+@use 'sass:map';
+
 // Tiza design tokens, exposed as CSS custom properties.
+
+// Group grid colours (OA-26): dark shade for light mode, lighter shade for dark mode.
+$grid-colors: (
+  azul: (
+    #1f3f7a,
+    #6f9be0,
+  ),
+  granate: (
+    #7a1f2b,
+    #e07a86,
+  ),
+  verde: (
+    #1f6b45,
+    #6fcf9c,
+  ),
+  morado: (
+    #55308a,
+    #b394ec,
+  ),
+  petroleo: (
+    #1d5f6b,
+    #6fc4d1,
+  ),
+  marron: (
+    #6b4520,
+    #d1a06f,
+  ),
+  pizarra: (
+    #3d4756,
+    #a4afbe,
+  ),
+  vino: (
+    #6b1f52,
+    #d97ab8,
+  ),
+);
+
+// Call-to-action colour opposite each grid colour on the colour wheel, so it stands out on the
+// floor; a little muted so it does not glare. The same in light and dark mode, with dark text.
+$cta-colors: (
+  azul: #eabe4c,
+  granate: #66c7a1,
+  verde: #f19d4f,
+  morado: #ced555,
+  petroleo: #ef8d6e,
+  marron: #69b0ea,
+  pizarra: #efb055,
+  vino: #8fd36f,
+);
+
+@mixin group-cta {
+  --cta: #{map.get($cta-colors, azul)};
+  --on-cta: #16181c;
+
+  @each $name, $color in $cta-colors {
+    &[data-grid='#{$name}'] {
+      --cta: #{$color};
+    }
+  }
+}
+
+@mixin group-colors($index) {
+  @each $name, $shades in $grid-colors {
+    --gc-#{$name}: #{list.nth($shades, $index)};
+  }
+}
+
+@mixin group-grid($index) {
+  @each $name, $shades in $grid-colors {
+    &[data-grid='#{$name}'] {
+      --grid-minor: #{color.change(list.nth($shades, $index), $alpha: 0.22)};
+      --grid-major: #{color.change(list.nth($shades, $index), $alpha: 0.55)};
+    }
+  }
+}
+
 @mixin tiza-base {
   --font-heading: 'Barlow Condensed', system-ui, sans-serif;
   --font-body: 'Atkinson Hyperlegible Next Variable', system-ui, sans-serif;
@@ -102,6 +182,10 @@
   --grid-minor: rgb(30 40 55 / 13%);
   --grid-major: rgb(30 40 55 / 34%);
 
+  @include group-colors(1);
+
+  --gc-ink: #fff;
+
   color-scheme: light;
 }
 
@@ -186,6 +270,10 @@
   --floor: #15171a;
   --grid-minor: rgb(255 255 255 / 7%);
   --grid-major: rgb(255 255 255 / 20%);
+
+  @include group-colors(2);
+
+  --gc-ink: #101418;
 
   color-scheme: dark;
 }

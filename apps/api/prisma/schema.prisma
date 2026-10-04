@@ -15,3 +15,193 @@ model AppMeta {
 
   @@map("app_meta")
 }
+
+// Better Auth core tables (step 1.2). Table and column names follow Better Auth's defaults, which it checks at startup.
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  // Platform administrator: sees /status and /componentes. Set by hand in the database.
+  isAdmin       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  groups        Group[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("session")
+}
+
+// One row per sign-in method; email and password keeps the password hash here.
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+// Short-lived tokens (email confirmation and password reset arrive in step 1.3).
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// Folk group directed by one user (step 1.5). Licences arrive in phase 5.
+model Group {
+  id            String        @id @default(cuid())
+  ownerId       String        @map("owner_id")
+  owner         User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name          String
+  gridColor     String        @map("grid_color")
+  // The prebuilt "Grupo de Prueba" every account gets.
+  isTrial       Boolean       @default(false) @map("is_trial")
+  // Set when a licence migrates away; the group is deleted a month later unless recovered.
+  inactiveSince DateTime?     @map("inactive_since")
+  people        Person[]
+  performances  Performance[]
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@index([ownerId])
+  @@map("groups")
+}
+
+// A member of a group (step 1.7). Not an account: directors list people without them signing up.
+model Person {
+  id         String   @id @default(cuid())
+  groupId    String   @map("group_id")
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name       String
+  // "boy" or "girl"; empty until the director chooses (e.g. after pasting a list).
+  figure     String?
+  // One of the 20 person colours (blue, red, …).
+  mainColor  String   @map("main_color")
+  // "member" (fixed) or "collaborator" (occasional).
+  membership String   @default("member")
+  // "dance", "music", "singing"… (more may come).
+  roles      String[] @default([])
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  callUps CallUp[]
+
+  @@index([groupId])
+  @@map("people")
+}
+
+// A performance of a group (step 1.8). Stage settings arrive in phase 2.
+model Performance {
+  id           String    @id @default(cuid())
+  groupId      String    @map("group_id")
+  group        Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title        String
+  place        String?
+  // Day of the performance, without time zone.
+  date         DateTime? @db.Date
+  minMinutes   Int?      @map("min_minutes")
+  maxMinutes   Int?      @map("max_minutes")
+  // Stage size in metres and how many metres one grid square represents.
+  stageWidth   Float?    @map("stage_width_m")
+  stageDepth   Float?    @map("stage_depth_m")
+  squareSize   Float     @default(0.5) @map("square_m")
+  // Safety distance kept clear inside the stage edge, in metres.
+  edgeDistance Float     @default(0.25) @map("edge_distance_m")
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  callUps      CallUp[]
+  pieces       Piece[]
+
+  @@index([groupId])
+  @@map("performances")
+}
+
+// Who is called up for a performance (step 1.9): "yes", "no" or "maybe".
+model CallUp {
+  performanceId  String          @map("performance_id")
+  performance    Performance     @relation(fields: [performanceId], references: [id], onDelete: Cascade)
+  personId       String          @map("person_id")
+  person         Person          @relation(fields: [personId], references: [id], onDelete: Cascade)
+  status         String
+  participations Participation[]
+
+  @@id([performanceId, personId])
+  @@index([personId])
+  @@map("call_ups")
+}
+
+// A dance or song of a performance's repertoire (step 1.10), in order.
+model Piece {
+  id              String          @id @default(cuid())
+  performanceId   String          @map("performance_id")
+  performance     Performance     @relation(fields: [performanceId], references: [id], onDelete: Cascade)
+  position        Int
+  title           String
+  // "dance", "song" or "recorded" (voice-over or recorded music).
+  type            String
+  durationSeconds Int?            @map("duration_s")
+  structure       String?
+  optional        Boolean         @default(false)
+  // Encore ("bis"): kept ready in case the audience asks for more; not counted in the summary.
+  encore          Boolean         @default(false)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  participations  Participation[]
+
+  @@index([performanceId, position])
+  @@map("pieces")
+}
+
+// Who takes part in a piece and doing what (step 1.11). It points to the call-up, so only people
+// called up for the performance can take part, and leaving the call-up removes them.
+model Participation {
+  pieceId       String   @map("piece_id")
+  piece         Piece    @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+  performanceId String   @map("performance_id")
+  personId      String   @map("person_id")
+  callUp        CallUp   @relation(fields: [performanceId, personId], references: [performanceId, personId], onDelete: Cascade)
+  // "dance", "music", "singing"…
+  roles         String[] @default([])
+
+  @@id([pieceId, personId])
+  @@index([performanceId, personId])
+  @@map("participations")
+}

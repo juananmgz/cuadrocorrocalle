@@ -1,0 +1,56 @@
+@use '../../styles/mixins';
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  @include mixins.label;
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.figure {
+  min-height: 44px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  background: transparent;
+  border: var(--border-width) solid var(--ctl);
+  border-radius: var(--radius);
+
+  &[data-state='checked'],
+  &[aria-pressed='true'] {
+    color: var(--on-accent);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+// Delete sits on its own line, away from saving.
+.delete {
+  justify-self: start;
+}
+
+.error {
+  margin: 0;
+  color: var(--danger);
+}

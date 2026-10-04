@@ -12,6 +12,11 @@
     background: var(--sel-bg);
     border-color: var(--accent);
   }
+
+  &[data-secondary] {
+    border-color: var(--accent);
+    border-style: dashed;
+  }
 }
 
 .token {

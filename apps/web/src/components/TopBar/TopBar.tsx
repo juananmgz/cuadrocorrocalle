@@ -1,6 +1,9 @@
-import { Link } from 'react-router';
+import { APP_NAME } from '@cuadrocorrocalle/shared';
+import { Link, NavLink } from 'react-router';
 
-import { THEME_OPTIONS, type ThemePreference, useThemePreference } from '../../theme/theme';
+import { GroupBox } from '../GroupBox/GroupBox';
+import { SECTIONS } from '../navigation';
+import { SideMenu } from '../SideMenu/SideMenu';
 import { Menu, type MenuItem } from '../ui/Menu/Menu';
 import styles from './TopBar.module.scss';
 
@@ -8,34 +11,48 @@ interface TopBarProps {
   groupName?: string;
   onGroupClick?: () => void;
   userName: string;
+  userEmail?: string;
+  /** Items of the user menu on tablets and PCs. */
   userMenuItems: MenuItem[];
+  /** Shows the app's sections (Mi grupo) on tablets and PCs. */
+  showSections?: boolean;
 }
 
-export function TopBar({ groupName, onGroupClick, userName, userMenuItems }: TopBarProps) {
-  const [theme, setTheme] = useThemePreference();
-
+export function TopBar({
+  groupName,
+  onGroupClick,
+  userName,
+  userEmail,
+  userMenuItems,
+  showSections = false,
+}: TopBarProps) {
   return (
     <header className={styles.root}>
       <Link to="/" className={styles.brand}>
-        3C Folk
+        {APP_NAME}
       </Link>
+      {showSections && (
+        <nav className={styles.sections} aria-label="Secciones">
+          {SECTIONS.map((section) => (
+            <NavLink key={section.to} to={section.to} className={styles.section}>
+              {section.label}
+            </NavLink>
+          ))}
+        </nav>
+      )}
+      {/* Phones get the hamburger menu; tablets and PCs the group box and user menu. */}
+      <div className={styles.mobile}>
+        <SideMenu
+          groupName={groupName}
+          onGroupClick={onGroupClick}
+          userName={userName}
+          userEmail={userEmail}
+        />
+      </div>
       <div className={styles.actions}>
-        {groupName && (
-          <button type="button" className={styles.group} onClick={onGroupClick}>
-            <span className={styles.groupLabel}>Grupo</span>
-            <span className={styles.groupName}>{groupName}</span>
-          </button>
-        )}
+        {groupName && <GroupBox name={groupName} onClick={onGroupClick} />}
         <Menu
           items={userMenuItems}
-          radioGroups={[
-            {
-              label: 'Tema',
-              value: theme,
-              options: THEME_OPTIONS,
-              onValueChange: (value) => setTheme(value as ThemePreference),
-            },
-          ]}
           trigger={
             <button type="button" className={styles.user} aria-label={`Menú de ${userName}`}>
               {userName.slice(0, 1).toUpperCase()}

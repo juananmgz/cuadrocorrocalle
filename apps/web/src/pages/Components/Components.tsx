@@ -79,7 +79,11 @@ export function Components() {
           </Card>
 
           <Card title="Ficha de persona y selector de color">
-            <ColorPicker label="Color principal" value={color} onValueChange={setColor} />
+            <ColorPicker
+              label="Color principal"
+              value={color}
+              onValueChange={(value) => value !== 'random' && setColor(value)}
+            />
             <div className={styles.row}>
               <PersonChip name={name || 'Sin nombre'} color={color} highlighted />
             </div>

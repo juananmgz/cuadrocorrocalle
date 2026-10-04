@@ -1,0 +1,197 @@
+@use '../../styles/mixins';
+
+// Floating list over the grid: in the flow on phones, pinned to the left on tablets and PCs.
+.column {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+
+  @include mixins.from-tablet {
+    position: fixed;
+    top: calc(56px + var(--space-4));
+    bottom: var(--space-4);
+    left: var(--space-4);
+    z-index: 2;
+    width: 380px;
+    overflow-y: auto;
+    transition: width 300ms ease;
+
+    // Creating takes a third of the screen, like 4 of 12 columns.
+    &[data-wide] {
+      width: max(380px, calc((100vw - 2 * var(--space-4)) / 3));
+    }
+
+    // The editor scrolls inside its own views.
+    &[data-editor] {
+      overflow: hidden;
+    }
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.panel {
+  @include mixins.panel;
+
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+// Room for the "⋯" menu of a performance in its top right corner.
+.withActions {
+  position: relative;
+}
+
+.more {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  font: inherit;
+  font-size: 1.25rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  &:hover,
+  &[data-state='open'] {
+    color: var(--ink);
+    background: var(--sel-bg);
+  }
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.featuredTitle {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: clamp(2rem, 7vw, 2.75rem);
+  overflow-wrap: anywhere;
+}
+
+.details,
+.text {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.open {
+  @include mixins.label;
+
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  margin-top: var(--space-2);
+  color: var(--on-accent);
+  text-decoration: none;
+  background: var(--accent);
+  border-radius: var(--radius);
+}
+
+.others {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+// Each performance is its own floating element, like the prototype.
+.item {
+  @include mixins.panel;
+
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) 48px var(--space-2) var(--space-3);
+  color: var(--ink);
+  text-decoration: none;
+
+  &:hover {
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+}
+
+.itemTitle {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.itemDate {
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.create {
+  @include mixins.panel;
+
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-self: start;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+
+  span {
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+
+  &:hover {
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+}
+
+// Staggered slide to the left when "Crear actuación" opens the form; back in on cancel.
+[data-slide] {
+  transition:
+    transform 260ms ease-in,
+    opacity 260ms ease-in;
+  animation: slide-in 260ms ease-out backwards;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+    animation: none;
+  }
+}
+
+[data-slide='out'] {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-120%);
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-120%);
+  }
+}

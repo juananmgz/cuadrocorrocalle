@@ -4,23 +4,39 @@ import type { ReactNode } from 'react';
 import styles from './Dialog.module.scss';
 
 interface DialogProps {
-  trigger: ReactNode;
+  trigger?: ReactNode;
   title: string;
   description?: string;
   children?: ReactNode;
   footer?: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** When false, Esc, outside clicks and the close button are disabled until a choice is made. */
+  dismissable?: boolean;
 }
 
-export function Dialog({ trigger, title, description, children, footer, ...props }: DialogProps) {
+export function Dialog({
+  trigger,
+  title,
+  description,
+  children,
+  footer,
+  dismissable = true,
+  ...props
+}: DialogProps) {
+  const block = (event: Event) => {
+    if (!dismissable) event.preventDefault();
+  };
+
   return (
     <RadixDialog.Root {...props}>
-      <RadixDialog.Trigger asChild>{trigger}</RadixDialog.Trigger>
+      {trigger && <RadixDialog.Trigger asChild>{trigger}</RadixDialog.Trigger>}
       <RadixDialog.Portal>
         <RadixDialog.Overlay className={styles.overlay} />
         <RadixDialog.Content
           className={styles.content}
+          onEscapeKeyDown={block}
+          onInteractOutside={block}
           // Radix expects an explicit undefined when there is no description.
           {...(description ? {} : { 'aria-describedby': undefined })}
         >
@@ -32,9 +48,11 @@ export function Dialog({ trigger, title, description, children, footer, ...props
           )}
           {children}
           {footer && <div className={styles.footer}>{footer}</div>}
-          <RadixDialog.Close className={styles.close} aria-label="Cerrar">
-            ✕
-          </RadixDialog.Close>
+          {dismissable && (
+            <RadixDialog.Close className={styles.close} aria-label="Cerrar">
+              ✕
+            </RadixDialog.Close>
+          )}
         </RadixDialog.Content>
       </RadixDialog.Portal>
     </RadixDialog.Root>

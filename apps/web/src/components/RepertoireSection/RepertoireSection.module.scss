@@ -1,0 +1,432 @@
+@use '../../styles/mixins';
+
+.root {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.totals {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-2);
+
+  // Room to drop into an empty list.
+  min-height: 52px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  border-radius: var(--radius);
+
+  &[data-over] {
+    outline: var(--border-width) dashed var(--accent);
+    outline-offset: 4px;
+  }
+}
+
+.piece {
+  position: relative;
+  background: var(--surface);
+  border: var(--border-width) solid var(--ctl);
+  border-radius: var(--radius);
+
+  &[data-dragging] {
+    z-index: 1;
+    border-color: var(--accent);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+
+  &[data-invalid] {
+    border-color: var(--danger);
+  }
+}
+
+.row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 52px;
+  padding-right: var(--space-3);
+}
+
+// Large touch target; dragging starts here so the page still scrolls elsewhere.
+.handle {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  width: 44px;
+  font-size: 1.25rem;
+  color: var(--ink-soft);
+  touch-action: none;
+  cursor: grab;
+  background: transparent;
+  border: 0;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:focus-visible {
+    outline: var(--border-width) solid var(--accent);
+    outline-offset: -4px;
+  }
+}
+
+.number {
+  min-width: 1.5em;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.summary {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: var(--space-2) 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+}
+
+.type,
+.optional {
+  padding: 0 var(--space-2);
+  font-size: 0.8125rem;
+  border: 1px solid var(--ctl);
+  border-radius: 999px;
+}
+
+.optional {
+  border-style: dashed;
+}
+
+.duration {
+  min-width: 3.5em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.fields {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+// Fields stay aligned to the top even when only one of them has a hint.
+.pair {
+  display: grid;
+  gap: var(--space-3);
+  align-items: start;
+
+  @include mixins.from-tablet {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.buttons {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.check {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+
+  input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+  }
+}
+
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.limit {
+  color: var(--ink-soft);
+}
+
+.peopleCount {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.participants {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.participantsTitle {
+  @include mixins.label;
+
+  margin: 0;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.participantList {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.participant {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.removePerson {
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  font: inherit;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  &:hover {
+    color: var(--danger);
+    background: var(--sel-bg);
+  }
+}
+
+.saveStatus {
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.finish {
+  margin-left: auto;
+}
+
+// Repertoire and people tray side by side (60 / 40) when the column is wide enough,
+// one under the other otherwise (phones, narrow windows).
+.workspace {
+  container-type: inline-size;
+}
+
+.workspaceGrid {
+  display: grid;
+  gap: var(--space-3);
+  align-items: start;
+
+  @container (min-width: 500px) {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+// Filling: both panels reach the bottom of the column and scroll inside (tablets and PCs).
+.workspace[data-fill] {
+  @include mixins.from-tablet {
+    height: 100%;
+
+    .workspaceGrid {
+      height: 100%;
+    }
+
+    @container (min-width: 500px) {
+      .workspaceGrid > * {
+        height: 100%;
+        max-height: none;
+        overflow: hidden auto;
+      }
+    }
+  }
+}
+
+// Its content shrinks with the column instead of pushing it wider.
+.repertoireCard {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.emptyList {
+  display: grid;
+  place-items: center;
+  min-height: 52px;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+  border: var(--border-width) dashed var(--line);
+  border-radius: var(--radius);
+}
+
+.encores {
+  display: grid;
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid var(--line);
+  border-radius: var(--radius);
+
+  &[data-over] {
+    outline: var(--border-width) dashed var(--accent);
+    outline-offset: 4px;
+  }
+}
+
+.encoresTitle {
+  margin: 0;
+}
+
+// The title opens and closes the block, like the form blocks.
+.encoresToggle {
+  @include mixins.heading;
+
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  font-size: 1.125rem;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+
+  &::after {
+    margin-left: auto;
+    font-size: 0.875rem;
+    content: '▾';
+  }
+
+  &[aria-expanded='true']::after {
+    content: '▴';
+  }
+}
+
+.encoresTime {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--ink-soft);
+  text-transform: none;
+}
+
+// Accordion sweep: the block grows from 0 to its height.
+.accordion {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms ease;
+
+  &[data-open] {
+    grid-template-rows: 1fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.accordionInner {
+  display: grid;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow: hidden;
+
+  [data-open] > & {
+    padding-top: var(--space-1);
+  }
+}
+
+// Summary box: highlighted in blue when everything fits, yellow when there is any problem.
+.overview {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--sel-bg);
+  border: var(--border-width) solid var(--accent);
+  border-left-width: 6px;
+  border-radius: var(--radius);
+
+  &:not([data-status='ok']) {
+    background: var(--warn-bg);
+    border-color: var(--warn);
+  }
+}
+
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+
+  dt {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.summaryBlock {
+  display: grid;
+  gap: var(--space-1);
+}
+
+// Note under the box when the performance has no duration to compare with.
+.disclaimer {
+  margin: 0;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--warn);
+}
+
+.verdict {
+  margin: 0;
+  font-weight: 700;
+}

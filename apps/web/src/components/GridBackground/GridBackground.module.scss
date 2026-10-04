@@ -6,10 +6,19 @@
   background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom));
 }
 
-// Canvas with the curved floor grid, faded towards the horizon.
+// Canvas with the floor grid; the horizon fade is drawn on the canvas itself.
 .floor {
   display: block;
   width: 100%;
   height: 100%;
-  mask-image: linear-gradient(to bottom, transparent 25%, #000 55%);
+}
+
+// Previous frame over the canvas, faded out after a colour change.
+.fade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
 }

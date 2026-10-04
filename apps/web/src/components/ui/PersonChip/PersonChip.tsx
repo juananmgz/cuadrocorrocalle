@@ -5,6 +5,8 @@ interface PersonChipProps {
   name: string;
   color: PersonColor;
   highlighted?: boolean;
+  /** Dashed outline for a tentative choice, e.g. pending confirmation. */
+  secondary?: boolean;
 }
 
 function initials(name: string) {
@@ -16,11 +18,20 @@ function initials(name: string) {
     .join('');
 }
 
-export function PersonChip({ name, color, highlighted = false }: PersonChipProps) {
+export function PersonChip({
+  name,
+  color,
+  highlighted = false,
+  secondary = false,
+}: PersonChipProps) {
   const { fill, ink } = getPersonColor(color);
 
   return (
-    <span className={styles.root} data-highlighted={highlighted ? '' : undefined}>
+    <span
+      className={styles.root}
+      data-highlighted={highlighted ? '' : undefined}
+      data-secondary={secondary ? '' : undefined}
+    >
       <span className={styles.token} style={{ background: fill, color: ink }} aria-hidden="true">
         {initials(name)}
       </span>

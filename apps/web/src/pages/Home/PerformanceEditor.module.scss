@@ -1,0 +1,108 @@
+@use '../../styles/mixins';
+
+// On tablets and PCs the editor fills the column height: the switch on top and the view below,
+// which scrolls on its own.
+.root {
+  display: grid;
+  gap: var(--space-3);
+
+  @include mixins.from-tablet {
+    grid-template-rows: auto minmax(0, 1fr);
+
+    // Same height as the fixed column: below the top bar and its margins.
+    height: calc(100vh - 56px - 2 * var(--space-4));
+  }
+}
+
+// "Actuación" / "Piezas", like two halves of one button.
+.switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: var(--border-width) solid var(--ink);
+  border-radius: var(--radius);
+}
+
+.option {
+  @include mixins.heading;
+
+  min-height: 40px;
+  font-size: 1.125rem;
+  color: var(--ink);
+  cursor: pointer;
+  background: var(--surface);
+  border: 0;
+
+  & + & {
+    border-left: var(--border-width) solid var(--ink);
+  }
+
+  &[aria-pressed='true'] {
+    color: var(--on-accent);
+    background: var(--accent);
+  }
+
+  &:hover:not([aria-disabled='true'], [aria-pressed='true']) {
+    background: var(--sel-bg);
+  }
+
+  &[aria-disabled='true'] {
+    color: var(--ctl);
+    cursor: not-allowed;
+  }
+
+  // Hint on hover, e.g. "Rellena los campos necesarios".
+  &[data-hint] {
+    position: relative;
+  }
+
+  &[data-hint]:hover::after,
+  &[data-hint]:focus-visible::after {
+    @include mixins.popover;
+
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 5;
+    width: max-content;
+    max-width: 220px;
+    padding: var(--space-1) var(--space-2);
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: var(--ink);
+    text-transform: none;
+    letter-spacing: normal;
+    content: attr(data-hint);
+  }
+}
+
+.view {
+  min-height: 0;
+
+  @include mixins.from-tablet {
+    // Only vertical: the heartbeat around a block must not add a horizontal scroll.
+    overflow: hidden auto;
+  }
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.pieces {
+  display: grid;
+  gap: var(--space-3);
+
+  @include mixins.from-tablet {
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+  }
+}
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: 2rem;
+  overflow-wrap: anywhere;
+}

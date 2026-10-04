@@ -48,4 +48,10 @@
   &[data-variant='secondary']:hover:not(:disabled) {
     background: var(--sel-bg);
   }
+
+  // Filled buttons keep their colours, so a disabled one fades instead.
+  &[data-variant='primary']:disabled,
+  &[data-variant='danger']:disabled {
+    opacity: 0.45;
+  }
 }
