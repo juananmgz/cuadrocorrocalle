@@ -196,6 +196,16 @@ export function createPerformanceService(
       if (input.some((piece) => piece.id && !current.has(piece.id)))
         return 'UNKNOWN_PIECE' as const;
 
+      // Only people who come or may come can take part in a piece.
+      const available = new Set(
+        (await callUps.list(performance.id))
+          .filter((entry) => entry.status !== 'no')
+          .map((entry) => entry.personId),
+      );
+      const participants = input.flatMap((piece) => piece.participants ?? []);
+      if (participants.some((participant) => !available.has(participant.personId)))
+        return 'NOT_CALLED_UP' as const;
+
       return pieces.replace(
         performance.id,
         input.map((piece) => ({
@@ -205,6 +215,10 @@ export function createPerformanceService(
           durationSeconds: piece.durationSeconds ?? null,
           structure: piece.structure || null,
           optional: piece.optional ?? false,
+          participants: (piece.participants ?? []).map((participant) => ({
+            personId: participant.personId,
+            roles: participant.roles,
+          })),
         })),
       );
     },

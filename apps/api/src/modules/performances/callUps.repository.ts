@@ -19,12 +19,23 @@ export function createPrismaCallUpRepository(prisma: PrismaClient): CallUpReposi
 
   return {
     list,
+    // Only changed rows are touched: deleting a call-up row also removes that person from the pieces.
     async replace(performanceId, entries) {
+      const ids = entries.map((entry) => entry.personId);
+      const notComing = entries
+        .filter((entry) => entry.status === 'no')
+        .map((entry) => entry.personId);
       await prisma.$transaction([
-        prisma.callUp.deleteMany({ where: { performanceId } }),
-        prisma.callUp.createMany({
-          data: entries.map((entry) => ({ performanceId, ...entry })),
-        }),
+        prisma.callUp.deleteMany({ where: { performanceId, personId: { notIn: ids } } }),
+        ...entries.map(({ personId, status }) =>
+          prisma.callUp.upsert({
+            where: { performanceId_personId: { performanceId, personId } },
+            create: { performanceId, personId, status },
+            update: { status },
+          }),
+        ),
+        // Someone who no longer comes leaves the pieces too.
+        prisma.participation.deleteMany({ where: { performanceId, personId: { in: notComing } } }),
       ]);
       return list(performanceId);
     },

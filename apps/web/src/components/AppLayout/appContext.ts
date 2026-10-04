@@ -8,6 +8,7 @@ export interface GridSettings {
   view?: 'perspective' | 'top';
   stage?: GridStage | null;
   showCross?: boolean;
+  label?: string | null;
 }
 
 export interface AppContext {

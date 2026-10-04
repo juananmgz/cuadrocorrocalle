@@ -1,4 +1,4 @@
-import type { Piece, PieceType } from '@cuadrocorrocalle/shared';
+import type { Piece, PieceType, PersonRole } from '@cuadrocorrocalle/shared';
 
 import type { PrismaClient } from '../../generated/prisma/client';
 
@@ -19,6 +19,10 @@ const FIELDS = {
   durationSeconds: true,
   structure: true,
   optional: true,
+  participations: {
+    select: { personId: true, roles: true },
+    orderBy: { personId: 'asc' },
+  },
 } as const;
 
 export function createPrismaPieceRepository(prisma: PrismaClient): PieceRepository {
@@ -28,7 +32,14 @@ export function createPrismaPieceRepository(prisma: PrismaClient): PieceReposito
       orderBy: { position: 'asc' },
       select: FIELDS,
     });
-    return rows.map((row) => ({ ...row, type: row.type as PieceType }));
+    return rows.map(({ participations, ...row }) => ({
+      ...row,
+      type: row.type as PieceType,
+      participants: participations.map((participation) => ({
+        ...participation,
+        roles: participation.roles as PersonRole[],
+      })),
+    }));
   };
 
   return {
@@ -37,9 +48,14 @@ export function createPrismaPieceRepository(prisma: PrismaClient): PieceReposito
       const kept = pieces.flatMap((piece) => (piece.id ? [piece.id] : []));
       await prisma.$transaction(async (tx) => {
         await tx.piece.deleteMany({ where: { performanceId, id: { notIn: kept } } });
-        for (const [position, { id, ...data }] of pieces.entries()) {
-          if (id) await tx.piece.update({ where: { id }, data: { ...data, position } });
-          else await tx.piece.create({ data: { ...data, position, performanceId } });
+        for (const [position, { id, participants, ...data }] of pieces.entries()) {
+          const pieceId = id
+            ? (await tx.piece.update({ where: { id }, data: { ...data, position } })).id
+            : (await tx.piece.create({ data: { ...data, position, performanceId } })).id;
+          await tx.participation.deleteMany({ where: { pieceId } });
+          await tx.participation.createMany({
+            data: participants.map((participant) => ({ ...participant, pieceId, performanceId })),
+          });
         }
       });
       return list(performanceId);

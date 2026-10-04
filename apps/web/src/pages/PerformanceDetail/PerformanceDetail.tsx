@@ -1,24 +1,32 @@
-import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 
-import { PerformanceDialog } from '../../components/PerformanceDialog/PerformanceDialog';
-import { RepertoireCard } from '../../components/RepertoireSection/RepertoireCard';
-import { Button } from '../../components/ui/Button/Button';
+import { useApp } from '../../components/AppLayout/appContext';
+import type { GridStage } from '../../components/GridBackground/GridBackground';
 import { Card } from '../../components/ui/Card/Card';
-import { useToast } from '../../components/ui/Toast/toastContext';
-import { formatDay, formatDuration } from '../../performances/format';
-import { usePerformance, usePerformanceMutations } from '../../performances/performancesApi';
+import { usePerformance } from '../../performances/performancesApi';
+import homeStyles from '../Home/Home.module.scss';
+import { PerformanceEditor } from '../Home/PerformanceEditor';
+import { useColumnInset } from '../Home/useColumnInset';
 import styles from './PerformanceDetail.module.scss';
 
-/** A performance's data, with edit, duplicate and delete. */
+/** A performance, edited on the same screen used to create it. */
 export function PerformanceDetail() {
   const { id = '' } = useParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
-  const toast = useToast();
+  const { activeGroup, setGrid } = useApp();
   const { data: performance, isError } = usePerformance(id);
-  const mutations = usePerformanceMutations();
-  const [editing, setEditing] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [previewStage, setPreviewStage] = useState<GridStage | null>(null);
+  const [pieceLabel, setPieceLabel] = useState<string | null>(null);
+  const columnRef = useRef<HTMLDivElement>(null);
+  const inset = useColumnInset(columnRef);
+
+  // The grid seen from above with the stage, as when creating.
+  useEffect(() => {
+    setGrid({ leftInset: inset, view: 'top', stage: previewStage, label: pieceLabel });
+  }, [inset, previewStage, pieceLabel, setGrid]);
+  useEffect(() => () => setGrid({}), [setGrid]);
 
   if (isError) {
     return (
@@ -28,68 +36,23 @@ export function PerformanceDetail() {
       </Card>
     );
   }
-  if (!performance) return null;
-
-  const duplicate = () =>
-    mutations.duplicate.mutate(performance.id, {
-      onSuccess: (copy) => {
-        toast.show({ title: 'Actuación duplicada', tone: 'success' });
-        navigate(`/actuaciones/${copy.id}`);
-      },
-      onError: (error) => toast.show({ title: error.message, tone: 'warning' }),
-    });
-
-  const remove = () => {
-    if (!confirmingDelete) return setConfirmingDelete(true);
-    mutations.remove.mutate(performance, {
-      onSuccess: () => {
-        toast.show({ title: `«${performance.title}» borrada`, tone: 'success' });
-        navigate('/inicio', { replace: true });
-      },
-    });
-  };
-
-  const rows = [
-    ['Fecha', formatDay(performance.date)],
-    ['Lugar', performance.place],
-    ['Duración', formatDuration(performance.minMinutes, performance.maxMinutes)],
-    ['Notas', performance.notes],
-  ] as const;
 
   return (
-    <>
-      <Link to="/inicio" className={styles.back}>
-        ← Inicio
-      </Link>
-      <h1 className={styles.title}>{performance.title}</h1>
-      <Card title="Datos">
-        <dl className={styles.data}>
-          {rows.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd data-empty={value ? undefined : ''}>{value ?? 'Sin indicar'}</dd>
-            </div>
-          ))}
-        </dl>
-        <div className={styles.actions}>
-          <Button variant="primary" onClick={() => setEditing(true)}>
-            Editar
-          </Button>
-          <Button onClick={duplicate} disabled={mutations.duplicate.isPending}>
-            Duplicar
-          </Button>
-          <Button variant="danger" onClick={remove} disabled={mutations.remove.isPending}>
-            {confirmingDelete ? '¿Seguro? Borrar' : 'Borrar'}
-          </Button>
-        </div>
-      </Card>
-      <RepertoireCard performanceId={performance.id} />
-      <PerformanceDialog
-        open={editing}
-        onOpenChange={setEditing}
-        performance={performance}
-        mutations={mutations}
-      />
-    </>
+    <div ref={columnRef} className={homeStyles.column} data-wide="" data-editor="">
+      <h1 className={homeStyles.srOnly}>{performance?.title ?? 'Actuación'}</h1>
+      {performance && activeGroup && (
+        <PerformanceEditor
+          // A new editor for each performance, e.g. after duplicating.
+          key={performance.id}
+          groupId={activeGroup.id}
+          performance={performance}
+          initialView={params.get('vista') === 'piezas' ? 'pieces' : 'settings'}
+          onCancel={() => navigate('/inicio')}
+          onFinish={() => navigate('/inicio')}
+          onStageChange={setPreviewStage}
+          onPieceLabel={setPieceLabel}
+        />
+      )}
+    </div>
   );
 }

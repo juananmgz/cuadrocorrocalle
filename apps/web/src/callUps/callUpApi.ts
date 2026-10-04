@@ -1,4 +1,5 @@
 import { type CallUpEntry, callUpPath, callUpSchema } from '@cuadrocorrocalle/shared';
+import { useQuery } from '@tanstack/react-query';
 
 async function request(path: string, init?: RequestInit) {
   const response = await fetch(path, {
@@ -22,4 +23,15 @@ export async function saveCallUp(performanceId: string, entries: CallUpEntry[]) 
     body: JSON.stringify({ entries }),
   });
   return callUpSchema.parse(body).entries;
+}
+
+export const callUpKey = (performanceId: string) => ['callUp', performanceId];
+
+/** The call-up of a performance. */
+export function useCallUp(performanceId: string, enabled = true) {
+  return useQuery({
+    queryKey: callUpKey(performanceId),
+    queryFn: async () => callUpSchema.parse(await request(callUpPath(performanceId))).entries,
+    enabled,
+  });
 }

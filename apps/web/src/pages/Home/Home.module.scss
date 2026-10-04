@@ -20,6 +20,11 @@
     &[data-wide] {
       width: max(380px, calc((100vw - 2 * var(--space-4)) / 3));
     }
+
+    // The editor scrolls inside its own views.
+    &[data-editor] {
+      overflow: hidden;
+    }
   }
 }
 
@@ -38,6 +43,35 @@
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4);
+}
+
+// Room for the "⋯" menu of a performance in its top right corner.
+.withActions {
+  position: relative;
+}
+
+.more {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  font: inherit;
+  font-size: 1.25rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  &:hover,
+  &[data-state='open'] {
+    color: var(--ink);
+    background: var(--sel-bg);
+  }
 }
 
 .eyebrow {
@@ -92,7 +126,7 @@
 
   display: grid;
   gap: 2px;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) 48px var(--space-2) var(--space-3);
   color: var(--ink);
   text-decoration: none;
 

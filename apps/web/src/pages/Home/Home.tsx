@@ -1,15 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
 
 import { authClient, authErrorMessage, VERIFIED_CALLBACK } from '../../auth/authClient';
 import { useApp } from '../../components/AppLayout/appContext';
 import type { GridStage } from '../../components/GridBackground/GridBackground';
 import { Button } from '../../components/ui/Button/Button';
 import { useToast } from '../../components/ui/Toast/toastContext';
-import { FROM_TABLET, useMediaQuery } from '../../hooks';
 import { formatDay, formatDuration } from '../../performances/format';
 import { usePerformances } from '../../performances/performancesApi';
-import { CreatePerformanceCard } from './CreatePerformanceCard';
+import { PerformanceActions } from './PerformanceActions';
+import { PerformanceEditor } from './PerformanceEditor';
+import { useColumnInset } from './useColumnInset';
 import styles from './Home.module.scss';
 
 // How many other performances float under the featured one.
@@ -20,7 +21,6 @@ const SLIDE = 260;
 
 /** Start page: the curved grid with the latest performances floating on the left. */
 export function Home() {
-  const navigate = useNavigate();
   const toast = useToast();
   const { activeGroup, setGrid } = useApp();
   const { data: performances } = usePerformances(activeGroup?.id);
@@ -29,9 +29,9 @@ export function Home() {
   const [resending, setResending] = useState(false);
   // "list" → "leaving" (items slide out one by one) → "create" (form card); back on cancel.
   const [mode, setMode] = useState<'list' | 'leaving' | 'create'>('list');
-  const [inset, setInset] = useState(0);
   const [previewStage, setPreviewStage] = useState<GridStage | null>(null);
-  const wide = useMediaQuery(FROM_TABLET);
+  // Sign over the stage with the open piece, while editing the pieces.
+  const [pieceLabel, setPieceLabel] = useState<string | null>(null);
   const columnRef = useRef<HTMLDivElement>(null);
   const email = session?.user.email ?? '';
 
@@ -41,26 +41,22 @@ export function Home() {
   const featured = upcoming ?? performances?.at(-1);
   const others = (performances ?? []).filter((item) => item !== featured).slice(0, RECENT_COUNT);
 
-  // On tablets and PCs the grid centres on the space right of the list: (W - wl) / 2 + wl.
-  useLayoutEffect(() => {
-    const column = columnRef.current;
-    if (!column || !wide) return setInset(0);
-
-    const measure = () => setInset(column.getBoundingClientRect().right);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(column);
-    return () => observer.disconnect();
-  }, [wide]);
+  // On tablets and PCs the grid centres on the space right of the list.
+  const inset = useColumnInset(columnRef);
 
   // Creating moves the camera above the floor and previews the stage.
   useEffect(() => {
     setGrid(
       mode === 'list'
         ? { leftInset: inset }
-        : { leftInset: inset, view: 'top', stage: previewStage },
+        : {
+            leftInset: inset,
+            view: 'top',
+            stage: previewStage,
+            label: pieceLabel,
+          },
     );
-  }, [mode, inset, previewStage, setGrid]);
+  }, [mode, inset, previewStage, setGrid, pieceLabel]);
   useEffect(() => () => setGrid({}), [setGrid]);
 
   const unverified = Boolean(session && !session.user.emailVerified);
@@ -74,6 +70,7 @@ export function Home() {
   const stopCreating = () => {
     setMode('list');
     setPreviewStage(null);
+    setPieceLabel(null);
   };
 
   // The confirmation link lands here with ?correo=confirmado.
@@ -105,16 +102,21 @@ export function Home() {
   });
 
   return (
-    <div ref={columnRef} className={styles.column} data-wide={mode === 'create' ? '' : undefined}>
+    <div
+      ref={columnRef}
+      className={styles.column}
+      data-wide={mode === 'create' ? '' : undefined}
+      data-editor={mode === 'create' ? '' : undefined}
+    >
       <h1 className={styles.srOnly}>Inicio</h1>
 
       {mode === 'create' && activeGroup && (
-        <CreatePerformanceCard
+        <PerformanceEditor
           groupId={activeGroup.id}
-          isTrial={activeGroup.isTrial}
           onCancel={stopCreating}
-          onCreated={(performance) => navigate(`/actuaciones/${performance.id}`)}
+          onFinish={stopCreating}
           onStageChange={setPreviewStage}
+          onPieceLabel={setPieceLabel}
         />
       )}
 
@@ -132,7 +134,12 @@ export function Home() {
           )}
 
           {featured && (
-            <section className={styles.panel} aria-labelledby="featured-title" {...slide(offset)}>
+            <section
+              className={`${styles.panel} ${styles.withActions}`}
+              aria-labelledby="featured-title"
+              {...slide(offset)}
+            >
+              <PerformanceActions performance={featured} />
               <p className={styles.eyebrow}>
                 {upcoming ? 'Próxima actuación' : 'Última actuación'}
               </p>
@@ -157,7 +164,12 @@ export function Home() {
           {others.length > 0 && (
             <ul className={styles.others} aria-label="Otras actuaciones">
               {others.map((performance, index) => (
-                <li key={performance.id} {...slide(offset + index + (featured ? 1 : 0))}>
+                <li
+                  key={performance.id}
+                  className={styles.withActions}
+                  {...slide(offset + index + (featured ? 1 : 0))}
+                >
+                  <PerformanceActions performance={performance} />
                   <Link to={`/actuaciones/${performance.id}`} className={styles.item}>
                     <span className={styles.itemTitle}>{performance.title}</span>
                     <span className={styles.itemDate}>

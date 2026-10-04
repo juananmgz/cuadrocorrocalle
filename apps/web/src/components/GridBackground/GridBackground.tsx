@@ -29,6 +29,8 @@ const MARGIN_SQUARES = 1;
 const TOP_BAR = 56;
 // Room kept under the stage for "PÚBLICO".
 const BOTTOM_ROOM = 48;
+// Room kept above the stage for the label of the piece being edited.
+const LABEL_ROOM = 44;
 const DURATION = 1200;
 const STAGE_DURATION = 350;
 const RESIZE_DURATION = 450;
@@ -58,6 +60,8 @@ interface Frame {
   /** Edge distance in squares, eased towards the stage's. */
   edge: number;
   showCross: boolean;
+  /** Shown on a sign above the stage, e.g. the piece being edited. */
+  label: string | null;
 }
 
 interface Camera {
@@ -80,6 +84,8 @@ const COLOR_NAMES = [
   '--stage',
   '--stage-edge',
   '--ink-soft',
+  '--ink',
+  '--surface',
   '--font-heading',
 ] as const;
 type Colors = Record<(typeof COLOR_NAMES)[number], string>;
@@ -123,7 +129,7 @@ function homeCell(height: number) {
  * Pixels per square seen from above: the same as in the curved view, so the move has no zoom.
  * It only zooms out when the stage, plus a margin, would not fit.
  */
-function fittingCell(frame: Pick<Frame, 'width' | 'height' | 'leftInset' | 'stage'>) {
+function fittingCell(frame: Pick<Frame, 'width' | 'height' | 'leftInset' | 'stage' | 'label'>) {
   const base = homeCell(frame.height);
   if (!frame.stage) return base;
   const { areaWidth, centerY } = freeArea(frame);
@@ -132,7 +138,7 @@ function fittingCell(frame: Pick<Frame, 'width' | 'height' | 'leftInset' | 'stag
   // same margin as the sides and the bottom leaves room for "PÚBLICO".
   const fit = Math.min(
     areaWidth / (frame.stage.cols + MARGIN_SQUARES * 2),
-    (centerY - TOP_BAR) / (halfRows + MARGIN_SQUARES),
+    (centerY - TOP_BAR - (frame.label ? LABEL_ROOM : 0)) / (halfRows + MARGIN_SQUARES),
     (frame.height - centerY - BOTTOM_ROOM) / halfRows,
   );
   return Math.max(MIN_CELL, Math.min(base, fit));
@@ -348,6 +354,29 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
         ctx.fillText('PÚBLICO', label.x, label.y);
         ctx.letterSpacing = '0px';
       }
+
+      // Sign above the stage with the piece being edited.
+      const sign = frame.label ? project(0, halfY + 0.4) : null;
+      if (sign && frame.label) {
+        ctx.font = `700 18px ${colors['--font-heading']}`;
+        const text = frame.label.toUpperCase();
+        const width = Math.min(
+          ctx.measureText(text).width + 28,
+          frame.width - frame.leftInset - 32,
+        );
+        const height = 32;
+        ctx.fillStyle = colors['--surface'];
+        ctx.strokeStyle = colors['--stage-edge'];
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(sign.x - width / 2, sign.y - height - 6, width, height, 4);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = colors['--ink'];
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, sign.x, sign.y - 6 - height / 2, width - 16);
+      }
       ctx.globalAlpha = 1;
     }
   }
@@ -384,6 +413,8 @@ interface GridBackgroundProps {
   stage?: GridStage | null;
   /** Shows the centre cross of the stage. */
   showCross?: boolean;
+  /** Sign above the stage, e.g. the title of the piece being edited. */
+  label?: string | null;
 }
 
 export function GridBackground({
@@ -391,6 +422,7 @@ export function GridBackground({
   view = 'perspective',
   stage = null,
   showCross = true,
+  label = null,
 }: GridBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // Animated values survive re-renders; props only move their targets.
@@ -441,6 +473,7 @@ export function GridBackground({
       resized: state.resized,
       edge: state.edge,
       showCross,
+      label,
     });
 
     let last = performance.now();
@@ -532,7 +565,7 @@ export function GridBackground({
       theme.disconnect();
       scheme?.removeEventListener('change', recolor);
     };
-  }, [leftInset, view, stage, showCross]);
+  }, [leftInset, view, stage, showCross, label]);
 
   return (
     <div className={styles.root} aria-hidden="true">

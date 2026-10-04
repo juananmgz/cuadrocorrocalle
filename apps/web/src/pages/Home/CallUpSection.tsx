@@ -26,6 +26,8 @@ interface Row extends NameMatch {
 
 interface CallUpSectionProps {
   groupId: string;
+  /** Call-up already saved, when editing a performance. */
+  initial?: CallUpEntry[];
   /** Reports the call-up and whether imported names are still missing from the group. */
   onChange: (entries: CallUpEntry[], pending: boolean) => void;
 }
@@ -40,12 +42,19 @@ const NEXT_STATUS = { none: 'yes', yes: 'maybe', maybe: 'none' } as const;
 type ChipStatus = keyof typeof NEXT_STATUS;
 
 /** "Convocatoria": click each person to mark who comes, or import a list. */
-export function CallUpSection({ groupId, onChange }: CallUpSectionProps) {
+export function CallUpSection({ groupId, initial, onChange }: CallUpSectionProps) {
   const { data: people = NO_PEOPLE } = usePeople(groupId);
   const mutations = usePeopleMutations(groupId);
   const [importing, setImporting] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
-  const [statuses, setStatuses] = useState<Record<string, CallUpStatus>>({});
+  // People who do not come are left out, as if they were not called up.
+  const [statuses, setStatuses] = useState<Record<string, CallUpStatus>>(() =>
+    Object.fromEntries(
+      (initial ?? [])
+        .filter((entry) => entry.status !== 'no')
+        .map((entry) => [entry.personId, entry.status]),
+    ),
+  );
   // Every option starts on, so nobody is hidden at first.
   const [roles, setRoles] = useState<PersonRole[]>([...PERSON_ROLES]);
   const [memberships, setMemberships] = useState<Membership[]>(MEMBERSHIPS);
