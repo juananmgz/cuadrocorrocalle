@@ -41,13 +41,38 @@
     background: var(--accent);
   }
 
-  &:hover:not(:disabled, [aria-pressed='true']) {
+  &:hover:not([aria-disabled='true'], [aria-pressed='true']) {
     background: var(--sel-bg);
   }
 
-  &:disabled {
+  &[aria-disabled='true'] {
     color: var(--ctl);
     cursor: not-allowed;
+  }
+
+  // Hint on hover, e.g. "Rellena los campos necesarios".
+  &[data-hint] {
+    position: relative;
+  }
+
+  &[data-hint]:hover::after,
+  &[data-hint]:focus-visible::after {
+    @include mixins.popover;
+
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 5;
+    width: max-content;
+    max-width: 220px;
+    padding: var(--space-1) var(--space-2);
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: var(--ink);
+    text-transform: none;
+    letter-spacing: normal;
+    content: attr(data-hint);
   }
 }
 
@@ -55,7 +80,8 @@
   min-height: 0;
 
   @include mixins.from-tablet {
-    overflow-y: auto;
+    // Only vertical: the heartbeat around a block must not add a horizontal scroll.
+    overflow: hidden auto;
   }
 
   &[hidden] {

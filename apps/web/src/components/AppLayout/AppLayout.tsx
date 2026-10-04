@@ -71,6 +71,9 @@ function SignedInLayout() {
         userMenuItems={[
           { label: 'Mi cuenta', onSelect: () => navigate('/cuenta') },
           { label: 'Ajustes', onSelect: () => navigate('/ajustes') },
+          ...(session?.user.isAdmin
+            ? [{ label: 'Estado', onSelect: () => navigate('/status') }]
+            : []),
           { label: 'Cerrar sesión', onSelect: signOut, danger: true },
         ]}
       />

@@ -21,6 +21,7 @@ Documentación técnica de la herramienta. Se actualiza con cada commit. Las ide
 - [Seguridad de las cuentas](security.md): contraseñas, sesiones y límites de intentos.
 - [Alta guiada](onboarding.md): las tres preguntas de una cuenta nueva.
 - [Mi cuenta](account.md): nombre, correo, contraseña y borrar la cuenta.
+- [Estado y administración](status.md): `/status` y `/componentes`, solo para administradores.
 - [Grupos](groups.md): elegir y crear grupo, color de cuadrícula.
 - [Personas](people.md): «Mi grupo», añadir, pegar una lista y editar personas.
 - [Actuaciones](performances.md): crear, editar, duplicar y borrar actuaciones.

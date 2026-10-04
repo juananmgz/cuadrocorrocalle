@@ -23,6 +23,8 @@ model User {
   email         String    @unique
   emailVerified Boolean   @default(false)
   image         String?
+  // Platform administrator: sees /status and /componentes. Set by hand in the database.
+  isAdmin       Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]

@@ -1,7 +1,11 @@
+import { inferAdditionalFields } from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/react';
 
 // Same origin as the web: /api is proxied to the API (Vite locally, Pages Function in production).
-export const authClient = createAuthClient();
+export const authClient = createAuthClient({
+  // The user's extra fields, as declared in the API (apps/api/src/modules/auth/auth.ts).
+  plugins: [inferAdditionalFields({ user: { isAdmin: { type: 'boolean', input: false } } })],
+});
 
 export const MIN_PASSWORD_LENGTH = 8;
 

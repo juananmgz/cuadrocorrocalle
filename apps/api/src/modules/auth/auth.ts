@@ -80,6 +80,10 @@ export function createAuth({
     // A new email is confirmed with a link sent to it; it changes once the link is opened.
     user: {
       changeEmail: { enabled: true },
+      // Read-only for users: only set by hand in the database (see documentation/deployment.md).
+      additionalFields: {
+        isAdmin: { type: 'boolean', defaultValue: false, input: false },
+      },
     },
     session: {
       // Sessions last 30 days and renew once a day while in use.

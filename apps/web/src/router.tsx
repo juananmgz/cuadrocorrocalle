@@ -1,15 +1,34 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 
+import { RequireAdmin } from './auth/RequireAdmin';
+import { RequireAuth } from './auth/RequireAuth';
 import { AppLayout } from './components/AppLayout/AppLayout';
-import { Welcome } from './pages/Welcome/Welcome';
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Welcome /> },
+  // No landing page: straight to the home page, or to sign in first.
+  {
+    path: '/',
+    element: (
+      <RequireAuth>
+        <Navigate to="/inicio" replace />
+      </RequireAuth>
+    ),
+  },
+  // Component showcase, for administrators only.
   {
     path: '/componentes',
-    lazy: async () => ({
-      Component: (await import('./pages/Components/Components')).Components,
-    }),
+    lazy: async () => {
+      const { Components } = await import('./pages/Components/Components');
+      return {
+        Component: () => (
+          <RequireAuth>
+            <RequireAdmin>
+              <Components />
+            </RequireAdmin>
+          </RequireAuth>
+        ),
+      };
+    },
   },
   {
     path: '/entrar',
@@ -35,6 +54,19 @@ export const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
+      {
+        path: '/status',
+        lazy: async () => {
+          const { Status } = await import('./pages/Status/Status');
+          return {
+            Component: () => (
+              <RequireAdmin>
+                <Status />
+              </RequireAdmin>
+            ),
+          };
+        },
+      },
       {
         path: '/empezar',
         lazy: async () => ({

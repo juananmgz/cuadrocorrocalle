@@ -43,6 +43,8 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0030](https://github.com/juananmgz/cuadrocorrocalle/pull/30) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/30/commits) | ✨ Add the guided start for new accounts (paso 1.13)                                        |
 | [CCC-0031](https://github.com/juananmgz/cuadrocorrocalle/pull/31) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/31/commits) | ✨ Let users change their name, email and password and delete their account (paso 1.14)     |
 | [CCC-0031](https://github.com/juananmgz/cuadrocorrocalle/pull/31) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/31/commits) | 🐛 Offer to retry instead of signing out when the API does not answer                       |
+| [CCC-0032](https://github.com/juananmgz/cuadrocorrocalle/pull/32) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/32/commits) | ✨ Move the welcome page to an admin-only status page                                       |
+| [CCC-0032](https://github.com/juananmgz/cuadrocorrocalle/pull/32) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/32/commits) | 💄 Point at the missing fields with a yellow heartbeat                                      |
 
 ## v0.1.1 · [Release #12](https://github.com/juananmgz/cuadrocorrocalle/pull/12)
 
