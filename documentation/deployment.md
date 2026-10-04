@@ -38,6 +38,8 @@ La cuenta tiene que existir antes (entrar una vez con ella). Tras el cambio, bas
 6. `BETTER_AUTH_SECRET` lo genera Render (`generateValue`) y `BETTER_AUTH_URL` es la dirección pública de la web (`https://cuadrocorrocalle.pages.dev`), porque la sesión vive en una cookie de esa dirección. Si el Blueprint no se sincroniza solo, se añaden a mano en Environment.
 7. Al terminar, anotar la dirección del servicio (`https://….onrender.com`).
 
+La compilación genera el cliente de Prisma de forma explícita (`db:generate`) antes de aplicar las migraciones: no basta con el `postinstall`, que pnpm se salta cuando reutiliza la caché de Render, y entonces la API no arranca (`Cannot find module …/generated/prisma/client`). Si el Blueprint no se sincroniza solo, el «Build Command» se cambia a mano en Settings.
+
 En cada publicación se aplican las migraciones pendientes (`prisma migrate deploy`). La comprobación de salud es `/api/health`.
 
 ## Cloudflare Pages (web)
