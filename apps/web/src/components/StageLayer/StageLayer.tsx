@@ -275,12 +275,14 @@ const TRASH_FAINT = 0.2;
 
 // Appendages of the figure being edited: gap from the block, stroke and corner size, in px.
 const HANDLE_GAP = 9;
-// Straight corners that stretch both ways: how far out from the block, and their arms, in px.
-const SCALE_OUT = 4;
-const SCALE_SIZE = 12;
 const HANDLE_STROKE = 6;
 const CORNER_SIZE = 18;
 const BAR_LENGTH = 26;
+// The same corner, square: it stretches instead of turning.
+const SQUARE_CORNER_PATH = (() => {
+  const edge = HANDLE_STROKE / 2;
+  return `M ${edge} ${CORNER_SIZE - edge} L ${edge} ${edge} L ${CORNER_SIZE - edge} ${edge}`;
+})();
 const CORNER_PATH = (() => {
   const edge = HANDLE_STROKE / 2;
   const radius = CORNER_SIZE - HANDLE_STROKE;
@@ -362,28 +364,22 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
         ]
       : []),
   ];
-  // Figures that grow both ways also get a straight corner at each corner, to stretch both at once.
+  // Figures that grow both ways can also be stretched both ways at once from a corner.
   const scaling = handles.resize === 'both' && !slanted;
-  const scales = [
-    { key: 'tl', out: [-1, -1] },
-    { key: 'tr', out: [1, -1] },
-    { key: 'bl', out: [-1, 1] },
-    { key: 'br', out: [1, 1] },
-  ].map((corner) => {
-    // Its tip just outside the block's corner, inside the turning curve.
-    const tip = {
-      x: (corner.out[0]! > 0 ? width : 0) + corner.out[0]! * SCALE_OUT,
-      y: (corner.out[1]! > 0 ? height : 0) + corner.out[1]! * SCALE_OUT,
-    };
-    return {
-      ...corner,
-      left: corner.out[0]! > 0 ? tip.x - SCALE_SIZE : tip.x,
-      top: corner.out[1]! > 0 ? tip.y - SCALE_SIZE : tip.y,
-    };
-  });
   // Each corner: a curved stroke around it, as if the block grew a bent arm there.
   const reach = HANDLE_GAP + HANDLE_STROKE;
-  // Only one corner turns it, the top right one, to keep the handles few.
+  // Only one corner turns it, the top right one, to keep the handles few; the opposite one, drawn
+  // the same but square, stretches it both ways at once.
+  const scales = scaling
+    ? [
+        {
+          key: 'bl',
+          out: [-1, 1],
+          left: -reach,
+          top: height + reach - CORNER_SIZE,
+        },
+      ]
+    : [];
   const corners = [
     { key: 'tr', left: width + reach - CORNER_SIZE, top: -reach, pivot: [width, 0] },
   ];
@@ -538,7 +534,7 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
         scales.map((corner) => (
           <span
             key={`scale-${corner.key}`}
-            className={styles.scaleHandle}
+            className={styles.turnHandle}
             data-figure-handle=""
             data-corner={corner.key}
             role="slider"
@@ -546,12 +542,17 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
             style={{
               left: corner.left,
               top: corner.top,
-              width: SCALE_SIZE,
-              height: SCALE_SIZE,
+              width: CORNER_SIZE,
+              height: CORNER_SIZE,
               cursor: corner.out[0] === corner.out[1] ? 'nwse-resize' : 'nesw-resize',
             }}
             onPointerDown={scale(corner)}
-          />
+          >
+            {/* Like the turning curve, but square. */}
+            <svg viewBox={`0 0 ${CORNER_SIZE} ${CORNER_SIZE}`} aria-hidden="true">
+              <path d={SQUARE_CORNER_PATH} />
+            </svg>
+          </span>
         ))}
       {corners.map((corner) => (
         <span

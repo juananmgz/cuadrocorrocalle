@@ -298,45 +298,6 @@
   }
 }
 
-// A straight corner, like the bars, to stretch both ways at once.
-.scaleHandle {
-  position: absolute;
-  z-index: 2;
-  pointer-events: auto;
-  touch-action: none;
-  border: 0 solid var(--accent);
-
-  &::before {
-    position: absolute;
-    inset: -6px;
-    content: '';
-  }
-
-  &[data-corner='tl'] {
-    border-top-width: 4px;
-    border-left-width: 4px;
-    border-top-left-radius: 4px;
-  }
-
-  &[data-corner='tr'] {
-    border-top-width: 4px;
-    border-right-width: 4px;
-    border-top-right-radius: 4px;
-  }
-
-  &[data-corner='bl'] {
-    border-bottom-width: 4px;
-    border-left-width: 4px;
-    border-bottom-left-radius: 4px;
-  }
-
-  &[data-corner='br'] {
-    border-right-width: 4px;
-    border-bottom-width: 4px;
-    border-bottom-right-radius: 4px;
-  }
-}
-
 // On a corner: a curved stroke with round ends following the corner, to turn it.
 .turnHandle {
   svg {
@@ -351,6 +312,7 @@
     stroke: var(--accent);
     stroke-width: 6;
     stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   &[data-corner='tr'] svg {
