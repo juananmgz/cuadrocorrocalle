@@ -219,10 +219,12 @@
   list-style: none;
 }
 
+// Its name on top; under it, the drawing beside how it comes out.
 .space {
-  display: flex;
-  gap: var(--space-2);
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-2);
+  align-items: start;
 }
 
 // A line and some room between one space and the next.
@@ -239,6 +241,7 @@
 }
 
 .spaceName {
+  grid-column: 1 / -1;
   font-weight: 700;
 }
 

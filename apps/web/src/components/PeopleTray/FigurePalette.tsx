@@ -253,7 +253,7 @@ const clampNumber = (value: string, min: number, max: number, fallback: number) 
 
 /**
  * The spaces (step 2.3): a row and a ring of holes to fill with simple figures. Each is a line
- * with its drawing (pick or drag it) and how it comes out: holes and whether its figures stand
+ * with its name over its drawing (pick or drag it) and how it comes out: holes and whether its figures stand
  * in series or in battery.
  */
 export function SpacePalette({ enabled, picked, onPick, setup, onSetup }: SpacePaletteProps) {
@@ -263,6 +263,7 @@ export function SpacePalette({ enabled, picked, onPick, setup, onSetup }: SpaceP
         const { holes, arrangement } = setup[kind];
         return (
           <li key={kind} className={styles.space}>
+            <span className={styles.spaceName}>{FIGURE_LABELS[kind]}</span>
             <PaletteItem
               kind={kind}
               rotation={0}
@@ -273,7 +274,6 @@ export function SpacePalette({ enabled, picked, onPick, setup, onSetup }: SpaceP
               onConfigure={() => {}}
             />
             <div className={styles.spaceSetup}>
-              <span className={styles.spaceName}>{FIGURE_LABELS[kind]}</span>
               <div className={styles.spaceFields}>
                 <label className={styles.spaceField}>
                   Huecos
