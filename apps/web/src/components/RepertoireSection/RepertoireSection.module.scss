@@ -268,11 +268,12 @@
   @include mixins.from-tablet {
     height: 100%;
 
-    .workspaceGrid {
-      height: 100%;
-    }
-
+    // Side by side only; stacked, the tray goes under the repertoire at its own height.
     @container (min-width: 500px) {
+      .workspaceGrid {
+        height: 100%;
+      }
+
       .workspaceGrid > * {
         height: 100%;
         max-height: none;

@@ -21,7 +21,7 @@ const FIELDS = {
   optional: true,
   encore: true,
   participations: {
-    select: { personId: true, roles: true },
+    select: { personId: true, roles: true, x: true, y: true },
     orderBy: { personId: 'asc' },
   },
 } as const;

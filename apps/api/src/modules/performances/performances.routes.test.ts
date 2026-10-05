@@ -466,14 +466,20 @@ test('lets only people who come or may come take part in a piece', async () => {
     });
 
   const saved = await save([
-    { personId: julia.id, roles: ['dance'] },
+    { personId: julia.id, roles: ['dance'], x: -1.5, y: 0.5 },
     { personId: lucia.id, roles: ['music', 'singing'] },
   ]);
   expect(saved.statusCode).toBe(200);
   expect(saved.json().pieces[0].participants).toEqual([
-    { personId: julia.id, roles: ['dance'] },
-    { personId: lucia.id, roles: ['music', 'singing'] },
+    { personId: julia.id, roles: ['dance'], x: -1.5, y: 0.5 },
+    { personId: lucia.id, roles: ['music', 'singing'], x: null, y: null },
   ]);
+
+  // A place needs both coordinates, inside the largest stage.
+  expect((await save([{ personId: julia.id, roles: ['dance'], x: 1 }])).statusCode).toBe(400);
+  expect((await save([{ personId: julia.id, roles: ['dance'], x: 40, y: 0 }])).statusCode).toBe(
+    400,
+  );
 
   // Mario does not come, so he cannot take part; nor can the same person twice.
   expect((await save([{ personId: mario.id, roles: ['dance'] }])).statusCode).toBe(400);

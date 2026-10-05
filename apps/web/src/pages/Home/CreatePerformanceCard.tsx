@@ -23,6 +23,7 @@ import {
 } from 'react';
 
 import type { GridStage } from '../../components/GridBackground/GridBackground';
+import type { StageSize } from '../../stage/placement';
 import { Button } from '../../components/ui/Button/Button';
 import { Dialog, DialogClose } from '../../components/ui/Dialog/Dialog';
 import { RequiredMark } from '../../components/ui/RequiredMark/RequiredMark';
@@ -58,6 +59,8 @@ interface CreatePerformanceCardProps {
   onCreated: (performance: Performance) => void;
   /** Reports the stage to preview on the grid. */
   onStageChange: (stage: GridStage | null) => void;
+  /** The same stage in metres, as shown, e.g. for the people placed on it. */
+  onStageSizeChange?: (stage: StageSize | null) => void;
   /** Reports whether something required is still missing. */
   onMissingChange?: (missing: boolean) => void;
   handleRef?: Ref<PerformanceFormHandle>;
@@ -70,13 +73,29 @@ const toNumber = (value: string) => {
 
 const edgeOf = (value: string) => Math.max(MIN_EDGE_DISTANCE, toNumber(value) ?? 0);
 
-/** Stage in grid squares, or null until both measures are valid. */
-function toStage({ width, depth, squareSize, edgeDistance }: StageValues): GridStage | null {
+/** Stage in metres, or null until both measures are valid. */
+function toStageSize({ width, depth, squareSize, edgeDistance }: StageValues): StageSize | null {
   const w = toNumber(width);
   const d = toNumber(depth);
-  const square = toNumber(squareSize) ?? DEFAULT_SQUARE_SIZE;
   return w && d
-    ? { cols: w / square, rows: d / square, edge: edgeOf(edgeDistance) / square }
+    ? {
+        width: w,
+        depth: d,
+        squareSize: toNumber(squareSize) ?? DEFAULT_SQUARE_SIZE,
+        edgeDistance: edgeOf(edgeDistance),
+      }
+    : null;
+}
+
+/** Stage in grid squares, or null until both measures are valid. */
+function toStage(values: StageValues): GridStage | null {
+  const size = toStageSize(values);
+  return size
+    ? {
+        cols: size.width / size.squareSize,
+        rows: size.depth / size.squareSize,
+        edge: size.edgeDistance / size.squareSize,
+      }
     : null;
 }
 
@@ -201,6 +220,7 @@ export function CreatePerformanceCard({
   onCancel,
   onCreated,
   onStageChange,
+  onStageSizeChange,
   onMissingChange,
   handleRef,
 }: CreatePerformanceCardProps) {
@@ -246,7 +266,8 @@ export function CreatePerformanceCard({
 
   useEffect(() => {
     onStageChange(toStage(settled));
-  }, [settled, onStageChange]);
+    onStageSizeChange?.(toStageSize(settled));
+  }, [settled, onStageChange, onStageSizeChange]);
 
   // Leaving a stage field applies it; values out of range go to the nearest limit
   // (width 4 to 32 m, depth 2 to 20 m, edge 0,25 to 2 m).

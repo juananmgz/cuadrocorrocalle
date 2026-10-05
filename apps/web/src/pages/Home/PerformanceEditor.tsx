@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 
 import { useCallUp } from '../../callUps/callUpApi';
 import type { GridStage } from '../../components/GridBackground/GridBackground';
+import type { StageSize } from '../../stage/placement';
 import { RepertoireCard } from '../../components/RepertoireSection/RepertoireCard';
 import { useToast } from '../../components/ui/Toast/toastContext';
 import { CreatePerformanceCard, type PerformanceFormHandle } from './CreatePerformanceCard';
@@ -49,6 +50,8 @@ export function PerformanceEditor({
   const formRef = useRef<PerformanceFormHandle>(null);
   // Whether the settings still miss something required (only matters before creating).
   const [missing, setMissing] = useState(true);
+  // The stage as shown, with any measure changed but not saved yet; people are placed on it.
+  const [shownStage, setShownStage] = useState<StageSize | null>(null);
   const piecesHint = performance
     ? undefined
     : missing
@@ -102,6 +105,7 @@ export function PerformanceEditor({
               else toast.show({ title: 'Cambios guardados', tone: 'success' });
             }}
             onStageChange={onStageChange}
+            onStageSizeChange={setShownStage}
             onMissingChange={setMissing}
             handleRef={formRef}
           />
@@ -117,6 +121,8 @@ export function PerformanceEditor({
               minMinutes={performance.minMinutes}
               maxMinutes={performance.maxMinutes}
               onOpenPiece={(label) => view === 'pieces' && onPieceLabel(label)}
+              stage={shownStage}
+              stageActive={view === 'pieces'}
               onFinish={onFinish}
             />
           </div>

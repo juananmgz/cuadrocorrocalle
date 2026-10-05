@@ -12,6 +12,12 @@ Qué commits entran en cada versión, con enlace a su pull request. Cada fase de
 
 Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 
+## v0.3.0 (en curso: fase 2)
+
+| PR                                                                | Commit                                                                    | Cambio                                                   |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------- |
+| [CCC-0036](https://github.com/juananmgz/cuadrocorrocalle/pull/36) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/36/commits) | ✨ Place people on the stage by dragging them (paso 2.1) |
+
 ## v0.2.1 (en curso)
 
 | PR                                                                | Commit                                                                    | Cambio                                                       |

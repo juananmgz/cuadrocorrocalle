@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { roleSchema } from './people';
-import { PERFORMANCES_PATH } from './performances';
+import { MAX_STAGE_DEPTH, MAX_STAGE_WIDTH, PERFORMANCES_PATH } from './performances';
 
 export const repertoirePath = (performanceId: string) =>
   `${PERFORMANCES_PATH}/${performanceId}/repertorio`;
@@ -20,11 +20,24 @@ export const PIECE_TYPE_LABELS = {
   recorded: 'Voz en off / Música enlatada',
 } as const;
 
-/** Someone who takes part in a piece and what they do in it (step 1.11). */
-export const participantSchema = z.object({
-  personId: z.string().min(1),
-  roles: z.array(roleSchema).max(3),
-});
+/** A coordinate on the stage, in metres from its centre. */
+const coordinate = (max: number) => z.number().min(-max).max(max).nullable().optional();
+
+/**
+ * Someone who takes part in a piece, what they do in it (step 1.11) and where they stand: x across
+ * and y away from the audience, in metres from the stage centre, or null while not placed (2.1).
+ */
+export const participantSchema = z
+  .object({
+    personId: z.string().min(1),
+    roles: z.array(roleSchema).max(3),
+    x: coordinate(MAX_STAGE_WIDTH / 2),
+    y: coordinate(MAX_STAGE_DEPTH / 2),
+  })
+  .refine((participant) => (participant.x == null) === (participant.y == null), {
+    message: 'Falta una de las dos coordenadas',
+    path: ['x'],
+  });
 export type Participant = z.infer<typeof participantSchema>;
 
 const participantsSchema = z

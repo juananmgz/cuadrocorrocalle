@@ -219,6 +219,8 @@ export function createPerformanceService(
           participants: (piece.participants ?? []).map((participant) => ({
             personId: participant.personId,
             roles: participant.roles,
+            x: participant.x ?? null,
+            y: participant.y ?? null,
           })),
         })),
       );

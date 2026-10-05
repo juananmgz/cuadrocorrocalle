@@ -200,6 +200,10 @@ model Participation {
   callUp        CallUp   @relation(fields: [performanceId, personId], references: [performanceId, personId], onDelete: Cascade)
   // "dance", "music", "singing"…
   roles         String[] @default([])
+  // Place on the stage in this piece, in metres from its centre (x across, y away from the
+  // audience); null while not placed (step 2.1).
+  x             Float?   @map("x_m")
+  y             Float?   @map("y_m")
 
   @@id([pieceId, personId])
   @@index([performanceId, personId])

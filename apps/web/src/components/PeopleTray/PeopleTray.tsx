@@ -1,3 +1,4 @@
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import type { CallUpStatus, Person } from '@cuadrocorrocalle/shared';
 import { type ReactNode, useState } from 'react';
 
@@ -15,6 +16,8 @@ interface PeopleTrayProps {
   /** How many pieces each person takes part in. */
   counts: Map<string, number>;
   onToggle: (person: TrayPerson) => void;
+  /** Whether people can be dragged onto the stage (inside a DndContext). */
+  draggable?: boolean;
 }
 
 const PeopleIcon = () => (
@@ -80,14 +83,77 @@ function Section({ id, icon, title, open, onToggle, children }: SectionProps) {
   );
 }
 
+interface TrayPersonButtonProps {
+  person: TrayPerson;
+  count: number;
+  selected: boolean;
+  disabled: boolean;
+  draggable: boolean;
+  onToggle: () => void;
+}
+
+/** Someone in the tray: a click adds or removes them, dragging places them on the stage. */
+function TrayPersonButton({
+  person,
+  count,
+  selected,
+  disabled,
+  draggable,
+  onToggle,
+}: TrayPersonButtonProps) {
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: `tray:${person.id}`,
+    disabled: !draggable,
+  });
+
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      className={styles.person}
+      {...(draggable ? { ...attributes, ...listeners } : {})}
+      aria-pressed={selected}
+      disabled={disabled}
+      onClick={onToggle}
+    >
+      <PersonChip
+        name={person.name}
+        color={person.mainColor}
+        highlighted={selected}
+        secondary={person.status === 'maybe'}
+      />
+      <span className={styles.count}>
+        {count} {count === 1 ? 'pieza' : 'piezas'}
+      </span>
+    </button>
+  );
+}
+
+/** Drop zone: people dragged back here leave the stage but stay in the piece. */
+function TrayDropZone({ children }: { children: ReactNode }) {
+  const { setNodeRef } = useDroppable({ id: 'tray' });
+  return (
+    <aside ref={setNodeRef} className={styles.root} aria-label="Bandeja">
+      {children}
+    </aside>
+  );
+}
+
 /** Toolbar next to the repertoire: people now; props, equipment… can join as more blocks. */
-export function PeopleTray({ people, pieceTitle, selected, counts, onToggle }: PeopleTrayProps) {
+export function PeopleTray({
+  people,
+  pieceTitle,
+  selected,
+  counts,
+  onToggle,
+  draggable = false,
+}: PeopleTrayProps) {
   const [open, setOpen] = useState({ people: true, objects: false });
   const toggle = (key: keyof typeof open) =>
     setOpen((current) => ({ ...current, [key]: !current[key] }));
 
   return (
-    <aside className={styles.root} aria-label="Bandeja">
+    <TrayDropZone>
       <Section
         id="people"
         icon={<PeopleIcon />}
@@ -96,36 +162,26 @@ export function PeopleTray({ people, pieceTitle, selected, counts, onToggle }: P
         onToggle={() => toggle('people')}
       >
         <p className={styles.hint}>
-          {pieceTitle
-            ? `Pulsa para meter o sacar a alguien de «${pieceTitle}».`
-            : 'Abre una pieza para elegir quién sale.'}
+          {!pieceTitle
+            ? 'Abre una pieza para elegir quién sale.'
+            : draggable
+              ? `Pulsa para meter o sacar a alguien de «${pieceTitle}», o arrástralo al escenario para colocarlo.`
+              : `Pulsa para meter o sacar a alguien de «${pieceTitle}».`}
         </p>
         {people.length ? (
           <ul className={styles.people}>
-            {people.map((person) => {
-              const count = counts.get(person.id) ?? 0;
-              return (
-                <li key={person.id}>
-                  <button
-                    type="button"
-                    className={styles.person}
-                    aria-pressed={selected.has(person.id)}
-                    disabled={!pieceTitle}
-                    onClick={() => onToggle(person)}
-                  >
-                    <PersonChip
-                      name={person.name}
-                      color={person.mainColor}
-                      highlighted={selected.has(person.id)}
-                      secondary={person.status === 'maybe'}
-                    />
-                    <span className={styles.count}>
-                      {count} {count === 1 ? 'pieza' : 'piezas'}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
+            {people.map((person) => (
+              <li key={person.id}>
+                <TrayPersonButton
+                  person={person}
+                  count={counts.get(person.id) ?? 0}
+                  selected={selected.has(person.id)}
+                  disabled={!pieceTitle}
+                  draggable={draggable && Boolean(pieceTitle)}
+                  onToggle={() => onToggle(person)}
+                />
+              </li>
+            ))}
           </ul>
         ) : (
           <p className={styles.hint}>Nadie convocado todavía.</p>
@@ -140,6 +196,6 @@ export function PeopleTray({ people, pieceTitle, selected, counts, onToggle }: P
       >
         <p className={styles.hint}>Llegará más adelante: atrezo, instrumentos, equipo…</p>
       </Section>
-    </aside>
+    </TrayDropZone>
   );
 }
