@@ -902,14 +902,18 @@ export function useStageEditing({
     settingsKind && stage ? figureDefault(settingsKind, figureDefaults, stage) : null;
 
   const held = figureMove ?? carried;
-  // While a handle is held, the edited figure as it would end up.
-  const reshaped =
+  // While a handle is held, the edited figure as it would end up (a row's figures widened too).
+  const reshapedChildren =
     selected && reshaping && stage && isSpace(selected.figure.kind)
+      ? childrenWidened(selected.figure.id, reshaping.childWidth)
+      : null;
+  const reshaped =
+    selected && reshaping && stage && reshapedChildren
       ? spaceResult(
           { ...selected.figure, ...reshaping },
           selected.figure.id,
           { ...selected.figure, ...reshaping },
-          childrenWidened(selected.figure.id, reshaping.childWidth),
+          reshapedChildren,
         )
       : selected && reshaping && stage
         ? checkFigureDrop(
@@ -946,6 +950,14 @@ export function useStageEditing({
           shape: reshaped.ok
             ? { ...reshaped.figure, id: selected.figure.id }
             : { ...selected.figure, ...reshaping },
+          layout:
+            reshapedChildren && stage
+              ? layoutSpace(
+                  reshaped.ok ? reshaped.figure : { ...selected.figure, ...reshaping },
+                  reshapedChildren,
+                  stage,
+                )
+              : undefined,
         }
       : null;
 

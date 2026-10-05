@@ -145,3 +145,17 @@ test('turns an oval ring a quarter: across becomes deep', () => {
   expect(turnedWidth).toBeCloseTo(depth);
   expect(turnedDepth).toBeCloseTo(width);
 });
+
+test('stretches a ring so its sides land on the half-square grid', () => {
+  const ring = { ...row, kind: 'ring' as const, width: 6, gap: 0.5 };
+  const layout = layoutSpace(ring, new Map(), stage);
+  for (const reach of [3.1, 3.3, 4.77, 6.2]) {
+    const oval = layoutSpace(
+      { ...ring, ...stretchRing(ring, layout, 'x', reach, false, stage) },
+      new Map(),
+      stage,
+    );
+    const across = oval.radius + oval.thickness / 2;
+    expect(across * 2).toBeCloseTo(Math.round(across * 2));
+  }
+});

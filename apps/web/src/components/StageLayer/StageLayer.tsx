@@ -85,6 +85,8 @@ export interface FigureGhost {
     StageFigure,
     'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement' | 'gap' | 'aspect'
   > & { id?: string | null };
+  /** A space's holes as they would be, with its figures widened if they are. */
+  layout?: SpaceLayout;
 }
 
 const initials = (name: string) =>
@@ -1067,14 +1069,16 @@ export function StageLayer({
                       figure: { ...ghost.shape, id: ghost.shape.id ?? '' },
                       places: [],
                       empty: [],
-                      layout: layoutSpace(
-                        ghost.shape,
-                        childrenOf(
-                          figures.map(({ figure }) => figure),
-                          ghost.shape.id ?? '',
+                      layout:
+                        ghost.layout ??
+                        layoutSpace(
+                          ghost.shape,
+                          childrenOf(
+                            figures.map(({ figure }) => figure),
+                            ghost.shape.id ?? '',
+                          ),
+                          stage,
                         ),
-                        stage,
-                      ),
                     })
                   : blockStyle(ghost.kind, ghost.places)
               }

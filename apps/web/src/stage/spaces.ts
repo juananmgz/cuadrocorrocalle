@@ -368,17 +368,28 @@ export function stretchRing(
   stage: StageSize,
 ) {
   const holes = layout.holes.reduce((total, place) => total + place.along, 0);
+  const rim = layout.thickness / 2;
+  // Its outer sides land on the half-square grid, like the centre, never inside its holes.
+  const onGrid = (radius: number) =>
+    Math.max(Math.ceil((MIN_RING_RADIUS + rim) * 2) / 2, Math.round((radius + rim) * 2) / 2) - rim;
   const current = axis === 'x' ? layout.radius : layout.radiusY;
-  const wanted = Math.max(MIN_RING_RADIUS, reach - layout.thickness / 2);
+  const wanted = Math.max(MIN_RING_RADIUS, reach - rim);
   const scale = wanted / (current || 1);
-  const [x, y] = uniform
-    ? [layout.radius * scale, layout.radiusY * scale]
-    : axis === 'x'
-      ? [wanted, layout.radiusY]
-      : [layout.radius, wanted];
+  let [x, y] = (
+    uniform
+      ? [layout.radius * scale, layout.radiusY * scale]
+      : axis === 'x'
+        ? [wanted, layout.radiusY]
+        : [layout.radius, wanted]
+  ).map(onGrid) as [number, number];
+  // Too small for its holes: grow it half a square at a time until they fit.
+  while (x * ovalPerimeter(y / x) < holes) {
+    if (uniform || axis === 'x') x += 0.5;
+    if (uniform || axis === 'y') y += 0.5;
+  }
   const aspect = y / x;
-  const gap = Math.max(0, (x * ovalPerimeter(aspect) - holes) / space.width) * stage.squareSize;
-  return { gap, aspect, grown: wanted - current };
+  const gap = ((x * ovalPerimeter(aspect) - holes) / space.width) * stage.squareSize;
+  return { gap, aspect, grown: (axis === 'x' ? x : y) - current };
 }
 
 /** How far the sides of a space are from its centre, in squares (a ring, across). */
