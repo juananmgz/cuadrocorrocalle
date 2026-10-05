@@ -2,7 +2,7 @@ import type { StageFigure } from '@cuadrocorrocalle/shared';
 import { expect, test } from 'vitest';
 
 import { slotPositions } from './figures';
-import { holeAt, layoutSpace, placeChildren, snapSpace, spaceOutline } from './spaces';
+import { contains, holeAt, layoutSpace, placeChildren, snapSpace, spaceOutline } from './spaces';
 
 const stage = { width: 8, depth: 4, squareSize: 0.5, edgeDistance: 1 };
 const row: StageFigure = {
@@ -83,4 +83,10 @@ test('finds the hole under a point', () => {
   const layout = layoutSpace(row, new Map(), stage);
   expect(holeAt(layout, { x: 1, y: 0.1 }, stage)).toBe(2);
   expect(holeAt(layout, { x: 1, y: 1 }, stage)).toBe(-1);
+});
+
+test('tells whether a point is inside a space', () => {
+  const outline = spaceOutline(row, layoutSpace(row, new Map(), stage), stage);
+  expect(contains(outline, { x: 1.4, y: 0.2 })).toBe(true);
+  expect(contains(outline, { x: 1.6, y: 0 })).toBe(false);
 });

@@ -201,3 +201,17 @@ export function holeAt(layout: SpaceLayout, point: StagePoint, stage: StageSize)
   }
   return found;
 }
+
+/** Whether a point is inside a convex outline. */
+export function contains(outline: Outline, point: StagePoint) {
+  let sign = 0;
+  for (let index = 0; index < outline.length; index += 1) {
+    const from = outline[index]!;
+    const to = outline[(index + 1) % outline.length]!;
+    const cross = (to.x - from.x) * (point.y - from.y) - (to.y - from.y) * (point.x - from.x);
+    if (Math.abs(cross) < 1e-9) continue;
+    if (sign && Math.sign(cross) !== sign) return false;
+    sign = Math.sign(cross);
+  }
+  return true;
+}

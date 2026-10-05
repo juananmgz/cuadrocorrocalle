@@ -45,7 +45,9 @@ import {
 import { stageProjection } from '../../stage/projection';
 import {
   childrenOf,
+  contains,
   EMPTY_HOLE,
+  holeAt,
   layoutSpace,
   placeChildren,
   snapSpace,
@@ -68,8 +70,15 @@ interface FigureMove {
   shape: Shape;
   id: string | null;
   grab: StagePoint;
-  result: FigureDrop<Shape> | null;
+  result: MoveResult | null;
 }
+
+/** A simple figure dropped on a space fills one of its holes, or all the empty ones. */
+interface Fill {
+  spaceId: string;
+  holes: number[];
+}
+type MoveResult = FigureDrop<Shape> & { fill?: Fill };
 
 interface StageEditingOptions {
   /** The open piece: what it has on its stage and its type (for default roles). */
@@ -204,7 +213,11 @@ export function useStageEditing({
 
   // Blocks of every figure but this one, which the figure may touch but not overlap; with its
   // places, the solos it would take in do not count either.
-  const blocksBut = (figureId: string | null, places?: StagePoint[]) => {
+  const blocksBut = (
+    figureId: string | null,
+    places?: StagePoint[],
+    alsoBut: string | null = null,
+  ) => {
     if (!stage) return [];
     const joining = places ? joiningAt(figureId, places) : new Set<string>();
     const takenIn = new Set(
@@ -216,6 +229,7 @@ export function useStageEditing({
       .filter(
         (figure) =>
           figure.id !== figureId &&
+          figure.id !== alsoBut &&
           !(figureId && figure.spaceId === figureId) &&
           !(figure.kind === 'solo' && takenIn.has(figure.id)),
       )
@@ -233,8 +247,16 @@ export function useStageEditing({
    * (as the pair it is drawn as, or its figure) on the stage, out of the edge strip, clear of
    * other people and figures. Refused spaces are not moved elsewhere.
    */
-  const spaceResult = (shape: Shape, id: string | null, centre: StagePoint): FigureDrop<Shape> => {
-    const children = id ? childrenOf(figures, id) : new Map();
+  const spaceResult = (
+    shape: Shape,
+    id: string | null,
+    centre: StagePoint,
+    children: Map<number, Pick<StageFigure, 'kind' | 'width'>> = id
+      ? childrenOf(figures, id)
+      : new Map(),
+    /** A figure going into it, whose people do not count as others. */
+    joining: string | null = null,
+  ): FigureDrop<Shape> => {
     const landed = snapSpace({ ...shape, ...centre }, children, stage!);
     const layout = layoutSpace(landed, children, stage!);
     const people = layout.holes.flatMap((place) =>
@@ -245,13 +267,17 @@ export function useStageEditing({
     const own = new Set(
       participants.flatMap(({ personId, figureId }) => {
         const figure = figures.find((item) => item.id === figureId);
-        return id && figure?.spaceId === id ? [personId] : [];
+        return (id && figure?.spaceId === id) || (joining && figureId === joining)
+          ? [personId]
+          : [];
       }),
     );
     const others = placed.filter(({ person }) => !own.has(person.id)).map(({ point }) => point);
     const clash =
       people.some((point) => isTooClose(point, others)) ||
-      blocksBut(id).some((block) => overlaps(spaceOutline(landed, layout, stage!), block));
+      blocksBut(id, undefined, joining).some((block) =>
+        overlaps(spaceOutline(landed, layout, stage!), block),
+      );
     return clash
       ? { ok: false, reason: 'close', places: people }
       : { ok: true, figure: landed, places: people };
@@ -285,11 +311,51 @@ export function useStageEditing({
     return null;
   };
 
-  const figureResult = (move: FigureMove, pointer: StagePoint): FigureDrop<Shape> | null => {
+  /**
+   * The space a simple figure dropped at a point goes into: the empty hole under it or, anywhere
+   * else on the space, all its empty holes (OA-27).
+   */
+  const fillAt = (point: StagePoint, exceptId: string | null): Fill | null => {
+    if (!stage) return null;
+    for (const item of figureViews) {
+      if (!item.layout || item.figure.id === exceptId) continue;
+      const children = childrenOf(figures, item.figure.id);
+      const empty = item.layout.holes.map(({ hole }) => hole).filter((hole) => !children.has(hole));
+      if (!empty.length) continue;
+      const hole = holeAt(item.layout, point, stage);
+      if (hole >= 0 && !children.has(hole)) return { spaceId: item.figure.id, holes: [hole] };
+      if (contains(spaceOutline(item.figure, item.layout, stage), point))
+        return { spaceId: item.figure.id, holes: empty };
+    }
+    return null;
+  };
+
+  /** A space with a figure like `shape` in some of its holes, checked as it would stand. */
+  const fillResult = (shape: Shape, id: string | null, fill: Fill): MoveResult | null => {
+    const space = figures.find((figure) => figure.id === fill.spaceId);
+    if (!space || !stage) return null;
+    const children = new Map(
+      [...childrenOf(figures, space.id)].map(([hole, child]) => [hole, child as Shape]),
+    );
+    for (const hole of fill.holes) children.set(hole, shape);
+    const check = spaceResult(space, space.id, space, children, id);
+    const layout = layoutSpace(check.ok ? check.figure : space, children, stage);
+    // Show where the new figures' people would stand.
+    const places = layout.holes
+      .filter(({ hole }) => fill.holes.includes(hole))
+      .flatMap((place) => slotPositions({ ...shape, ...place }, stage));
+    return check.ok
+      ? { ok: true, figure: check.figure, places, fill }
+      : { ok: false, reason: check.reason, places, fill };
+  };
+
+  const figureResult = (move: FigureMove, pointer: StagePoint): MoveResult | null => {
     const point = toStage(pointer);
     if (!point || !stage) return null;
     const centre = { x: point.x - move.grab.x, y: point.y - move.grab.y };
     if (isSpace(move.shape.kind)) return spaceResult(move.shape, move.id, centre);
+    const fill = fillAt(centre, move.id);
+    if (fill) return fillResult(move.shape, move.id, fill);
     // Someone in a solo dropped on an empty place of another figure takes it.
     const seat = move.id && move.shape.kind === 'solo' ? seatAt(centre, move.id) : null;
     if (seat)
@@ -309,9 +375,32 @@ export function useStageEditing({
   };
 
   /** Puts the figure where it was dropped, taking in anyone standing under its places. */
-  const landFigure = (move: FigureMove, result: FigureDrop<Shape> | null) => {
+  const landFigure = (move: FigureMove, result: MoveResult | null) => {
     if (!content || !stage || !result) return;
     if (!result.ok) return warn(result.reason, 'figure');
+    if (result.fill) {
+      // Into the holes of a space: the figure (or copies of a new one) and the space, laid out again.
+      const { spaceId, holes } = result.fill;
+      const added = holes.map((hole, index) => ({
+        ...move.shape,
+        id: index === 0 && move.id ? move.id : newFigureId(),
+        spaceId,
+        hole,
+        angle: null,
+      }));
+      let next: StageContent = {
+        ...content,
+        figures: [
+          ...figures.filter((figure) => figure.id !== spaceId && figure.id !== move.id),
+          { ...figures.find((figure) => figure.id === spaceId)!, ...result.figure, id: spaceId },
+          ...added,
+        ],
+      };
+      const space = next.figures.find((figure) => figure.id === spaceId)!;
+      for (const child of placeChildren(space, next.figures, stage))
+        next = putFigure(next, child, slotPositions(child, stage));
+      return onChange(next);
+    }
     // A solo landing on an empty place of another figure: its person joins that one.
     const seat = move.id && move.shape.kind === 'solo' ? seatAt(result.places[0]!, move.id) : null;
     if (seat) {
