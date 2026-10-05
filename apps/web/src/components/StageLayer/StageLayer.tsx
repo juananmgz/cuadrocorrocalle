@@ -73,6 +73,8 @@ export interface FigureGhost {
   kind: FigureKind;
   places: StagePoint[];
   ok: boolean;
+  /** A space being filled: its empty holes give way to the preview. */
+  spaceId?: string;
 }
 
 const initials = (name: string) =>
@@ -749,7 +751,10 @@ export function StageLayer({
             />
             {/* Empty holes: a dashed outline of the pair they are waiting for. */}
             {item
-              .layout!.holes.filter(({ hole }) => !filled.has(`${item.figure.id}:${hole}`))
+              .layout!.holes.filter(
+                ({ hole }) =>
+                  ghost?.spaceId !== item.figure.id && !filled.has(`${item.figure.id}:${hole}`),
+              )
               .map((place) => (
                 <span
                   key={place.hole}
@@ -794,11 +799,14 @@ export function StageLayer({
       )}
       {ghost && (
         <>
-          <span
-            className={styles.ghostBlock}
-            data-refused={ghost.ok ? undefined : ''}
-            style={blockStyle(ghost.kind, ghost.places)}
-          />
+          {/* Filling a space, only where its new people would stand. */}
+          {!ghost.spaceId && (
+            <span
+              className={styles.ghostBlock}
+              data-refused={ghost.ok ? undefined : ''}
+              style={blockStyle(ghost.kind, ghost.places)}
+            />
+          )}
           {ghost.places.map((place, index) => (
             <span
               key={index}

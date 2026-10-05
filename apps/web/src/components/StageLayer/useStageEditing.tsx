@@ -796,7 +796,12 @@ export function useStageEditing({
       : null;
   // Where the held figure would land; refused places are drawn in red.
   const ghost: FigureGhost | null = held?.result
-    ? { kind: held.shape.kind, places: held.result.places, ok: held.result.ok }
+    ? {
+        kind: held.shape.kind,
+        places: held.result.places,
+        ok: held.result.ok,
+        spaceId: held.result.fill?.spaceId,
+      }
     : reshaped && selected
       ? { kind: selected.figure.kind, places: reshaped.places, ok: reshaped.ok }
       : null;
