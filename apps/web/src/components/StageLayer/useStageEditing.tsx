@@ -614,8 +614,9 @@ export function useStageEditing({
     participants.find((item) => item.personId === personId && item.figureId != null);
 
   /** A pair for a hole of a space (placed when the space is laid out). */
-  const pairIn = (spaceId: string, hole: number): StageFigure => ({
+  const pairIn = (spaceId: string, hole: number, width = EMPTY_HOLE.width): StageFigure => ({
     ...EMPTY_HOLE,
+    width,
     id: newFigureId(),
     x: 0,
     y: 0,
@@ -634,7 +635,17 @@ export function useStageEditing({
         : figure,
     );
     const grown = { ...space, width: space.width + 1 };
-    const check = spaceResult(grown, spaceId, grown, childrenOf(shifted, spaceId));
+    // As wide as the pairs already there (the nearest one first), so a stretched row stays even.
+    const pairs = figures.filter((figure) => figure.spaceId === spaceId && figure.kind === 'pair');
+    const nearest = pairs.reduce<StageFigure | null>(
+      (best, figure) =>
+        !best || Math.abs(figure.hole! - at + 0.5) < Math.abs(best.hole! - at + 0.5)
+          ? figure
+          : best,
+      null,
+    );
+    const pair = pairIn(spaceId, at, nearest?.width);
+    const check = spaceResult(grown, spaceId, grown, childrenOf([...shifted, pair], spaceId));
     if (!check.ok) return warn(check.reason === 'off' ? 'full' : check.reason, 'figure');
     let next: StageContent = {
       ...content,
@@ -643,7 +654,7 @@ export function useStageEditing({
           figure.id === spaceId ? { ...grown, ...check.figure } : figure,
         ),
         // The new hole comes with a pair, like a new space.
-        pairIn(spaceId, at),
+        pair,
       ],
     };
     const placedSpace = next.figures.find((figure) => figure.id === spaceId)!;
