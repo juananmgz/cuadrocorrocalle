@@ -231,6 +231,8 @@ export interface FigureResize {
   reach: number;
   towards: StagePoint;
   fixed: boolean;
+  /** Shift held: both ways at once (a ring keeps its shape). */
+  uniform: boolean;
 }
 
 interface Box {
@@ -284,6 +286,16 @@ function turnCursor(degrees: number) {
     `<path d="${TURN_PATHS}" stroke="#fff" stroke-width="2"/></g></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 12 12, grab`;
 }
+
+/** Modifier keys held while a handle is dragged. */
+interface Keys {
+  ctrl: boolean;
+  shift: boolean;
+}
+const keysOf = (event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }): Keys => ({
+  ctrl: event.ctrlKey || event.metaKey,
+  shift: event.shiftKey,
+});
 
 /** Resize cursor pointing the way a handle moves on screen (y down). */
 function cursorFor({ x, y }: StagePoint) {
@@ -351,7 +363,7 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
 
   // Follows one pointer from press to release, whatever it passes over.
   const follow =
-    (onMove: (x: number, y: number, done: boolean, moved: boolean, ctrl: boolean) => void) =>
+    (onMove: (x: number, y: number, done: boolean, moved: boolean, keys: Keys) => void) =>
     (event: ReactPointerEvent<HTMLElement>) => {
       event.preventDefault();
       event.stopPropagation();
@@ -362,12 +374,12 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
         moved ||= Math.hypot(next.clientX - start.x, next.clientY - start.y) > 4;
         last.x = next.clientX;
         last.y = next.clientY;
-        if (moved) onMove(next.clientX, next.clientY, false, true, next.ctrlKey || next.metaKey);
+        if (moved) onMove(next.clientX, next.clientY, false, true, keysOf(next));
       };
-      // Pressing or letting go of Ctrl (Cmd) takes effect at once, without moving the pointer.
+      // Pressing or letting go of Ctrl (Cmd) or Shift takes effect at once, without moving the pointer.
       const key = (next: KeyboardEvent) => {
-        if (moved && (next.key === 'Control' || next.key === 'Meta'))
-          onMove(last.x, last.y, false, true, next.ctrlKey || next.metaKey);
+        if (moved && ['Control', 'Meta', 'Shift'].includes(next.key))
+          onMove(last.x, last.y, false, true, keysOf(next));
       };
       const up = (next: PointerEvent) => {
         delete document.documentElement.dataset.reshaping;
@@ -375,7 +387,7 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
         window.removeEventListener('pointerup', up);
         window.removeEventListener('keydown', key);
         window.removeEventListener('keyup', key);
-        onMove(next.clientX, next.clientY, true, moved, next.ctrlKey || next.metaKey);
+        onMove(next.clientX, next.clientY, true, moved, keysOf(next));
       };
       document.documentElement.dataset.reshaping = '';
       window.addEventListener('pointermove', move);
@@ -392,12 +404,15 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
     // Distance from the centre to that side, in squares.
     const metresPerPx = toStage(1, 0).x - toStage(0, 0).x;
     const extent = (((side.out[0] ? width : height) / 2) * metresPerPx) / squareSize;
-    return follow((x, y, done, moved, ctrl) => {
+    return follow((x, y, done, moved, { ctrl, shift }) => {
       if (!moved) return;
       const point = toStage(x, y);
       const along =
         ((point.x - figure.x) * towards.x + (point.y - figure.y) * towards.y) / squareSize;
-      handles.onResize({ reach: ctrl ? along : (along + extent) / 2, towards, fixed: !ctrl }, done);
+      handles.onResize(
+        { reach: ctrl ? along : (along + extent) / 2, towards, fixed: !ctrl, uniform: shift },
+        done,
+      );
     });
   };
 
@@ -614,8 +629,9 @@ export function StageLayer({
   const spaceStyle = ({ figure, layout }: FigureView): CSSProperties => {
     if (!layout) return {};
     if (figure.kind === 'ring') {
-      const size = layout.radius * 2 + layout.thickness;
-      return { ...turnedBox(figure, size, size, 0), borderRadius: '50%' };
+      const width = layout.radius * 2 + layout.thickness;
+      const height = layout.radiusY * 2 + layout.thickness;
+      return { ...turnedBox(figure, width, height, 0), borderRadius: '50%' };
     }
     return turnedBox(figure, layout.length, layout.thickness, figure.rotation);
   };

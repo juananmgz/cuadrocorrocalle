@@ -41,6 +41,7 @@ const FIELDS = {
       width: true,
       arrangement: true,
       gap: true,
+      aspect: true,
       spaceId: true,
       hole: true,
       angle: true,

@@ -234,6 +234,8 @@ model Figure {
   // Spaces: "series" or "battery", and the room between holes in metres.
   arrangement    String?
   gap            Float?          @map("gap_m")
+  // Rings: depth over width (an oval when not 1).
+  aspect         Float?
   // Simple figures in a space: the space and the hole they fill.
   spaceId        String?         @map("space_id")
   hole           Int?

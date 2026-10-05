@@ -10,6 +10,7 @@ import {
   placeChildren,
   snapSpace,
   spaceOutline,
+  stretchRing,
 } from './spaces';
 
 const stage = { width: 8, depth: 4, squareSize: 0.5, edgeDistance: 1 };
@@ -112,4 +113,16 @@ test('stretches the room between holes to reach a side', () => {
   // Three pairs (6 squares) reaching 4 squares each way leave a square between them: 0.5 m.
   expect(gapForReach(row, layout, 4, stage)).toBe(0.5);
   expect(gapForReach(row, layout, 2, stage)).toBe(0);
+});
+
+test('stretches a ring one way into an oval, or both ways keeping it round', () => {
+  const ring = { ...row, kind: 'ring' as const, width: 6, gap: 0.5 };
+  const layout = layoutSpace(ring, new Map(), stage);
+  expect(layout.radiusY).toBeCloseTo(layout.radius);
+  const wider = stretchRing(ring, layout, 'x', layout.radius + 2, false, stage);
+  expect(wider.aspect).toBeLessThan(1);
+  const oval = layoutSpace({ ...ring, ...wider }, new Map(), stage);
+  expect(oval.radius).toBeGreaterThan(oval.radiusY);
+  const bigger = stretchRing(ring, layout, 'x', layout.radius + 2, true, stage);
+  expect(bigger.aspect).toBeCloseTo(1);
 });

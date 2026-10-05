@@ -60,6 +60,7 @@ import {
   placeChildren,
   snapSpace,
   spaceOutline,
+  stretchRing,
 } from '../../stage/spaces';
 import type { StageView } from '../GridBackground/stageView';
 import type { SpaceSetup } from '../PeopleTray/FigurePalette';
@@ -72,7 +73,10 @@ import type { EditHandles, FigureGhost, FigureView, PlacedPerson, StageDrag } fr
 // Least height of the trash strip at the bottom of the screen, in px.
 const MIN_TRASH = 60;
 
-type Shape = Pick<StageFigure, 'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement' | 'gap'>;
+type Shape = Pick<
+  StageFigure,
+  'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement' | 'gap' | 'aspect'
+>;
 
 /** A figure on the move: new from the palette or an existing one, held at `grab` from its centre. */
 interface FigureMove {
@@ -919,7 +923,32 @@ export function useStageEditing({
               : ['pair', 'pair_diagonal', 'trio_line', 'row'].includes(selected.figure.kind)
                 ? 'width'
                 : 'both',
-          onResize: ({ reach, towards, fixed }, done) => {
+          onResize: ({ reach, towards, fixed, uniform }, done) => {
+            if (selected.layout && selected.figure.kind === 'ring') {
+              // A ring stretches one way into an oval (or both ways with Shift) and its holes
+              // spread round it; the other side stays put unless Ctrl is held.
+              const { figure, layout } = selected;
+              const axis = Math.abs(towards.x) >= Math.abs(towards.y) ? 'x' : 'y';
+              const { gap, aspect, grown } = stretchRing(
+                figure,
+                layout,
+                axis,
+                reach,
+                uniform,
+                stage,
+              );
+              const shift = fixed ? grown * stage.squareSize : 0;
+              const changes: Partial<Shape> = {
+                gap,
+                aspect,
+                x: figure.x + towards.x * shift,
+                y: figure.y + towards.y * shift,
+              };
+              if (!done) return setReshaping(changes);
+              setReshaping(null);
+              reshape(changes);
+              return;
+            }
             if (selected.layout) {
               // A space keeps its holes: dragging a side stretches the room between them.
               const { figure, layout } = selected;

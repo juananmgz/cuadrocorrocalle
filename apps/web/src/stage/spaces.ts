@@ -40,6 +40,8 @@ export interface HolePlace {
   rotation: FigureRotation;
   /** Free turn in degrees, in a ring. */
   angle: number | null;
+  /** Ring: where on the oval it sits (its parameter, in radians). */
+  theta?: number;
   /** What it takes up along the space and across it, in squares. */
   along: number;
   across: number;
@@ -51,15 +53,55 @@ export interface SpaceLayout {
   /** Row: length along it and thickness across it, in squares. */
   length: number;
   thickness: number;
-  /** Ring: radius of the circle the holes sit on, in squares. */
+  /** Ring: radii of the oval the holes sit on, across and in depth, in squares. */
   radius: number;
+  radiusY: number;
 }
 
-type Space = Pick<StageFigure, 'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement' | 'gap'>;
+type Space = Pick<
+  StageFigure,
+  'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement' | 'gap' | 'aspect'
+>;
 
-/** Room between holes, in squares, kept to half squares so a row stays on the grid. */
-export const gapSquares = (space: Pick<StageFigure, 'gap'>, stage: StageSize) =>
-  Math.round(((space.gap ?? DEFAULT_SPACE_GAP) / stage.squareSize) * 2) / 2;
+/** Room between holes, in squares; a row keeps it to half squares so it stays on the grid. */
+export const gapSquares = (space: Pick<StageFigure, 'gap' | 'kind'>, stage: StageSize) => {
+  const squares = (space.gap ?? DEFAULT_SPACE_GAP) / stage.squareSize;
+  return space.kind === 'ring' ? squares : Math.round(squares * 2) / 2;
+};
+
+// Points used to measure along an oval.
+const OVAL_STEPS = 720;
+
+/** Length of an oval of radii 1 and `aspect`, and how far along it each step is. */
+function ovalTable(aspect: number) {
+  const along = [0];
+  let previous = { x: 1, y: 0 };
+  for (let step = 1; step <= OVAL_STEPS; step += 1) {
+    const theta = (step / OVAL_STEPS) * 2 * Math.PI;
+    const point = { x: Math.cos(theta), y: aspect * Math.sin(theta) };
+    along.push(along[step - 1]! + Math.hypot(point.x - previous.x, point.y - previous.y));
+    previous = point;
+  }
+  return along;
+}
+
+/** The parameter (radians from the start) at a length along an oval, from its table. */
+function thetaAt(table: number[], length: number) {
+  const total = table[OVAL_STEPS]!;
+  const wanted = ((length % total) + total) % total;
+  let low = 0;
+  let high = OVAL_STEPS;
+  while (high - low > 1) {
+    const middle = (low + high) >> 1;
+    if (table[middle]! <= wanted) low = middle;
+    else high = middle;
+  }
+  const part = (wanted - table[low]!) / (table[high]! - table[low]! || 1);
+  return ((low + part) / OVAL_STEPS) * 2 * Math.PI;
+}
+
+/** Perimeter of an oval of radius 1 across and `aspect` in depth. */
+export const ovalPerimeter = (aspect: number) => ovalTable(aspect)[OVAL_STEPS]!;
 
 /**
  * Lays out the holes of a space, each the size of its figure (or of a pair while empty).
@@ -85,25 +127,32 @@ export function layoutSpace(
   const square = stage.squareSize;
 
   if (space.kind === 'ring') {
-    const radius = Math.max(MIN_RING_RADIUS, length / (2 * Math.PI));
-    // The first hole right at the front (towards the audience), then anticlockwise.
+    // An oval (a circle when its aspect is 1) whose edge is as long as its holes and gaps.
+    const aspect = space.aspect ?? 1;
+    const table = ovalTable(aspect);
+    const radius = Math.max(MIN_RING_RADIUS / Math.min(1, aspect), length / table[OVAL_STEPS]!);
+    const radiusY = radius * aspect;
+    // Measured from the front (towards the audience), anticlockwise; the first hole right there.
+    const start =
+      table[Math.round(OVAL_STEPS * 0.75)]! + (space.rotation / 360) * table[OVAL_STEPS]!;
     let walked = -(sizes[0]?.along ?? 0) / 2;
-    const start = -Math.PI / 2 + (space.rotation * Math.PI) / 180;
     const holes = sizes.map((size, hole) => {
-      const theta = start + (walked + size.along / 2) / radius;
+      const theta = thetaAt(table, start + (walked + size.along / 2) / radius);
       walked += size.along + gap;
-      const degrees = (theta * 180) / Math.PI;
+      // Along the edge there; in series a figure follows it, in battery it faces the centre.
+      const tangent =
+        (Math.atan2(radiusY * Math.cos(theta), -radius * Math.sin(theta)) * 180) / Math.PI;
       return {
         hole,
         x: round(space.x + Math.cos(theta) * radius * square),
-        y: round(space.y + Math.sin(theta) * radius * square),
+        y: round(space.y + Math.sin(theta) * radiusY * square),
         rotation: 0 as FigureRotation,
-        // In series a figure follows the ring; in battery it faces the centre.
-        angle: round(battery ? degrees : degrees + 90),
+        angle: round(battery ? tangent - 90 : tangent),
+        theta,
         ...size,
       };
     });
-    return { holes, length, thickness, radius };
+    return { holes, length, thickness, radius, radiusY };
   }
 
   const axis = turn({ x: 1, y: 0 }, space.rotation);
@@ -121,7 +170,7 @@ export function layoutSpace(
       ...size,
     };
   });
-  return { holes, length, thickness, radius: 0 };
+  return { holes, length, thickness, radius: 0, radiusY: 0 };
 }
 
 /** The figures of a space, by hole. */
@@ -143,17 +192,24 @@ export function placeChildren(space: StageFigure, figures: StageFigure[], stage:
 }
 
 /**
- * Moves a row so its first end sits on the half-square grid, so the people in it do too.
- * Rings stand anywhere: their people are off the grid anyway.
+ * Moves a row so its first end sits on the half-square grid, so the people in it do too, and a
+ * ring so its centre does (its people stand round it, off the grid).
  */
 export function snapSpace<T extends Space>(
   space: T,
   children: Map<number, Shape>,
   stage: StageSize,
 ): T {
-  if (space.kind !== 'row') return space;
-  const { length, thickness } = layoutSpace(space, children, stage);
   const step = stage.squareSize / 2;
+  const snapTo = (value: number, size: number) =>
+    -size / 2 + Math.round((value + size / 2) / step) * step;
+  if (space.kind === 'ring')
+    return {
+      ...space,
+      x: round(snapTo(space.x, stage.width)),
+      y: round(snapTo(space.y, stage.depth)),
+    };
+  const { length, thickness } = layoutSpace(space, children, stage);
   const axis = turn({ x: 1, y: 0 }, space.rotation);
   const across = turn({ x: 0, y: 1 }, space.rotation);
   // A corner of the row: its first end, on its lower side.
@@ -161,12 +217,10 @@ export function snapSpace<T extends Space>(
     x: space.x - ((axis.x * length + across.x * thickness) / 2) * stage.squareSize,
     y: space.y - ((axis.y * length + across.y * thickness) / 2) * stage.squareSize,
   };
-  const snap = (value: number, size: number) =>
-    -size / 2 + Math.round((value + size / 2) / step) * step;
   return {
     ...space,
-    x: round(space.x + snap(corner.x, stage.width) - corner.x),
-    y: round(space.y + snap(corner.y, stage.depth) - corner.y),
+    x: round(space.x + snapTo(corner.x, stage.width) - corner.x),
+    y: round(space.y + snapTo(corner.y, stage.depth) - corner.y),
   };
 }
 
@@ -174,10 +228,13 @@ export function snapSpace<T extends Space>(
 export function spaceOutline(space: Space, layout: SpaceLayout, stage: StageSize): Outline {
   const square = stage.squareSize;
   if (space.kind === 'ring') {
-    const outer = (layout.radius + layout.thickness / 2) * square;
+    const outer = {
+      x: (layout.radius + layout.thickness / 2) * square,
+      y: (layout.radiusY + layout.thickness / 2) * square,
+    };
     return Array.from({ length: RING_STEPS }, (_, step) => {
       const angle = (step / RING_STEPS) * 2 * Math.PI;
-      return { x: space.x + Math.cos(angle) * outer, y: space.y + Math.sin(angle) * outer };
+      return { x: space.x + Math.cos(angle) * outer.x, y: space.y + Math.sin(angle) * outer.y };
     });
   }
   const axis = turn({ x: 1, y: 0 }, space.rotation);
@@ -241,15 +298,14 @@ export function addSpots(
   if (space.kind === 'ring') {
     return layout.holes.map((place, index) => {
       const next = layout.holes[(index + 1) % layout.holes.length]!;
-      const angle = Math.atan2(
-        place.y - space.y + next.y - space.y,
-        place.x - space.x + next.x - space.x,
-      );
-      const radius = layout.radius * square;
+      let to = next.theta ?? 0;
+      const from = place.theta ?? 0;
+      if (to <= from) to += 2 * Math.PI;
+      const theta = (from + to) / 2;
       return {
         at: index + 1,
-        x: space.x + Math.cos(angle) * radius,
-        y: space.y + Math.sin(angle) * radius,
+        x: space.x + Math.cos(theta) * layout.radius * square,
+        y: space.y + Math.sin(theta) * layout.radiusY * square,
       };
     });
   }
@@ -268,12 +324,16 @@ export function removeSpots(space: Space, layout: SpaceLayout, stage: StageSize)
   const across = turn({ x: 0, y: 1 }, space.rotation);
   return layout.holes.map((place) => {
     if (space.kind === 'ring') {
-      const angle = Math.atan2(place.y - space.y, place.x - space.x);
-      const radius = layout.radius * square + out;
+      const theta = place.theta ?? 0;
+      const normal = {
+        x: Math.cos(theta) / (layout.radius || 1),
+        y: Math.sin(theta) / (layout.radiusY || 1),
+      };
+      const length = Math.hypot(normal.x, normal.y) || 1;
       return {
         hole: place.hole,
-        x: space.x + Math.cos(angle) * radius,
-        y: space.y + Math.sin(angle) * radius,
+        x: place.x + (normal.x / length) * out,
+        y: place.y + (normal.y / length) * out,
       };
     }
     return { hole: place.hole, x: place.x + across.x * out, y: place.y + across.y * out };
@@ -299,7 +359,34 @@ export function gapForReach(
   return Math.max(0, (reach * 2 - holes) / (space.width - 1)) * stage.squareSize;
 }
 
-/** How far the sides of a space are from its centre, in squares. */
+/**
+ * A ring stretched so its side across (`x`) or in depth (`y`) ends `reach` squares from its
+ * centre: only that way, making an oval, or both ways (`uniform`), keeping its shape. Gives its
+ * new room between holes (metres) and aspect, and how much that radius grew (squares).
+ */
+export function stretchRing(
+  space: Pick<StageFigure, 'width'>,
+  layout: SpaceLayout,
+  axis: 'x' | 'y',
+  reach: number,
+  uniform: boolean,
+  stage: StageSize,
+) {
+  const holes = layout.holes.reduce((total, place) => total + place.along, 0);
+  const current = axis === 'x' ? layout.radius : layout.radiusY;
+  const wanted = Math.max(MIN_RING_RADIUS, reach - layout.thickness / 2);
+  const scale = wanted / (current || 1);
+  const [x, y] = uniform
+    ? [layout.radius * scale, layout.radiusY * scale]
+    : axis === 'x'
+      ? [wanted, layout.radiusY]
+      : [layout.radius, wanted];
+  const aspect = y / x;
+  const gap = Math.max(0, (x * ovalPerimeter(aspect) - holes) / space.width) * stage.squareSize;
+  return { gap, aspect, grown: wanted - current };
+}
+
+/** How far the sides of a space are from its centre, in squares (a ring, across). */
 export const reachOfSpace = (space: Pick<StageFigure, 'kind'>, layout: SpaceLayout) =>
   space.kind === 'ring' ? layout.radius + layout.thickness / 2 : layout.length / 2;
 

@@ -108,6 +108,8 @@ export const stageFigureSchema = z.object({
   arrangement: arrangementSchema.nullable().optional(),
   /** Spaces: room left between one hole and the next, in metres. */
   gap: z.number().min(0).max(MAX_SPACE_GAP).nullable().optional(),
+  /** Rings: depth over width, so a stretched ring is an oval (1, or none, for a circle). */
+  aspect: z.number().min(0.1).max(10).nullable().optional(),
   /** Simple figures in a space: the space and the hole they fill. */
   spaceId: z.string().min(8).max(64).nullable().optional(),
   hole: z.number().int().min(0).max(MAX_FIGURE_WIDTH).nullable().optional(),
