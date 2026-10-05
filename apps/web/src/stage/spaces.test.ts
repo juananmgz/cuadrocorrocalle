@@ -126,3 +126,22 @@ test('stretches a ring one way into an oval, or both ways keeping it round', () 
   const bigger = stretchRing(ring, layout, 'x', layout.radius + 2, true, stage);
   expect(bigger.aspect).toBeCloseTo(1);
 });
+
+test('turns an oval ring a quarter: across becomes deep', () => {
+  const ring = { ...row, kind: 'ring' as const, width: 6, gap: 0.5, aspect: 0.6 };
+  const flat = spaceOutline(ring, layoutSpace(ring, new Map(), stage), stage);
+  const turned = spaceOutline(
+    { ...ring, rotation: 90 as const },
+    layoutSpace({ ...ring, rotation: 90 }, new Map(), stage),
+    stage,
+  );
+  const size = (outline: { x: number; y: number }[]): [number, number] => [
+    Math.max(...outline.map(({ x }) => x)) - Math.min(...outline.map(({ x }) => x)),
+    Math.max(...outline.map(({ y }) => y)) - Math.min(...outline.map(({ y }) => y)),
+  ];
+  const [width, depth] = size(flat);
+  const [turnedWidth, turnedDepth] = size(turned);
+  expect(width).toBeGreaterThan(depth);
+  expect(turnedWidth).toBeCloseTo(depth);
+  expect(turnedDepth).toBeCloseTo(width);
+});

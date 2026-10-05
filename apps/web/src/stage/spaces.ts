@@ -132,9 +132,9 @@ export function layoutSpace(
     const table = ovalTable(aspect);
     const radius = Math.max(MIN_RING_RADIUS / Math.min(1, aspect), length / table[OVAL_STEPS]!);
     const radiusY = radius * aspect;
-    // Measured from the front (towards the audience), anticlockwise; the first hole right there.
-    const start =
-      table[Math.round(OVAL_STEPS * 0.75)]! + (space.rotation / 360) * table[OVAL_STEPS]!;
+    // Laid out unturned, from the front (towards the audience) anticlockwise with the first hole
+    // right there; then the whole oval turns with the ring, so a 5 × 8 one turned a quarter is 8 × 5.
+    const start = table[Math.round(OVAL_STEPS * 0.75)]!;
     let walked = -(sizes[0]?.along ?? 0) / 2;
     const holes = sizes.map((size, hole) => {
       const theta = thetaAt(table, start + (walked + size.along / 2) / radius);
@@ -142,12 +142,16 @@ export function layoutSpace(
       // Along the edge there; in series a figure follows it, in battery it faces the centre.
       const tangent =
         (Math.atan2(radiusY * Math.cos(theta), -radius * Math.sin(theta)) * 180) / Math.PI;
+      const offset = turn(
+        { x: Math.cos(theta) * radius, y: Math.sin(theta) * radiusY },
+        space.rotation,
+      );
       return {
         hole,
-        x: round(space.x + Math.cos(theta) * radius * square),
-        y: round(space.y + Math.sin(theta) * radiusY * square),
+        x: round(space.x + offset.x * square),
+        y: round(space.y + offset.y * square),
         rotation: 0 as FigureRotation,
-        angle: round(battery ? tangent - 90 : tangent),
+        angle: round((battery ? tangent - 90 : tangent) + space.rotation),
         theta,
         ...size,
       };
@@ -234,7 +238,11 @@ export function spaceOutline(space: Space, layout: SpaceLayout, stage: StageSize
     };
     return Array.from({ length: RING_STEPS }, (_, step) => {
       const angle = (step / RING_STEPS) * 2 * Math.PI;
-      return { x: space.x + Math.cos(angle) * outer.x, y: space.y + Math.sin(angle) * outer.y };
+      const offset = turn(
+        { x: Math.cos(angle) * outer.x, y: Math.sin(angle) * outer.y },
+        space.rotation,
+      );
+      return { x: space.x + offset.x, y: space.y + offset.y };
     });
   }
   const axis = turn({ x: 1, y: 0 }, space.rotation);
@@ -312,10 +320,10 @@ export function removeSpots(space: Space, layout: SpaceLayout, stage: StageSize)
   return layout.holes.map((place) => {
     if (space.kind === 'ring') {
       const theta = place.theta ?? 0;
-      const normal = {
-        x: Math.cos(theta) / (layout.radius || 1),
-        y: Math.sin(theta) / (layout.radiusY || 1),
-      };
+      const normal = turn(
+        { x: Math.cos(theta) / (layout.radius || 1), y: Math.sin(theta) / (layout.radiusY || 1) },
+        space.rotation,
+      );
       const length = Math.hypot(normal.x, normal.y) || 1;
       return {
         hole: place.hole,

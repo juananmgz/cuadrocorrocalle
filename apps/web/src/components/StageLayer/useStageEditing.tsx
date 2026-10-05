@@ -937,7 +937,8 @@ export function useStageEditing({
               // A ring stretches one way into an oval (or both ways with Shift) and its holes
               // spread round it; the other side stays put unless Ctrl is held.
               const { figure, layout } = selected;
-              const axis = Math.abs(towards.x) >= Math.abs(towards.y) ? 'x' : 'y';
+              const across = Math.abs(towards.x) >= Math.abs(towards.y);
+              const axis = across === (figure.rotation % 180 === 0) ? 'x' : 'y';
               const { gap, aspect, grown } = stretchRing(
                 figure,
                 layout,

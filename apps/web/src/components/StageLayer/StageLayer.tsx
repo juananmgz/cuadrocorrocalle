@@ -624,8 +624,9 @@ export function StageLayer({
   const spaceStyle = ({ figure, layout }: FigureView): CSSProperties => {
     if (!layout) return {};
     if (figure.kind === 'ring') {
-      const width = layout.radius * 2 + layout.thickness;
-      const height = layout.radiusY * 2 + layout.thickness;
+      const across = layout.radius * 2 + layout.thickness;
+      const deep = layout.radiusY * 2 + layout.thickness;
+      const [width, height] = figure.rotation % 180 === 0 ? [across, deep] : [deep, across];
       return { ...turnedBox(figure, width, height, 0), borderRadius: '50%' };
     }
     return turnedBox(figure, layout.length, layout.thickness, figure.rotation);
