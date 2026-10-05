@@ -12,8 +12,8 @@ import { isSlanted, slantedBlock, slotOffsets, turn } from '../../stage/figures'
 import styles from './PeopleTray.module.scss';
 
 // Palette scale, in px per grid square, so every figure is drawn alike; huge ones shrink to fit.
-const SQUARE_PX = 14;
-const MAX_ICON_PX = 60;
+const SQUARE_PX = 11;
+const MAX_ICON_PX = 40;
 // Dot radius and space around the block, in squares.
 const DOT_RADIUS = 0.32;
 const ICON_PAD = 0.3;
@@ -152,7 +152,7 @@ interface FigurePaletteProps {
   onConfigure: (kind: FigureKind, anchor: DOMRect) => void;
 }
 
-// The palette in rows by how many people each figure holds. No solo: dropping someone on the
+// The palette in columns by how many people each figure holds. No solo: dropping someone on the
 // stage already makes one.
 const KINDS = FIGURE_KINDS.filter((kind) => kind !== 'solo');
 const ROWS = [...new Set(KINDS.map((kind) => FIGURE_SLOTS[kind]))].map((count) =>
@@ -168,29 +168,31 @@ export function FigurePalette({
   onConfigure,
 }: FigurePaletteProps) {
   return (
-    <div className={styles.figureRows}>
-      {ROWS.map((kinds) => (
-        <ul
-          key={FIGURE_SLOTS[kinds[0]!]}
-          className={styles.figures}
-          aria-label={
-            FIGURE_SLOTS[kinds[0]!] === 1 ? '1 persona' : `${FIGURE_SLOTS[kinds[0]!]} personas`
-          }
-        >
-          {kinds.map((kind) => (
-            <li key={kind}>
-              <PaletteItem
-                kind={kind}
-                {...appearance(kind)}
-                enabled={enabled}
-                picked={picked === kind}
-                onPick={() => onPick(kind)}
-                onConfigure={(anchor) => onConfigure(kind, anchor)}
-              />
-            </li>
-          ))}
-        </ul>
-      ))}
+    <div className={styles.figureColumns}>
+      {ROWS.map((kinds) => {
+        const count = FIGURE_SLOTS[kinds[0]!];
+        return (
+          <div key={count} className={styles.figureColumn}>
+            <span className={styles.figureCount} aria-hidden="true">
+              {count}
+            </span>
+            <ul className={styles.figures} aria-label={`${count} personas`}>
+              {kinds.map((kind) => (
+                <li key={kind}>
+                  <PaletteItem
+                    kind={kind}
+                    {...appearance(kind)}
+                    enabled={enabled}
+                    picked={picked === kind}
+                    onPick={() => onPick(kind)}
+                    onConfigure={(anchor) => onConfigure(kind, anchor)}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </div>
   );
 }

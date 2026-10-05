@@ -128,36 +128,44 @@
   color: var(--ink-soft);
 }
 
-// Figures palette: just the drawings, side by side.
-// One row per number of people, separated by a thin line.
-.figureRows {
-  display: grid;
+// Figures palette: just the drawings.
+// One column per number of people (2, 3, 4), each with its count on top.
+.figureColumns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
 
-  > * + * {
-    padding-top: var(--space-1);
-    margin-top: var(--space-1);
-    border-top: var(--border-width) solid var(--line);
-  }
+.figureColumn {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: center;
+}
+
+.figureCount {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
 }
 
 .figures {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: var(--space-1);
-  align-items: center;
   padding: 0;
   margin: 0;
   list-style: none;
 }
 
+// Every figure in a tile of the same size, drawn at one scale.
 .figure {
   display: grid;
   place-items: center;
-  padding: 6px;
+  width: 52px;
+  height: 52px;
+  padding: 0;
   cursor: grab;
   touch-action: none;
-  background: transparent;
-  border: 0;
+  background: var(--surface);
+  border: var(--border-width) solid var(--line);
   border-radius: var(--radius);
 
   &:hover:not(:disabled) {

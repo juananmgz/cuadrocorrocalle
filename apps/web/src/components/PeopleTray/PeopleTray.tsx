@@ -1,5 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { Package, Shapes, Users } from 'lucide-react';
+import { LayoutGrid, Package, Shapes, Users } from 'lucide-react';
 import type { CallUpStatus, Person } from '@cuadrocorrocalle/shared';
 import { type ReactNode, useState } from 'react';
 
@@ -126,7 +126,12 @@ export function PeopleTray({
   draggable = false,
   palette,
 }: PeopleTrayProps) {
-  const [open, setOpen] = useState({ figures: true, people: true, objects: false });
+  const [open, setOpen] = useState({
+    figures: true,
+    spaces: false,
+    people: true,
+    objects: false,
+  });
   const toggle = (key: keyof typeof open) =>
     setOpen((current) => ({ ...current, [key]: !current[key] }));
 
@@ -142,6 +147,15 @@ export function PeopleTray({
         {palette ?? (
           <p className={styles.hint}>Entra en una pieza para colocar figuras en el escenario.</p>
         )}
+      </Section>
+      <Section
+        id="spaces"
+        icon={<LayoutGrid size={20} aria-hidden="true" />}
+        title="Espacios"
+        open={open.spaces}
+        onToggle={() => toggle('spaces')}
+      >
+        <p className={styles.hint}>Llegarán más adelante: fila, corro, baile libre y cruz.</p>
       </Section>
       <Section
         id="people"
