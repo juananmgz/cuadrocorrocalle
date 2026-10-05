@@ -18,6 +18,8 @@ interface PeopleTrayProps {
   onToggle: (person: TrayPerson) => void;
   /** Whether people can be dragged onto the stage (inside a DndContext). */
   draggable?: boolean;
+  /** The figures palette (step 2.2); without it, the block only says what is coming. */
+  palette?: ReactNode;
 }
 
 const PeopleIcon = () => (
@@ -159,6 +161,7 @@ export function PeopleTray({
   counts,
   onToggle,
   draggable = false,
+  palette,
 }: PeopleTrayProps) {
   const [open, setOpen] = useState({ figures: true, people: true, objects: false });
   const toggle = (key: keyof typeof open) =>
@@ -173,7 +176,9 @@ export function PeopleTray({
         open={open.figures}
         onToggle={() => toggle('figures')}
       >
-        <p className={styles.hint}>Llegarán en el paso 2.2: solo, pareja, tríos y cuadrado.</p>
+        {palette ?? (
+          <p className={styles.hint}>Abre una pieza para colocar figuras en el escenario.</p>
+        )}
       </Section>
       <Section
         id="people"

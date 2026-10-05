@@ -8,6 +8,8 @@ import { useRepertoire } from '../../pieces/repertoireApi';
 import { summarize } from '../../pieces/summary';
 import { formatDay, formatDuration } from '../../performances/format';
 import { FROM_TABLET, useMediaQuery } from '../../hooks';
+import { slotPositions } from '../../stage/figures';
+import { emptySlots, missingPlaces } from '../../stage/pieceFigures';
 import type { StageSize } from '../../stage/placement';
 import { useStageView } from '../GridBackground/stageView';
 import { type PlacedPerson, StageLayer } from '../StageLayer/StageLayer';
@@ -172,7 +174,11 @@ export function PerformanceSummary({
         {pieces.length ? (
           <ol className={styles.pieces}>
             {[...main, ...encores].map((piece) => (
-              <li key={piece.key} className={styles.pieceRow}>
+              <li
+                key={piece.key}
+                className={styles.pieceRow}
+                data-incomplete={missingPlaces(piece) ? '' : undefined}
+              >
                 <button
                   type="button"
                   className={styles.piece}
@@ -187,6 +193,12 @@ export function PerformanceSummary({
                     {` · ${piece.participants.length} ${piece.participants.length === 1 ? 'persona' : 'personas'}`}
                     {` · ${piece.duration || 'sin duración'}`}
                   </span>
+                  {missingPlaces(piece) > 0 && (
+                    <span className={styles.missingPlaces}>
+                      {missingPlaces(piece)}{' '}
+                      {missingPlaces(piece) === 1 ? 'hueco vacío' : 'huecos vacíos'} en sus figuras
+                    </span>
+                  )}
                 </button>
                 <Button onClick={() => piece.id && onOpenPiece(piece.id)}>Editar</Button>
               </li>
@@ -216,7 +228,17 @@ export function PerformanceSummary({
       </Foldable>
 
       {active && wide && preview && stage && stageView && (
-        <StageLayer view={stageView} stage={stage} placed={placed} readOnly />
+        <StageLayer
+          view={stageView}
+          stage={stage}
+          placed={placed}
+          figures={preview.figures.map((figure) => ({
+            figure,
+            places: slotPositions(figure, stage),
+            empty: emptySlots(preview, figure),
+          }))}
+          readOnly
+        />
       )}
     </div>
   );

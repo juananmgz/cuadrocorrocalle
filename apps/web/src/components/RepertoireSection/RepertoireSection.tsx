@@ -29,6 +29,7 @@ import { type ReactNode, useMemo, useState } from 'react';
 
 import { formatClock } from '../../pieces/clock';
 import { draftError, emptyDraft, type PieceDraft } from '../../pieces/draft';
+import { missingPlaces } from '../../stage/pieceFigures';
 import { summarize } from '../../pieces/summary';
 import { cleanText } from '../../performances/sanitize';
 import type { TrayPerson } from '../PeopleTray/PeopleTray';
@@ -91,6 +92,8 @@ function PieceRow({ draft, label, open, onToggle, onChange, onRemove, people }: 
     isDragging,
   } = useSortable({ id: draft.key, transition: SLIDE, animateLayoutChanges: animateAlways });
   const error = draftError(draft);
+  // Figures with nobody in some of their places (step 2.2).
+  const missing = missingPlaces(draft);
   const set = (changes: Partial<PieceDraft>) => onChange({ ...draft, ...changes });
 
   return (
@@ -99,6 +102,7 @@ function PieceRow({ draft, label, open, onToggle, onChange, onRemove, people }: 
       className={styles.piece}
       data-dragging={isDragging ? '' : undefined}
       data-invalid={error && !open ? '' : undefined}
+      data-incomplete={missing ? '' : undefined}
       style={{ transform: CSS.Translate.toString(transform), transition }}
     >
       <div className={styles.row}>
@@ -146,6 +150,11 @@ function PieceRow({ draft, label, open, onToggle, onChange, onRemove, people }: 
               <span className={styles.peopleCount}>
                 {draft.participants.length}{' '}
                 {draft.participants.length === 1 ? 'persona' : 'personas'}
+              </span>
+            )}
+            {missing > 0 && (
+              <span className={styles.missingPlaces}>
+                {missing} {missing === 1 ? 'hueco vacío' : 'huecos vacíos'}
               </span>
             )}
             <span className={styles.duration}>{draft.duration || '—'}</span>

@@ -85,19 +85,21 @@ model Verification {
 
 // Folk group directed by one user (step 1.5). Licences arrive in phase 5.
 model Group {
-  id            String        @id @default(cuid())
-  ownerId       String        @map("owner_id")
-  owner         User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  name          String
-  gridColor     String        @map("grid_color")
+  id             String        @id @default(cuid())
+  ownerId        String        @map("owner_id")
+  owner          User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name           String
+  gridColor      String        @map("grid_color")
   // The prebuilt "Grupo de Prueba" every account gets.
-  isTrial       Boolean       @default(false) @map("is_trial")
+  isTrial        Boolean       @default(false) @map("is_trial")
   // Set when a licence migrates away; the group is deleted a month later unless recovered.
-  inactiveSince DateTime?     @map("inactive_since")
-  people        Person[]
-  performances  Performance[]
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  inactiveSince  DateTime?     @map("inactive_since")
+  // How each figure comes out when placed: { pair: { rotation, width }, … } (step 2.2).
+  figureDefaults Json          @default("{}") @map("figure_defaults")
+  people         Person[]
+  performances   Performance[]
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
 
   @@index([ownerId])
   @@map("groups")
@@ -185,6 +187,7 @@ model Piece {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
   participations  Participation[]
+  figures         Figure[]
 
   @@index([performanceId, position])
   @@map("pieces")
@@ -204,8 +207,31 @@ model Participation {
   // audience); null while not placed (step 2.1).
   x             Float?   @map("x_m")
   y             Float?   @map("y_m")
+  // Figure and place in it (step 2.2); x and y then follow the figure.
+  figureId      String?  @map("figure_id")
+  figure        Figure?  @relation(fields: [figureId], references: [id], onDelete: SetNull)
+  slot          Int?
 
   @@id([pieceId, personId])
   @@index([performanceId, personId])
+  @@index([figureId])
   @@map("participations")
+}
+
+// A simple figure on the stage of a piece (step 2.2): its centre in metres from the stage centre,
+// quarter turns and width in grid squares. Ids come from the web.
+model Figure {
+  id             String          @id
+  pieceId        String          @map("piece_id")
+  piece          Piece           @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+  // "solo", "pair", "trio_line", "trio_triangle" or "square".
+  kind           String
+  x              Float           @map("x_m")
+  y              Float           @map("y_m")
+  rotation       Int             @default(0)
+  width          Float
+  participations Participation[]
+
+  @@index([pieceId])
+  @@map("figures")
 }

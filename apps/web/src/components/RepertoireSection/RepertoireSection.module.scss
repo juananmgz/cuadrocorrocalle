@@ -43,6 +43,17 @@
   &[data-invalid] {
     border-color: var(--danger);
   }
+
+  // A figure with empty places: a warning, like the summary.
+  &[data-incomplete]:not([data-invalid]) {
+    border-color: var(--warn);
+  }
+}
+
+.missingPlaces {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--warn);
 }
 
 .row {

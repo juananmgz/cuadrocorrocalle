@@ -1,9 +1,6 @@
 import {
   type Announcements,
   DndContext,
-  type DragEndEvent,
-  type DragMoveEvent,
-  type DragStartEvent,
   PointerSensor,
   pointerWithin,
   TouchSensor,
@@ -18,13 +15,15 @@ import { usePeople } from '../../people/peopleApi';
 import { draftError, type PieceDraft, toDraft, toPieceInput } from '../../pieces/draft';
 import { useRepertoire, useSaveRepertoire } from '../../pieces/repertoireApi';
 import { useApp } from '../AppLayout/appContext';
-import { placeParticipant, toggleParticipant } from '../../pieces/participants';
+import { toggleParticipant } from '../../pieces/participants';
 import { FROM_TABLET, useMediaQuery } from '../../hooks';
-import { checkDrop, isMisplaced, type StageSize } from '../../stage/placement';
+import { isMisplaced, type StageSize } from '../../stage/placement';
 import { useStageView } from '../GridBackground/stageView';
-import { type PlacedPerson, type StageDrag, StageLayer } from '../StageLayer/StageLayer';
-import { stageProjection } from '../../stage/projection';
+import { StageLayer } from '../StageLayer/StageLayer';
+import { useStageEditing } from '../StageLayer/useStageEditing';
+import { FigurePalette } from '../PeopleTray/FigurePalette';
 import { PeopleTray, type TrayPerson } from '../PeopleTray/PeopleTray';
+import { FIGURE_LABELS } from '@cuadrocorrocalle/shared';
 import { Card } from '../ui/Card/Card';
 import { useToast } from '../ui/Toast/toastContext';
 import { RepertoireSection } from './RepertoireSection';
@@ -45,16 +44,6 @@ interface RepertoireCardProps {
   openPieceId?: string | null;
   /** Whether the stage layer is shown, e.g. only while the pieces are on screen. */
   stageActive?: boolean;
-}
-
-/** Screen point where a drag started: a mouse or pen pointer, or a finger. */
-function startPoint(event: Event) {
-  if (typeof TouchEvent !== 'undefined' && event instanceof TouchEvent) {
-    const touch = event.touches[0] ?? event.changedTouches[0];
-    return { x: touch?.clientX ?? 0, y: touch?.clientY ?? 0 };
-  }
-  const { clientX, clientY } = event as PointerEvent;
-  return { x: clientX, y: clientY };
 }
 
 /** Repertoire of a saved performance, saved on its own as it changes, with a people tray. */
@@ -98,7 +87,6 @@ export function RepertoireCard({
   const wide = useMediaQuery(FROM_TABLET);
   const stageView = useStageView();
   const placing = Boolean(stage && stageActive && wide && openPiece);
-  const [drag, setDrag] = useState<StageDrag | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } }),
@@ -124,76 +112,36 @@ export function RepertoireCard({
   }, [callUp, groupPeople]);
 
   const peopleById = useMemo(() => new Map(people?.map((person) => [person.id, person])), [people]);
-  const placed: PlacedPerson[] = (openPiece?.participants ?? []).flatMap((participant) => {
-    const person = peopleById.get(participant.personId);
-    return person && participant.x != null && participant.y != null
-      ? [{ person, point: { x: participant.x, y: participant.y } }]
-      : [];
-  });
-
-  /** Where the dragged person would land, seen from the pointer. */
-  const dropAt = (personId: string, pointer: { x: number; y: number }) => {
-    if (!stage || !stageView) return null;
-    const point = stageProjection(stageView, stage).toStage(pointer.x, pointer.y);
-    const others = placed.filter((item) => item.person.id !== personId).map((item) => item.point);
-    return checkDrop(point, stage, others);
-  };
-
-  const pointerOf = (event: DragMoveEvent | DragEndEvent) => {
-    const start = startPoint(event.activatorEvent);
-    return { x: start.x + event.delta.x, y: start.y + event.delta.y };
-  };
-  const personOf = (id: string | number) => String(id).replace(/^(tray|stage):/, '');
-
-  const nameOf = (id: string | number) => peopleById.get(personOf(id))?.name ?? 'la persona';
-  // Screen reader messages while placing people.
-  const announcements: Announcements = {
-    onDragStart: ({ active }) => `Arrastrando a ${nameOf(active.id)}.`,
-    onDragOver: () => undefined,
-    onDragEnd: ({ active }) => `Has soltado a ${nameOf(active.id)}.`,
-    onDragCancel: ({ active }) => `${nameOf(active.id)} vuelve a su sitio.`,
-  };
-
-  const startDrag = ({ active, activatorEvent }: DragStartEvent) =>
-    setDrag({ personId: personOf(active.id), pointer: startPoint(activatorEvent), check: null });
-
-  const moveDrag = (event: DragMoveEvent) => {
-    const personId = personOf(event.active.id);
-    const pointer = pointerOf(event);
-    setDrag({ personId, pointer, check: dropAt(personId, pointer) });
-  };
-
-  const endDrag = (event: DragEndEvent) => {
-    setDrag(null);
-    const personId = personOf(event.active.id);
-    const person = peopleById.get(personId);
-    if (!openPiece || !person) return;
-    const place = (point: { x: number; y: number } | null) =>
+  // Everything that changes the stage of the open piece: people and figures.
+  const editing = useStageEditing({
+    content: openPiece
+      ? { participants: openPiece.participants, figures: openPiece.figures }
+      : null,
+    pieceType: openPiece?.type ?? null,
+    stage,
+    view: stageView,
+    people: peopleById,
+    groupId: activeGroup?.id,
+    figureDefaults: activeGroup?.figureDefaults ?? {},
+    onChange: (content) =>
+      openPiece &&
       change(
-        pieces.map((piece) =>
-          piece.key === openPiece.key
-            ? {
-                ...piece,
-                participants: placeParticipant(piece.participants, person, piece.type, point),
-              }
-            : piece,
-        ),
-      );
-    // Back to the tray: off the stage, still in the piece.
-    if (event.over?.id === 'tray') {
-      if (String(event.active.id).startsWith('stage:')) place(null);
-      return;
-    }
-    const check = dropAt(personId, pointerOf(event));
-    if (check?.ok) place(check.point);
-    else if (check?.reason === 'close')
-      toast.show({
-        title: 'Muy cerca',
-        description: 'Deja al menos 0,5 m entre dos personas.',
-        tone: 'warning',
-      });
-    else if (check?.reason === 'full')
-      toast.show({ title: 'No queda sitio libre fuera del borde', tone: 'warning' });
+        pieces.map((piece) => (piece.key === openPiece.key ? { ...piece, ...content } : piece)),
+      ),
+  });
+  const nameOf = (id: string | number) => {
+    const key = String(id);
+    if (key.startsWith('palette:'))
+      return FIGURE_LABELS[key.slice(8) as keyof typeof FIGURE_LABELS];
+    if (key.startsWith('figure:')) return 'la figura';
+    return peopleById.get(key.replace(/^(tray|stage):/, ''))?.name ?? 'la persona';
+  };
+  // Screen reader messages while placing people and figures.
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `Arrastrando ${nameOf(active.id)}.`,
+    onDragOver: () => undefined,
+    onDragEnd: ({ active }) => `Has soltado ${nameOf(active.id)}.`,
+    onDragCancel: ({ active }) => `${nameOf(active.id)} vuelve a su sitio.`,
   };
 
   // After a resize of the stage, warns about anyone left off it or in the safety strip.
@@ -284,10 +232,7 @@ export function RepertoireCard({
       collisionDetection={pointerWithin}
       autoScroll={false}
       accessibility={{ announcements }}
-      onDragStart={startDrag}
-      onDragMove={moveDrag}
-      onDragEnd={endDrag}
-      onDragCancel={() => setDrag(null)}
+      {...editing.dnd}
     >
       <div className={styles.workspace} data-fill={fill ? '' : undefined}>
         <div className={styles.workspaceGrid}>
@@ -317,6 +262,17 @@ export function RepertoireCard({
               selected={new Set(openPiece?.participants.map((participant) => participant.personId))}
               counts={counts}
               draggable={placing}
+              palette={
+                placing ? (
+                  <FigurePalette
+                    enabled
+                    picked={editing.palette.picked}
+                    appearance={editing.palette.appearance}
+                    onPick={editing.palette.onPick}
+                    onConfigure={editing.palette.onConfigure}
+                  />
+                ) : null
+              }
               onToggle={(person) =>
                 openPiece &&
                 change(
@@ -335,14 +291,9 @@ export function RepertoireCard({
         </div>
       </div>
       {placing && stage && stageView && (
-        <StageLayer
-          view={stageView}
-          stage={stage}
-          placed={placed}
-          drag={drag}
-          dragged={drag ? (peopleById.get(drag.personId) ?? null) : null}
-        />
+        <StageLayer view={stageView} stage={stage} {...editing.layer} />
       )}
+      {editing.settings}
     </DndContext>
   );
 }

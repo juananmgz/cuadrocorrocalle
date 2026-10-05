@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { figureDefaultsSchema } from './figures';
+
 export const GROUPS_PATH = '/api/cuentas/grupos';
 
 export const TRIAL_GROUP_NAME = 'Grupo de Prueba';
@@ -33,9 +35,14 @@ export const groupSchema = z.object({
   name: z.string(),
   gridColor: gridColorSchema,
   isTrial: z.boolean(),
+  /** How each figure comes out when placed (step 2.2). */
+  figureDefaults: figureDefaultsSchema,
   createdAt: z.string(),
 });
 export type Group = z.infer<typeof groupSchema>;
+
+export const figureDefaultsPath = (groupId: string) => `${GROUPS_PATH}/${groupId}/figuras`;
+export const figureDefaultsInputSchema = z.object({ figureDefaults: figureDefaultsSchema });
 
 /**
  * Destructive actions (deleting a group, all its people or replacing them) ask for the password,

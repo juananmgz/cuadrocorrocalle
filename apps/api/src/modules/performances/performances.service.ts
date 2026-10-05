@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import {
   type CallUpEntry,
   type CreatePerformanceInput,
@@ -158,7 +160,19 @@ export function createPerformanceService(
       const repertoire = await pieces.list(performance.id);
       await pieces.replace(
         copy.id,
-        repertoire.map((piece) => ({ ...piece, id: undefined })),
+        repertoire.map((piece) => {
+          // Figure ids are unique across pieces, so the copy gets new ones.
+          const ids = new Map(piece.figures.map((figure) => [figure.id, randomUUID()]));
+          return {
+            ...piece,
+            id: undefined,
+            figures: piece.figures.map((figure) => ({ ...figure, id: ids.get(figure.id)! })),
+            participants: piece.participants.map((participant) => ({
+              ...participant,
+              figureId: participant.figureId ? (ids.get(participant.figureId) ?? null) : null,
+            })),
+          };
+        }),
       );
       return { ok: true, value: toPerformance(copy) };
     },
@@ -221,7 +235,10 @@ export function createPerformanceService(
             roles: participant.roles,
             x: participant.x ?? null,
             y: participant.y ?? null,
+            figureId: participant.figureId ?? null,
+            slot: participant.slot ?? null,
           })),
+          figures: piece.figures ?? [],
         })),
       );
     },

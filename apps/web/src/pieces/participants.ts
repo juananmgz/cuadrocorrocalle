@@ -23,14 +23,23 @@ export function toggleParticipant(
     : [...participants, { personId: person.id, roles: defaultRoles(person, type) }];
 }
 
-/** Puts someone at a place on the stage (adding them to the piece) or takes them off it (null). */
+/**
+ * Puts someone at a place on the stage (adding them to the piece) or takes them off it (null).
+ * With a seat, the place is in a figure; otherwise they stand on their own.
+ */
 export function placeParticipant(
   participants: Participant[],
   person: Pick<Person, 'id' | 'roles'>,
   type: PieceType,
   point: { x: number; y: number } | null,
+  seat: { figureId: string; slot: number } | null = null,
 ): Participant[] {
-  const place = { x: point?.x ?? null, y: point?.y ?? null };
+  const place = {
+    x: point?.x ?? null,
+    y: point?.y ?? null,
+    figureId: point && seat ? seat.figureId : null,
+    slot: point && seat ? seat.slot : null,
+  };
   return participants.some((participant) => participant.personId === person.id)
     ? participants.map((participant) =>
         participant.personId === person.id ? { ...participant, ...place } : participant,

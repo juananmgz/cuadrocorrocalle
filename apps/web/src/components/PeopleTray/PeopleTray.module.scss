@@ -127,3 +127,137 @@
   font-size: 0.75rem;
   color: var(--ink-soft);
 }
+
+// Figures palette: just the drawings, side by side.
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.figure {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  padding: 4px;
+  cursor: grab;
+  touch-action: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--sel-bg);
+  }
+
+  &[aria-pressed='true'] {
+    background: var(--sel-bg);
+    outline: 2px solid var(--accent);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.figureBlock {
+  fill: color-mix(in srgb, var(--accent) 14%, transparent);
+  stroke: var(--accent);
+  stroke-width: 0.1;
+}
+
+.figureDot {
+  fill: var(--ink-soft);
+}
+
+// Settings of a figure: a panel beside it (right click on the palette).
+.settings {
+  @include mixins.popover;
+
+  position: fixed;
+  z-index: 35;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  outline: none;
+}
+
+.settingsTitle {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+// Live preview, with the audience below as on the stage.
+.preview {
+  display: grid;
+  justify-items: center;
+  padding: var(--space-2);
+  background: var(--floor);
+  border-radius: var(--radius);
+
+  svg {
+    width: 140px;
+    height: 140px;
+  }
+}
+
+.audience {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+}
+
+.settingsRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+
+  // Compact buttons, so a row fits the panel.
+  button {
+    min-width: 40px;
+    padding-inline: var(--space-2);
+  }
+}
+
+.settingsLabel {
+  min-width: 3.5em;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.widthValue {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.settingsHint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.settingsActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}

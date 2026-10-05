@@ -471,9 +471,44 @@ test('lets only people who come or may come take part in a piece', async () => {
   ]);
   expect(saved.statusCode).toBe(200);
   expect(saved.json().pieces[0].participants).toEqual([
-    { personId: julia.id, roles: ['dance'], x: -1.5, y: 0.5 },
-    { personId: lucia.id, roles: ['music', 'singing'], x: null, y: null },
+    { personId: julia.id, roles: ['dance'], x: -1.5, y: 0.5, figureId: null, slot: null },
+    {
+      personId: lucia.id,
+      roles: ['music', 'singing'],
+      x: null,
+      y: null,
+      figureId: null,
+      slot: null,
+    },
   ]);
+
+  // Figures: members point at a figure of the piece and a free place in it.
+  const pair = { id: 'figure-pair-1', kind: 'pair', x: 0, y: 0, rotation: 90, width: 2 };
+  const withFigure = (participants: unknown[], figures: unknown[] = [pair]) =>
+    app.inject({
+      method: 'PUT',
+      url: repertoirePath(performance.id),
+      headers: { cookie },
+      payload: { pieces: [{ title: 'Jota', type: 'dance', participants, figures }] },
+    });
+  const figured = await withFigure([
+    { personId: julia.id, roles: ['dance'], x: 0, y: -0.25, figureId: pair.id, slot: 0 },
+  ]);
+  expect(figured.statusCode).toBe(200);
+  expect(figured.json().pieces[0].figures).toEqual([pair]);
+  expect(figured.json().pieces[0].participants[0]).toMatchObject({ figureId: pair.id, slot: 0 });
+  // A place the figure does not have, or a figure the piece does not have, is refused.
+  expect(
+    (await withFigure([{ personId: julia.id, roles: ['dance'], figureId: pair.id, slot: 2 }]))
+      .statusCode,
+  ).toBe(400);
+  expect(
+    (
+      await withFigure([
+        { personId: julia.id, roles: ['dance'], figureId: 'other-figure', slot: 0 },
+      ])
+    ).statusCode,
+  ).toBe(400);
 
   // A place needs both coordinates, inside the largest stage.
   expect((await save([{ personId: julia.id, roles: ['dance'], x: 1 }])).statusCode).toBe(400);

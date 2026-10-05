@@ -1,3 +1,5 @@
+@use '../../styles/mixins';
+
 // Over the background grid and under the top bar; only the people take the pointer.
 .root {
   position: fixed;
@@ -61,6 +63,12 @@
   position: absolute;
   border: 2px dashed var(--accent);
   border-radius: 50%;
+
+  // Where it cannot go: shown in red, blocked.
+  &[data-refused] {
+    background: color-mix(in srgb, var(--danger) 18%, transparent);
+    border-color: var(--danger);
+  }
 }
 
 // Square under someone who has to be moved, a softer red.
@@ -68,4 +76,94 @@
   position: absolute;
   background: var(--danger);
   opacity: 0.3;
+}
+
+// While placing a figure by clicks: takes the pointer right of the column.
+.capture {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+// A figure: a building block holding its people; dragged as a whole.
+.block {
+  position: absolute;
+  padding: 0;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: var(--border-width) solid var(--accent);
+  border-radius: 8px;
+  box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--accent) 35%, transparent);
+
+  &[data-incomplete] {
+    border-color: var(--warn);
+    box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--warn) 35%, transparent);
+  }
+
+  &[data-selected] {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  &[data-hidden] {
+    opacity: 0.25;
+  }
+
+  &[data-static] {
+    pointer-events: none;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
+}
+
+// An empty place of a figure, waiting for someone.
+.placeholder {
+  position: absolute;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ink-soft) 18%, transparent);
+  border: 2px dashed var(--ink-soft);
+  border-radius: 50%;
+
+  &[data-hidden] {
+    opacity: 0.25;
+  }
+}
+
+// Where a figure being placed or moved would land.
+.ghostBlock {
+  position: absolute;
+  pointer-events: none;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+
+  &[data-refused] {
+    border-color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+  }
+}
+
+// Tools of the selected figure, just above it.
+.tools,
+.bottomTools {
+  @include mixins.popover;
+
+  position: absolute;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  pointer-events: auto;
+  transform: translate(-50%, calc(-100% - 8px));
+}
+
+// Tools while placing a figure, at the bottom of the stage area.
+.bottomTools {
+  top: auto;
+  bottom: var(--space-4);
+  transform: translateX(-50%);
 }

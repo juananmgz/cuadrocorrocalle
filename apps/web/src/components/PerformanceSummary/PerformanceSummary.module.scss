@@ -235,3 +235,15 @@
     padding-inline: var(--space-4);
   }
 }
+
+// A piece whose figures still have empty places: a warning, as in the repertoire.
+.pieceRow[data-incomplete] {
+  border-color: var(--warn);
+}
+
+.missingPlaces {
+  grid-column: 2;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--warn);
+}
