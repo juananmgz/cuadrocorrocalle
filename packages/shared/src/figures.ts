@@ -65,6 +65,9 @@ export const DEFAULT_FIGURE_WIDTH: Record<FigureKind, number> = {
 };
 // Widest figure, in grid squares.
 export const MAX_FIGURE_WIDTH = 40;
+// Room between the holes of a space, in metres: by default and at most.
+export const DEFAULT_SPACE_GAP = 0.5;
+export const MAX_SPACE_GAP = 5;
 
 export const FIGURE_ROTATIONS = [0, 90, 180, 270] as const;
 export const rotationSchema = z.union([
@@ -103,6 +106,8 @@ export const stageFigureSchema = z.object({
   width: widthSchema,
   /** Spaces: how their figures stand. */
   arrangement: arrangementSchema.nullable().optional(),
+  /** Spaces: room left between one hole and the next, in metres. */
+  gap: z.number().min(0).max(MAX_SPACE_GAP).nullable().optional(),
   /** Simple figures in a space: the space and the hole they fill. */
   spaceId: z.string().min(8).max(64).nullable().optional(),
   hole: z.number().int().min(0).max(MAX_FIGURE_WIDTH).nullable().optional(),

@@ -1,4 +1,5 @@
 import {
+  DEFAULT_SPACE_GAP,
   type FigureKind,
   type FigureRotation,
   isSpace,
@@ -54,7 +55,11 @@ export interface SpaceLayout {
   radius: number;
 }
 
-type Space = Pick<StageFigure, 'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement'>;
+type Space = Pick<StageFigure, 'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement' | 'gap'>;
+
+/** Room between holes, in squares, kept to half squares so a row stays on the grid. */
+export const gapSquares = (space: Pick<StageFigure, 'gap'>, stage: StageSize) =>
+  Math.round(((space.gap ?? DEFAULT_SPACE_GAP) / stage.squareSize) * 2) / 2;
 
 /**
  * Lays out the holes of a space, each the size of its figure (or of a pair while empty).
@@ -71,7 +76,11 @@ export function layoutSpace(
     const extent = extentOf(children.get(hole) ?? EMPTY_HOLE);
     return battery ? { along: extent.y, across: extent.x } : { along: extent.x, across: extent.y };
   });
-  const length = sizes.reduce((total, size) => total + size.along, 0);
+  const gap = gapSquares(space, stage);
+  // Holes and the room between them (a ring also leaves room between its last and first).
+  const length =
+    sizes.reduce((total, size) => total + size.along, 0) +
+    gap * (space.kind === 'ring' ? sizes.length : sizes.length - 1);
   const thickness = Math.max(...sizes.map((size) => size.across), 1);
   const square = stage.squareSize;
 
@@ -81,7 +90,7 @@ export function layoutSpace(
     let walked = -(sizes[0]?.along ?? 0) / 2;
     const holes = sizes.map((size, hole) => {
       const theta = -Math.PI / 2 + (walked + size.along / 2) / radius;
-      walked += size.along;
+      walked += size.along + gap;
       const degrees = (theta * 180) / Math.PI;
       return {
         hole,
@@ -101,7 +110,7 @@ export function layoutSpace(
   let walked = -length / 2;
   const holes = sizes.map((size, hole) => {
     const along = walked + size.along / 2;
-    walked += size.along;
+    walked += size.along + gap;
     return {
       hole,
       x: round(space.x + axis.x * along * square),

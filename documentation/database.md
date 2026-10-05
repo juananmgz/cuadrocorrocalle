@@ -22,6 +22,7 @@ Migraciones:
 - `20261005100000_participation_position` (paso 2.1): dónde está cada persona en cada pieza (`x_m`, `y_m`).
 - `20261005150000_figures` (paso 2.2): figuras de cada pieza, a qué figura y hueco pertenece cada participación y la configuración de figuras de cada grupo (`figure_defaults`).
 - `20261005220000_spaces` (paso 2.3): espacios (fila y corro) como figuras; cada figura simple puede ir en el hueco de un espacio (`space_id`, `hole`), con su disposición (`arrangement`) y un giro libre dentro de un corro (`angle`).
+- `20261005230000_space_gap` (paso 2.3): separación entre los huecos de un espacio, en metros (`gap_m`; 0,5 por defecto).
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -143,6 +144,7 @@ erDiagram
     int rotation "0, 90, 180, 270"
     float width "casillas, de media en media; en espacios, huecos"
     text arrangement "espacios: series o battery"
+    float gap_m "espacios: separación entre huecos"
     text space_id "figura simple dentro de un espacio"
     int hole "su hueco en el espacio"
     float angle "giro libre en un corro, en grados"

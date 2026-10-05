@@ -231,8 +231,9 @@ model Figure {
   y              Float           @map("y_m")
   rotation       Int             @default(0)
   width          Float
-  // Spaces: "series" or "battery".
+  // Spaces: "series" or "battery", and the room between holes in metres.
   arrangement    String?
+  gap            Float?          @map("gap_m")
   // Simple figures in a space: the space and the hole they fill.
   spaceId        String?         @map("space_id")
   hole           Int?

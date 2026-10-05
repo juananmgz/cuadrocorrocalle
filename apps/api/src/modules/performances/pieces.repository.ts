@@ -40,6 +40,7 @@ const FIELDS = {
       rotation: true,
       width: true,
       arrangement: true,
+      gap: true,
       spaceId: true,
       hole: true,
       angle: true,

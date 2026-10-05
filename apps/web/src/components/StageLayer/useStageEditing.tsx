@@ -1,6 +1,7 @@
 import type { DragEndEvent, DragMoveEvent, DragStartEvent } from '@dnd-kit/core';
 import {
   DEFAULT_FIGURE_WIDTH,
+  DEFAULT_SPACE_GAP,
   MAX_FIGURE_WIDTH,
   type FigureDefaults,
   type FigureKind,
@@ -64,7 +65,7 @@ import type { EditHandles, FigureGhost, FigureView, PlacedPerson, StageDrag } fr
 // Least height of the trash strip at the bottom of the screen, in px.
 const MIN_TRASH = 60;
 
-type Shape = Pick<StageFigure, 'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement'>;
+type Shape = Pick<StageFigure, 'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement' | 'gap'>;
 
 /** A figure on the move: new from the palette or an existing one, held at `grab` from its centre. */
 interface FigureMove {
@@ -295,6 +296,7 @@ export function useStageEditing({
             rotation: 0,
             width: DEFAULT_FIGURE_WIDTH[kind],
             arrangement: 'series',
+            gap: DEFAULT_SPACE_GAP,
           }
         : { kind, x: 0, y: 0, ...figureDefault(kind, figureDefaults, stage) };
 

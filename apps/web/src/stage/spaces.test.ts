@@ -13,6 +13,7 @@ const row: StageFigure = {
   rotation: 0,
   width: 3,
   arrangement: 'series',
+  gap: 0,
 };
 
 test('lays out a row in series: pairs one after another', () => {
@@ -89,4 +90,11 @@ test('tells whether a point is inside a space', () => {
   const outline = spaceOutline(row, layoutSpace(row, new Map(), stage), stage);
   expect(contains(outline, { x: 1.4, y: 0.2 })).toBe(true);
   expect(contains(outline, { x: 1.6, y: 0 })).toBe(false);
+});
+
+test('leaves room between holes', () => {
+  // Half a metre is one square here.
+  const layout = layoutSpace({ ...row, gap: 0.5 }, new Map(), stage);
+  expect(layout.length).toBe(8);
+  expect(layout.holes.map(({ x }) => x)).toEqual([-1.5, 0, 1.5]);
 });
