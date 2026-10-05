@@ -2,6 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { Minus, Move, Plus, Trash2 } from 'lucide-react';
 import {
   FIGURE_LABELS,
+  isSpace,
   type FigureKind,
   type FigureRotation,
   type StageFigure,
@@ -19,7 +20,9 @@ import { createPortal } from 'react-dom';
 import { isSlanted, slantedBlock } from '../../stage/figures';
 import {
   addSpots,
+  childrenOf,
   extentOf,
+  layoutSpace,
   removeSpots,
   type HolePlace,
   type SpaceLayout,
@@ -77,6 +80,11 @@ export interface FigureGhost {
   spaceId?: string;
   /** Which figure it shows and at what turn, so a new turn is animated in the preview. */
   turn?: { key: string; rotation: number };
+  /** Where the figure itself would stand: its centre, and a space's whole block. */
+  shape?: Pick<
+    StageFigure,
+    'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement' | 'gap' | 'aspect'
+  > & { id?: string | null };
 }
 
 const initials = (name: string) =>
@@ -687,7 +695,10 @@ export function StageLayer({
   const [ghostTurn, setGhostTurn] = useState<{
     key: string;
     rotation: number;
+    /** Where its centre was on screen, to glide from there as it turns. */
+    centre: StagePoint;
     degrees: number;
+    shift: StagePoint;
     running: boolean;
   } | null>(null);
   const [known, setKnown] = useState<Record<string, { rotation: number; x: number; y: number }>>(
@@ -723,26 +734,47 @@ export function StageLayer({
     if (Object.keys(started).length) setSpins(started);
   }
 
-  if (ghost?.turn) {
+  // The preview turns round the figure's own centre; if landing on the grid moves that centre,
+  // it glides there as it turns instead of jumping first.
+  const ghostCentre = ghost
+    ? ghost.shape
+      ? toScreen(ghost.shape)
+      : ghost.places.length
+        ? toScreen({
+            x: ghost.places.reduce((sum, place) => sum + place.x, 0) / ghost.places.length,
+            y: ghost.places.reduce((sum, place) => sum + place.y, 0) / ghost.places.length,
+          })
+        : null
+    : null;
+  if (ghost?.turn && ghostCentre) {
     const { key, rotation } = ghost.turn;
     if (!ghostTurn || ghostTurn.key !== key) {
-      setGhostTurn({ key, rotation, degrees: 0, running: true });
+      setGhostTurn({
+        key,
+        rotation,
+        centre: ghostCentre,
+        degrees: 0,
+        shift: { x: 0, y: 0 },
+        running: true,
+      });
     } else if (ghostTurn.rotation !== rotation) {
       const degrees = ((((rotation - ghostTurn.rotation) % 360) + 540) % 360) - 180;
-      setGhostTurn({ key, rotation, degrees, running: false });
+      const shift = {
+        x: ghostTurn.centre.x - ghostCentre.x,
+        y: ghostTurn.centre.y - ghostCentre.y,
+      };
+      setGhostTurn({ key, rotation, centre: ghostCentre, degrees, shift, running: false });
+    } else if (ghostTurn.centre.x !== ghostCentre.x || ghostTurn.centre.y !== ghostCentre.y) {
+      setGhostTurn({ ...ghostTurn, centre: ghostCentre });
     }
   } else if (ghostTurn) setGhostTurn(null);
-  const ghostCentre = ghost?.places.length
-    ? toScreen({
-        x: ghost.places.reduce((sum, place) => sum + place.x, 0) / ghost.places.length,
-        y: ghost.places.reduce((sum, place) => sum + place.y, 0) / ghost.places.length,
-      })
-    : null;
   const ghostTurnStyle: CSSProperties | undefined =
     ghostTurn && ghostCentre
       ? {
           transformOrigin: `${ghostCentre.x}px ${ghostCentre.y}px`,
-          transform: `rotate(${ghostTurn.running ? 0 : ghostTurn.degrees}deg)`,
+          transform: ghostTurn.running
+            ? 'none'
+            : `translate(${ghostTurn.shift.x}px, ${ghostTurn.shift.y}px) rotate(${ghostTurn.degrees}deg)`,
           transition: ghostTurn.running ? `transform ${TURN_MS}ms ease` : 'none',
         }
       : undefined;
@@ -751,7 +783,9 @@ export function StageLayer({
     if (!ghostWaiting) return;
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() =>
-        setGhostTurn((turn) => (turn ? { ...turn, degrees: 0, running: true } : turn)),
+        setGhostTurn((turn) =>
+          turn ? { ...turn, degrees: 0, shift: { x: 0, y: 0 }, running: true } : turn,
+        ),
       );
     });
     return () => cancelAnimationFrame(frame);
@@ -951,7 +985,23 @@ export function StageLayer({
             <span
               className={styles.ghostBlock}
               data-refused={ghost.ok ? undefined : ''}
-              style={blockStyle(ghost.kind, ghost.places)}
+              style={
+                ghost.shape && isSpace(ghost.kind)
+                  ? spaceStyle({
+                      figure: { ...ghost.shape, id: ghost.shape.id ?? '' },
+                      places: [],
+                      empty: [],
+                      layout: layoutSpace(
+                        ghost.shape,
+                        childrenOf(
+                          figures.map(({ figure }) => figure),
+                          ghost.shape.id ?? '',
+                        ),
+                        stage,
+                      ),
+                    })
+                  : blockStyle(ghost.kind, ghost.places)
+              }
             />
           )}
           {ghost.places.map((place, index) => (

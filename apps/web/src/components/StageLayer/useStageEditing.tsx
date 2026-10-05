@@ -909,6 +909,8 @@ export function useStageEditing({
         ok: held.result.ok,
         spaceId: held.result.fill?.spaceId,
         turn: { key: held.id ?? 'new', rotation: held.shape.rotation },
+        shape:
+          held.result.ok && !held.result.fill ? { ...held.result.figure, id: held.id } : undefined,
       }
     : reshaped && selected
       ? {
@@ -919,6 +921,9 @@ export function useStageEditing({
             key: selected.figure.id,
             rotation: reshaping?.rotation ?? selected.figure.rotation,
           },
+          shape: reshaped.ok
+            ? { ...reshaped.figure, id: selected.figure.id }
+            : { ...selected.figure, ...reshaping },
         }
       : null;
 
