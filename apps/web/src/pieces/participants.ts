@@ -22,3 +22,18 @@ export function toggleParticipant(
     ? participants.filter((participant) => participant.personId !== person.id)
     : [...participants, { personId: person.id, roles: defaultRoles(person, type) }];
 }
+
+/** Puts someone at a place on the stage (adding them to the piece) or takes them off it (null). */
+export function placeParticipant(
+  participants: Participant[],
+  person: Pick<Person, 'id' | 'roles'>,
+  type: PieceType,
+  point: { x: number; y: number } | null,
+): Participant[] {
+  const place = { x: point?.x ?? null, y: point?.y ?? null };
+  return participants.some((participant) => participant.personId === person.id)
+    ? participants.map((participant) =>
+        participant.personId === person.id ? { ...participant, ...place } : participant,
+      )
+    : [...participants, { personId: person.id, roles: defaultRoles(person, type), ...place }];
+}

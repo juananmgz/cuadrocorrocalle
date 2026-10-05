@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import styles from './GridBackground.module.scss';
+import { setStageView } from './stageView';
 
 /*
  * One scene for both views: a slightly curved floor grid seen from an angle. Going to the view
@@ -539,7 +540,16 @@ export function GridBackground({
         state.resized !== 1 ||
         state.inset !== leftInset ||
         state.edge !== targetEdge;
+      publishStageView(currentFrame(), moving);
       state.frame = moving ? requestAnimationFrame(tick) : 0;
+    };
+
+    // Layers over the grid (the people on the stage) follow it once it stands still from above.
+    const publishStageView = (frame: Frame, moving: boolean) => {
+      if (moving || !frame.stage || frame.view !== 1 || frame.stageShown !== 1)
+        return setStageView(null);
+      const { centerX, centerY } = freeArea(frame);
+      setStageView({ originX: centerX, originY: centerY, cell: frame.cell });
     };
 
     const redraw = () => {
@@ -581,6 +591,7 @@ export function GridBackground({
     return () => {
       cancelAnimationFrame(state.frame);
       state.frame = 0;
+      setStageView(null);
       resize.disconnect();
       theme.disconnect();
       scheme?.removeEventListener('change', recolor);

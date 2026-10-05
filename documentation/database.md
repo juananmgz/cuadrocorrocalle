@@ -19,6 +19,7 @@ Migraciones:
 - `20261004193000_participations` (paso 1.11): quién sale en cada pieza y qué hace.
 - `20261004210000_piece_encore` (paso 1.12): piezas de bis, aparte del repertorio.
 - `20261005090000_user_admin`: marca de administrador de la plataforma (`isAdmin`).
+- `20261005100000_participation_position` (paso 2.1): dónde está cada persona en cada pieza (`x_m`, `y_m`).
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -122,6 +123,8 @@ erDiagram
     text person_id PK,FK
     text performance_id FK
     text_array roles "dance, music, singing"
+    float x_m "null sin colocar"
+    float y_m "null sin colocar"
   }
   verification {
     text id PK
@@ -277,6 +280,8 @@ erDiagram
     text person_id PK,FK
     text performance_id FK
     text_array roles "baila, toca, canta"
+    float x_m "persona suelta"
+    float y_m "persona suelta"
   }
   figures {
     text id PK
