@@ -1,4 +1,5 @@
 import { GRID_COLORS, type GridColor } from '@cuadrocorrocalle/shared';
+import { Check } from 'lucide-react';
 import { RadioGroup } from 'radix-ui';
 import { useEffect, useId } from 'react';
 
@@ -50,7 +51,9 @@ export function GridColorPicker({ value, onChange }: GridColorPickerProps) {
             aria-label={GRID_COLOR_LABELS[id]}
             title={GRID_COLOR_LABELS[id]}
           >
-            <RadioGroup.Indicator className={styles.check}>✓</RadioGroup.Indicator>
+            <RadioGroup.Indicator className={styles.check}>
+              <Check size={16} strokeWidth={3} aria-hidden="true" />
+            </RadioGroup.Indicator>
           </RadioGroup.Item>
         ))}
       </RadioGroup.Root>

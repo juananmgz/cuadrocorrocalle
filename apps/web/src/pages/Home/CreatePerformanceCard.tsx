@@ -9,6 +9,7 @@ import {
   type CallUpEntry,
   type Performance,
 } from '@cuadrocorrocalle/shared';
+import { Pencil } from 'lucide-react';
 import {
   type FormEvent,
   type InputEvent,
@@ -471,22 +472,7 @@ export function CreatePerformanceCard({
               }}
             />
           </span>
-          <svg
-            className={styles.editIcon}
-            viewBox="0 0 24 24"
-            width="20"
-            height="20"
-            aria-hidden="true"
-          >
-            <path
-              d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3zM14 8l2 2"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Pencil className={styles.editIcon} size={20} aria-hidden="true" />
           <RequiredMark />
         </label>
         {titleError && (

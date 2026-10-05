@@ -1,4 +1,5 @@
 import { Label, Select as RadixSelect } from 'radix-ui';
+import { Check, ChevronDown } from 'lucide-react';
 import { useId } from 'react';
 
 import styles from './Select.module.scss';
@@ -33,7 +34,9 @@ export function Select({
       <RadixSelect.Root {...props}>
         <RadixSelect.Trigger id={id} className={styles.trigger}>
           <RadixSelect.Value placeholder={placeholder} />
-          <RadixSelect.Icon className={styles.icon}>▾</RadixSelect.Icon>
+          <RadixSelect.Icon className={styles.icon}>
+            <ChevronDown size={16} aria-hidden="true" />
+          </RadixSelect.Icon>
         </RadixSelect.Trigger>
         <RadixSelect.Portal>
           <RadixSelect.Content className={styles.content} position="popper" sideOffset={4}>
@@ -42,7 +45,7 @@ export function Select({
                 <RadixSelect.Item key={option.value} value={option.value} className={styles.item}>
                   <RadixSelect.ItemText>{option.label}</RadixSelect.ItemText>
                   <RadixSelect.ItemIndicator className={styles.indicator}>
-                    ✓
+                    <Check size={16} aria-hidden="true" />
                   </RadixSelect.ItemIndicator>
                 </RadixSelect.Item>
               ))}

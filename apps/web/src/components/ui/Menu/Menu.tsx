@@ -1,4 +1,5 @@
 import { DropdownMenu } from 'radix-ui';
+import { Check } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import styles from './Menu.module.scss';
@@ -43,7 +44,9 @@ export function Menu({ trigger, items, radioGroups = [], align = 'end' }: MenuPr
                     onSelect={(event) => event.preventDefault()}
                   >
                     <span className={styles.check} aria-hidden="true">
-                      <DropdownMenu.ItemIndicator>✓</DropdownMenu.ItemIndicator>
+                      <DropdownMenu.ItemIndicator>
+                        <Check size={16} />
+                      </DropdownMenu.ItemIndicator>
                     </span>
                     {option.label}
                   </DropdownMenu.RadioItem>

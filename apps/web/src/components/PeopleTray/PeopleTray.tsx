@@ -1,4 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { LayoutGrid, Package, Shapes, Users } from 'lucide-react';
 import type { CallUpStatus, Person } from '@cuadrocorrocalle/shared';
 import { type ReactNode, useState } from 'react';
 
@@ -18,45 +19,9 @@ interface PeopleTrayProps {
   onToggle: (person: TrayPerson) => void;
   /** Whether people can be dragged onto the stage (inside a DndContext). */
   draggable?: boolean;
+  /** The figures palette (step 2.2); without it, the block only says what is coming. */
+  palette?: ReactNode;
 }
-
-const PeopleIcon = () => (
-  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-    <path
-      d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.5a4 4 0 0 1 0 7M22 21v-1a6 6 0 0 0-4-5.6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const FiguresIcon = () => (
-  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-    <path
-      d="M3 3h8v8H3zM13 13h8v8h-8zM13 3h8v8h-8zM3 13h8v8H3z"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const BoxIcon = () => (
-  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-    <path
-      d="M21 8 12 3 3 8v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
 
 interface SectionProps {
   id: string;
@@ -159,8 +124,14 @@ export function PeopleTray({
   counts,
   onToggle,
   draggable = false,
+  palette,
 }: PeopleTrayProps) {
-  const [open, setOpen] = useState({ figures: true, people: true, objects: false });
+  const [open, setOpen] = useState({
+    figures: true,
+    spaces: false,
+    people: true,
+    objects: false,
+  });
   const toggle = (key: keyof typeof open) =>
     setOpen((current) => ({ ...current, [key]: !current[key] }));
 
@@ -168,27 +139,33 @@ export function PeopleTray({
     <TrayDropZone>
       <Section
         id="figures"
-        icon={<FiguresIcon />}
+        icon={<Shapes size={20} aria-hidden="true" />}
         title="Figuras"
         open={open.figures}
         onToggle={() => toggle('figures')}
       >
-        <p className={styles.hint}>Llegarán en el paso 2.2: solo, pareja, tríos y cuadrado.</p>
+        {palette ?? (
+          <p className={styles.hint}>Entra en una pieza para colocar figuras en el escenario.</p>
+        )}
+      </Section>
+      <Section
+        id="spaces"
+        icon={<LayoutGrid size={20} aria-hidden="true" />}
+        title="Espacios"
+        open={open.spaces}
+        onToggle={() => toggle('spaces')}
+      >
+        <p className={styles.hint}>Llegarán más adelante: fila, corro, baile libre y cruz.</p>
       </Section>
       <Section
         id="people"
-        icon={<PeopleIcon />}
+        icon={<Users size={20} aria-hidden="true" />}
         title="Personas"
         open={open.people}
         onToggle={() => toggle('people')}
       >
-        <p className={styles.hint}>
-          {!pieceTitle
-            ? 'Abre una pieza para elegir quién sale.'
-            : draggable
-              ? `Pulsa para meter o sacar a alguien de «${pieceTitle}», o arrástralo al escenario para colocarlo.`
-              : `Pulsa para meter o sacar a alguien de «${pieceTitle}».`}
-        </p>
+        {/* How to use it will live in a help button (a guided tour), not here. */}
+        {!pieceTitle && <p className={styles.hint}>Entra en una pieza para elegir quién sale.</p>}
         {people.length ? (
           <ul className={styles.people}>
             {people.map((person) => (
@@ -210,7 +187,7 @@ export function PeopleTray({
       </Section>
       <Section
         id="objects"
-        icon={<BoxIcon />}
+        icon={<Package size={20} aria-hidden="true" />}
         title="Objetos e infraestructura"
         open={open.objects}
         onToggle={() => toggle('objects')}

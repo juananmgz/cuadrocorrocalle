@@ -594,7 +594,7 @@ export function GridBackground({
       if (moving || !frame.stage || frame.view !== 1 || frame.stageShown !== 1)
         return setStageView(null);
       const { centerX, centerY } = freeArea(frame);
-      setStageView({ originX: centerX, originY: centerY, cell: frame.cell });
+      setStageView({ originX: centerX, originY: centerY, cell: frame.cell, left: frame.leftInset });
     };
 
     const redraw = () => {

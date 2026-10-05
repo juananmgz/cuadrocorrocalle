@@ -1,3 +1,5 @@
+@use '../../styles/mixins';
+
 // Over the background grid and under the top bar; only the people take the pointer.
 .root {
   position: fixed;
@@ -61,6 +63,12 @@
   position: absolute;
   border: 2px dashed var(--accent);
   border-radius: 50%;
+
+  // Where it cannot go: shown in red, blocked.
+  &[data-refused] {
+    background: color-mix(in srgb, var(--danger) 18%, transparent);
+    border-color: var(--danger);
+  }
 }
 
 // Square under someone who has to be moved, a softer red.
@@ -68,4 +76,208 @@
   position: absolute;
   background: var(--danger);
   opacity: 0.3;
+}
+
+// While placing a figure by clicks: takes the pointer right of the column.
+.capture {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+// A figure: a building block holding its people; dragged as a whole.
+.block {
+  position: absolute;
+  padding: 0;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: var(--border-width) solid var(--accent);
+  border-radius: 8px;
+  box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--accent) 35%, transparent);
+
+  &[data-incomplete] {
+    border-color: var(--warn);
+    box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--warn) 35%, transparent);
+  }
+
+  &[data-selected] {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  &[data-hidden] {
+    opacity: 0.25;
+  }
+
+  &[data-static] {
+    pointer-events: none;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
+}
+
+// An empty place of a figure, waiting for someone.
+.placeholder {
+  position: absolute;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ink-soft) 18%, transparent);
+  border: 2px dashed var(--ink-soft);
+  border-radius: 50%;
+
+  &[data-hidden] {
+    opacity: 0.25;
+  }
+}
+
+// Where a figure being placed or moved would land.
+.ghostBlock {
+  position: absolute;
+  pointer-events: none;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+
+  &[data-refused] {
+    border-color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+  }
+}
+
+// Tools while placing a figure, at the bottom of the stage area.
+.bottomTools {
+  @include mixins.popover;
+
+  position: absolute;
+  bottom: var(--space-4);
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  pointer-events: auto;
+  transform: translateX(-50%);
+}
+
+// Frame over the edited block, turned with slanted ones, holding its handles.
+.handles {
+  position: absolute;
+  pointer-events: none;
+}
+
+// Handles of the figure being edited: blue appendages a little away from its block.
+.resizeHandle,
+.turnHandle {
+  position: absolute;
+  z-index: 2;
+  pointer-events: auto;
+  touch-action: none;
+
+  // A wider invisible area, so they are easy to catch.
+  &::before {
+    position: absolute;
+    inset: -8px;
+    content: '';
+  }
+}
+
+// In the middle of a side it can grow by: a short rounded bar, like the side of the block.
+.resizeHandle {
+  width: 6px;
+  height: 26px;
+  cursor: ew-resize;
+  background: var(--accent);
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+
+  &[data-axis='y'] {
+    width: 26px;
+    height: 6px;
+    cursor: ns-resize;
+  }
+}
+
+// On a corner: a curved stroke with round ends following the corner, to turn it.
+.turnHandle {
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 6;
+    stroke-linecap: round;
+  }
+
+  &[data-corner='tr'] svg {
+    transform: rotate(90deg);
+  }
+
+  &[data-corner='br'] svg {
+    transform: rotate(180deg);
+  }
+
+  &[data-corner='bl'] svg {
+    transform: rotate(270deg);
+  }
+}
+
+// Strip at the bottom of the stage area while dragging: dropping there removes.
+// It fades in sideways at both ends, with no hard edge.
+.trash {
+  position: absolute;
+  isolation: isolate;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--danger);
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--danger) 60%, transparent),
+    color-mix(in srgb, var(--danger) 25%, transparent) 60%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 120px,
+    #000 calc(100% - 120px),
+    transparent
+  );
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+// Its message on a soft patch that hides the grid lines, like the one under "PÚBLICO".
+.trashLabel {
+  position: relative;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+
+  &::before {
+    position: absolute;
+    inset: -18px -48px;
+    z-index: -1;
+    content: '';
+    background: radial-gradient(
+      closest-side,
+      color-mix(in srgb, var(--danger) 30%, var(--floor)) 55%,
+      transparent
+    );
+  }
 }

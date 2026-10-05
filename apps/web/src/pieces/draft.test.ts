@@ -12,6 +12,7 @@ test('turns pieces into drafts and back', () => {
     optional: true,
     encore: false,
     participants: [],
+    figures: [],
   });
   expect(draft.duration).toBe('3:30');
   expect(toPieceInput({ ...draft, structure: '  ' })).toEqual({
@@ -23,6 +24,7 @@ test('turns pieces into drafts and back', () => {
     optional: true,
     encore: false,
     participants: [],
+    figures: [],
   });
 });
 

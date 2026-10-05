@@ -7,6 +7,8 @@ export interface StageView {
   originY: number;
   /** Pixels per grid square. */
   cell: number;
+  /** Left edge of the free area right of the column, in px. */
+  left: number;
 }
 
 let current: StageView | null = null;
@@ -18,7 +20,8 @@ export function setStageView(next: StageView | null) {
     next && current
       ? next.originX === current.originX &&
         next.originY === current.originY &&
-        next.cell === current.cell
+        next.cell === current.cell &&
+        next.left === current.left
       : next === current;
   if (same) return;
   current = next;

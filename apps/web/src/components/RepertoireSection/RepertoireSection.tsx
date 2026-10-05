@@ -14,6 +14,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { ChevronDown, GripVertical } from 'lucide-react';
 import {
   type AnimateLayoutChanges,
   arrayMove,
@@ -29,6 +30,7 @@ import { type ReactNode, useMemo, useState } from 'react';
 
 import { formatClock } from '../../pieces/clock';
 import { draftError, emptyDraft, type PieceDraft } from '../../pieces/draft';
+import { missingPlaces } from '../../stage/pieceFigures';
 import { summarize } from '../../pieces/summary';
 import { cleanText } from '../../performances/sanitize';
 import type { TrayPerson } from '../PeopleTray/PeopleTray';
@@ -63,7 +65,7 @@ interface RepertoireSectionProps {
   limit?: number;
   /** Called-up people; when given, each piece shows how many take part in it. */
   people?: TrayPerson[];
-  /** Open piece, when someone else (e.g. the people tray) needs to know it. */
+  /** Piece entered (selected), when someone else (e.g. the stage and the tray) needs to know it. */
   openKey?: string | null;
   onOpenKeyChange?: (key: string | null) => void;
 }
@@ -72,15 +74,29 @@ interface PieceRowProps {
   draft: PieceDraft;
   /** Shown before the title: 1, 2… in the repertoire, B1, B2… among the encores. */
   label: string;
+  /** Entered: its stage is the one shown; highlighted. */
+  selected: boolean;
+  /** Its fields are showing. */
   open: boolean;
+  onSelect: () => void;
   onToggle: () => void;
   onChange: (draft: PieceDraft) => void;
   onRemove: () => void;
   people?: Map<string, TrayPerson>;
 }
 
-/** One piece: a summary row that can be dragged, opening into its fields. */
-function PieceRow({ draft, label, open, onToggle, onChange, onRemove, people }: PieceRowProps) {
+/** One piece: a summary row that can be dragged and entered; its chevron opens its fields. */
+function PieceRow({
+  draft,
+  label,
+  selected,
+  open,
+  onSelect,
+  onToggle,
+  onChange,
+  onRemove,
+  people,
+}: PieceRowProps) {
   const {
     attributes,
     listeners,
@@ -91,6 +107,8 @@ function PieceRow({ draft, label, open, onToggle, onChange, onRemove, people }: 
     isDragging,
   } = useSortable({ id: draft.key, transition: SLIDE, animateLayoutChanges: animateAlways });
   const error = draftError(draft);
+  // Figures with nobody in some of their places (step 2.2).
+  const missing = missingPlaces(draft);
   const set = (changes: Partial<PieceDraft>) => onChange({ ...draft, ...changes });
 
   return (
@@ -98,7 +116,9 @@ function PieceRow({ draft, label, open, onToggle, onChange, onRemove, people }: 
       ref={setNodeRef}
       className={styles.piece}
       data-dragging={isDragging ? '' : undefined}
+      data-selected={selected ? '' : undefined}
       data-invalid={error && !open ? '' : undefined}
+      data-incomplete={missing ? '' : undefined}
       style={{ transform: CSS.Translate.toString(transform), transition }}
     >
       <div className={styles.row}>
@@ -110,101 +130,130 @@ function PieceRow({ draft, label, open, onToggle, onChange, onRemove, people }: 
           {...attributes}
           {...listeners}
         >
-          ⠿
+          <GripVertical size={18} aria-hidden="true" />
         </button>
         <span className={styles.number}>{label}</span>
-        {/* Open, the title itself is the field, like the name of a document. */}
-        {open && (
-          <input
-            className={styles.nameInput}
-            aria-label="Título de la pieza"
-            aria-invalid={!draft.title.trim()}
-            aria-describedby={draft.title.trim() ? undefined : `${draft.key}-title-error`}
-            required
-            maxLength={120}
-            placeholder="Ponle un título"
-            autoFocus={!draft.title}
-            value={draft.title}
-            onChange={(event) => set({ title: cleanText(event.target.value) })}
-          />
-        )}
+        {/* Title on top and its details below; open, the title itself is the field. */}
+        <div className={styles.main}>
+          {open && (
+            <input
+              className={styles.nameInput}
+              aria-label="Título de la pieza"
+              aria-invalid={!draft.title.trim()}
+              aria-describedby={draft.title.trim() ? undefined : `${draft.key}-title-error`}
+              required
+              maxLength={120}
+              placeholder="Ponle un título"
+              autoFocus={!draft.title}
+              value={draft.title}
+              onChange={(event) => set({ title: cleanText(event.target.value) })}
+            />
+          )}
+          <button
+            type="button"
+            className={styles.summary}
+            aria-current={selected ? 'true' : undefined}
+            aria-label={open ? `Entrar en «${draft.title.trim() || 'Sin título'}»` : undefined}
+            onClick={onSelect}
+          >
+            {!open && <span className={styles.name}>{draft.title.trim() || 'Sin título'}</span>}
+            <span className={styles.meta}>
+              <span className={styles.type} data-type={draft.type}>
+                {PIECE_TYPE_LABELS[draft.type]}
+              </span>
+              {draft.optional && <span className={styles.optional}>Opcional</span>}
+              {people && (
+                <span className={styles.peopleCount}>
+                  {draft.participants.length}{' '}
+                  {draft.participants.length === 1 ? 'persona' : 'personas'}
+                </span>
+              )}
+              {missing > 0 && (
+                <span className={styles.missingPlaces}>
+                  {missing} {missing === 1 ? 'hueco vacío' : 'huecos vacíos'}
+                </span>
+              )}
+              {draft.duration && <span className={styles.duration}>{draft.duration}</span>}
+            </span>
+          </button>
+        </div>
+        {/* Its own strip at the right: opens and closes the fields, turning over. */}
         <button
           type="button"
-          className={styles.summary}
+          className={styles.expand}
           aria-expanded={open}
           aria-controls={`${draft.key}-fields`}
-          aria-label={open ? `Cerrar «${draft.title.trim() || 'Sin título'}»` : undefined}
+          aria-label={`${open ? 'Ocultar' : 'Mostrar'} los datos de «${draft.title.trim() || 'Sin título'}»`}
           onClick={onToggle}
         >
-          {!open && <span className={styles.name}>{draft.title.trim() || 'Sin título'}</span>}
-          <span className={styles.meta}>
-            <span className={styles.type} data-type={draft.type}>
-              {PIECE_TYPE_LABELS[draft.type]}
-            </span>
-            {draft.optional && <span className={styles.optional}>Opcional</span>}
-            {people && (
-              <span className={styles.peopleCount}>
-                {draft.participants.length}{' '}
-                {draft.participants.length === 1 ? 'persona' : 'personas'}
-              </span>
-            )}
-            <span className={styles.duration}>{draft.duration || '—'}</span>
-          </span>
+          <ChevronDown
+            className={styles.chevron}
+            data-open={open ? '' : undefined}
+            aria-hidden="true"
+          />
         </button>
       </div>
-      {open && (
-        <div id={`${draft.key}-fields`} className={styles.fields}>
-          {!draft.title.trim() && (
-            <p id={`${draft.key}-title-error`} className={styles.titleError}>
-              Ponle un título
-            </p>
-          )}
-          <div className={styles.pair}>
-            <Select
-              label="Tipo"
-              options={TYPE_OPTIONS}
-              value={draft.type}
-              onValueChange={(type) => set({ type: type as PieceType })}
-            />
-            <TextField
-              label="Duración"
-              inputMode="decimal"
-              autoComplete="off"
-              placeholder="3:30"
-              value={draft.duration}
-              onChange={(event) => set({ duration: cleanClock(event.target.value) })}
-              hint="Minutos:segundos"
-              error={error && draft.title.trim() ? error : undefined}
-            />
-          </div>
-          <TextField
-            label="Estructura (opcional)"
-            maxLength={300}
-            placeholder="Entrada, 3 coplas con estribillo, salida"
-            value={draft.structure}
-            onChange={(event) => set({ structure: cleanText(event.target.value) })}
-          />
-          <div className={styles.footer}>
-            <label className={styles.check}>
-              <input
-                type="checkbox"
-                checked={draft.optional}
-                onChange={(event) => set({ optional: event.target.checked })}
+      {/* Always there, so it can slide open and shut like an accordion. */}
+      <div
+        id={`${draft.key}-fields`}
+        className={styles.accordion}
+        data-open={open ? '' : undefined}
+        inert={!open}
+      >
+        <div className={styles.pieceAccordionInner}>
+          <div className={styles.fields}>
+            {!draft.title.trim() && (
+              <p id={`${draft.key}-title-error`} className={styles.titleError}>
+                Ponle un título
+              </p>
+            )}
+            <div className={styles.pair}>
+              <Select
+                label="Tipo"
+                options={TYPE_OPTIONS}
+                value={draft.type}
+                onValueChange={(type) => set({ type: type as PieceType })}
               />
-              Opcional (se hace si sobra tiempo)
-            </label>
-            <div className={styles.buttons}>
-              {/* The same as dragging it to the other list. */}
-              <Button variant="ghost" onClick={() => set({ encore: !draft.encore })}>
-                {draft.encore ? 'Pasar al repertorio' : 'Pasar a bis'}
-              </Button>
-              <Button variant="danger" onClick={onRemove}>
-                Quitar
-              </Button>
+              <TextField
+                label="Duración"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="3:30"
+                aria-description="Minutos y segundos"
+                value={draft.duration}
+                onChange={(event) => set({ duration: cleanClock(event.target.value) })}
+                error={error && draft.title.trim() ? error : undefined}
+              />
+            </div>
+            <TextField
+              label="Estructura (opcional)"
+              maxLength={300}
+              placeholder="Entrada, 3 coplas con estribillo, salida"
+              value={draft.structure}
+              onChange={(event) => set({ structure: cleanText(event.target.value) })}
+            />
+            <div className={styles.footer}>
+              <label className={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={draft.optional}
+                  onChange={(event) => set({ optional: event.target.checked })}
+                />
+                Opcional (se hace si sobra tiempo)
+              </label>
+              <div className={styles.buttons}>
+                {/* The same as dragging it to the other list. */}
+                <Button variant="ghost" onClick={() => set({ encore: !draft.encore })}>
+                  {draft.encore ? 'Pasar al repertorio' : 'Pasar a bis'}
+                </Button>
+                <Button variant="danger" onClick={onRemove}>
+                  Quitar
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </li>
   );
 }
@@ -257,6 +306,14 @@ export function RepertoireSection({
   onOpenKeyChange,
 }: RepertoireSectionProps) {
   const [ownKey, setOwnKey] = useState<string | null>(null);
+  // Pieces showing their fields, apart from the one entered.
+  const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(new Set());
+  const toggleOpen = (key: string) =>
+    setOpenKeys((keys) => {
+      const next = new Set(keys);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
   // List a piece is being dragged into, to highlight it.
   const [targetList, setTargetList] = useState<ListId | null>(null);
   // Piece being dragged, drawn under the pointer; it glides into its new place on dropping.
@@ -292,7 +349,9 @@ export function RepertoireSection({
   const add = (encore: boolean) => {
     const draft = { ...emptyDraft(), encore };
     onChange([...pieces, draft]);
+    // A new piece is entered and open, to give it a title.
     setOpenKey(draft.key);
+    setOpenKeys((keys) => new Set(keys).add(draft.key));
   };
 
   // While dragging into the other list it is only highlighted; the piece moves on dropping.
@@ -328,11 +387,16 @@ export function RepertoireSection({
       key={draft.key}
       draft={draft}
       label={label}
-      open={openKey === draft.key}
-      onToggle={() => setOpenKey(openKey === draft.key ? null : draft.key)}
+      selected={openKey === draft.key}
+      open={openKeys.has(draft.key)}
+      onSelect={() => setOpenKey(draft.key)}
+      onToggle={() => toggleOpen(draft.key)}
       onChange={updatePiece}
       people={peopleById}
-      onRemove={() => onChange(pieces.filter((piece) => piece.key !== draft.key))}
+      onRemove={() => {
+        if (openKey === draft.key) setOpenKey(null);
+        onChange(pieces.filter((piece) => piece.key !== draft.key));
+      }}
     />
   );
 
@@ -379,7 +443,7 @@ export function RepertoireSection({
           {active && (
             <div className={styles.dragPreview}>
               <span className={styles.handle} aria-hidden="true">
-                ⠿
+                <GripVertical size={18} />
               </span>
               <span className={styles.name}>{active.title.trim() || 'Sin título'}</span>
               <span className={styles.type} data-type={active.type}>
@@ -425,6 +489,11 @@ function EncoreSection({ count, seconds, highlighted, children }: EncoreSectionP
         >
           Bis ({count})
           {seconds > 0 && <span className={styles.encoresTime}>{formatClock(seconds)}</span>}
+          <ChevronDown
+            className={styles.encoresChevron}
+            data-open={open ? '' : undefined}
+            aria-hidden="true"
+          />
         </button>
       </h3>
       {/* Only while a piece is dragged over the block: where it will land, growing into view. */}

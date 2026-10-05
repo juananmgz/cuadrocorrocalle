@@ -20,6 +20,7 @@ Migraciones:
 - `20261004210000_piece_encore` (paso 1.12): piezas de bis, aparte del repertorio.
 - `20261005090000_user_admin`: marca de administrador de la plataforma (`isAdmin`).
 - `20261005100000_participation_position` (paso 2.1): dónde está cada persona en cada pieza (`x_m`, `y_m`).
+- `20261005150000_figures` (paso 2.2): figuras de cada pieza, a qué figura y hueco pertenece cada participación y la configuración de figuras de cada grupo (`figure_defaults`).
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -68,6 +69,7 @@ erDiagram
     text name
     text grid_color "azul, granate, verde…"
     boolean is_trial "Grupo de Prueba"
+    jsonb figure_defaults "giro y ancho de cada figura"
     timestamp inactive_since
     timestamp created_at
   }
@@ -125,6 +127,19 @@ erDiagram
     text_array roles "dance, music, singing"
     float x_m "null sin colocar"
     float y_m "null sin colocar"
+    text figure_id FK "null si va suelta"
+    int slot "hueco en la figura"
+  }
+  pieces ||--o{ figures : "en su escenario"
+  figures ||--o{ participations : "sus miembros"
+  figures {
+    text id PK "lo genera la web"
+    text piece_id FK
+    text kind "solo, pair, pair_diagonal, trio_line, trio_triangle, square, diamond"
+    float x_m "centro"
+    float y_m "centro"
+    int rotation "0, 90, 180, 270"
+    float width "casillas, de media en media"
   }
   verification {
     text id PK

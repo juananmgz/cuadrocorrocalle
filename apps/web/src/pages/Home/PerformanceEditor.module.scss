@@ -28,6 +28,9 @@
 .home {
   @include mixins.heading;
 
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
   min-height: 32px;
   padding: 0 var(--space-2);
   font-size: 1rem;

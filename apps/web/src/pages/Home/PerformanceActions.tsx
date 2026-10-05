@@ -1,4 +1,5 @@
 import type { Performance } from '@cuadrocorrocalle/shared';
+import { Ellipsis } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from '../../components/ui/Button/Button';
@@ -38,7 +39,7 @@ export function PerformanceActions({ performance }: { performance: Performance }
             className={styles.more}
             aria-label={`Más opciones de «${performance.title}»`}
           >
-            ⋯
+            <Ellipsis size={20} aria-hidden="true" />
           </button>
         }
         items={[

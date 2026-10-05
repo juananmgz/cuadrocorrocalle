@@ -15,10 +15,11 @@ Paso 1.5 (caso OA-26). Un usuario puede dirigir varios grupos; solo él los ve y
 
 ## API
 
-| Método | Ruta                  | Qué hace                                                           |
-| ------ | --------------------- | ------------------------------------------------------------------ |
-| GET    | `/api/cuentas/grupos` | Grupos del usuario (crea el «Grupo de Prueba» si no tiene ninguno) |
-| POST   | `/api/cuentas/grupos` | Crea un grupo `{ name, gridColor }`                                |
+| Método | Ruta                              | Qué hace                                                                                                     |
+| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| GET    | `/api/cuentas/grupos`             | Grupos del usuario (crea el «Grupo de Prueba» si no tiene ninguno)                                           |
+| POST   | `/api/cuentas/grupos`             | Crea un grupo `{ name, gridColor }`                                                                          |
+| PUT    | `/api/cuentas/grupos/:id/figuras` | Guarda cómo aparece cada figura al ponerla `{ figureDefaults: { pair: { rotation, width }, … } }` (paso 2.2) |
 
 Sin sesión responden 401. Los esquemas están en `packages/shared/src/groups.ts`.
 

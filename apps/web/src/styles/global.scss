@@ -58,3 +58,15 @@ body {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
+
+// While something is being moved, the grabbing hand shows wherever the pointer goes.
+html[data-grabbing],
+html[data-grabbing] * {
+  cursor: grabbing !important;
+}
+
+// While a figure is turned by a corner, its turning cursor goes with the pointer.
+html[data-turning],
+html[data-turning] * {
+  cursor: var(--turn-cursor) !important;
+}

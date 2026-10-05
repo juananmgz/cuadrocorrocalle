@@ -1,4 +1,10 @@
-import type { Participant, Piece, PieceInput, PieceType } from '@cuadrocorrocalle/shared';
+import type {
+  Participant,
+  Piece,
+  PieceInput,
+  PieceType,
+  StageFigure,
+} from '@cuadrocorrocalle/shared';
 
 import { formatClock, parseClock } from './clock';
 
@@ -14,6 +20,8 @@ export interface PieceDraft {
   /** Encore ("bis"), not counted in the summary. */
   encore: boolean;
   participants: Participant[];
+  /** Figures on its stage (step 2.2). */
+  figures: StageFigure[];
 }
 
 let lastKey = 0;
@@ -28,6 +36,7 @@ export const emptyDraft = (): PieceDraft => ({
   optional: false,
   encore: false,
   participants: [],
+  figures: [],
 });
 
 export const toDraft = (piece: Piece): PieceDraft => ({
@@ -40,6 +49,7 @@ export const toDraft = (piece: Piece): PieceDraft => ({
   optional: piece.optional,
   encore: piece.encore,
   participants: piece.participants,
+  figures: piece.figures,
 });
 
 /** Seconds of a draft, or null when blank or invalid. */
@@ -64,4 +74,5 @@ export const toPieceInput = (draft: PieceDraft): PieceInput => ({
   optional: draft.optional,
   encore: draft.encore,
   participants: draft.participants,
+  figures: draft.figures,
 });

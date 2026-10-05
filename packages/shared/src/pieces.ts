@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { FIGURE_SLOTS, stageFigureSchema } from './figures';
 import { roleSchema } from './people';
 import { MAX_STAGE_DEPTH, MAX_STAGE_WIDTH, PERFORMANCES_PATH } from './performances';
 
@@ -33,10 +34,17 @@ export const participantSchema = z
     roles: z.array(roleSchema).max(3),
     x: coordinate(MAX_STAGE_WIDTH / 2),
     y: coordinate(MAX_STAGE_DEPTH / 2),
+    /** Figure and place in it (step 2.2); x and y then follow the figure. */
+    figureId: z.string().min(1).nullable().optional(),
+    slot: z.number().int().min(0).nullable().optional(),
   })
   .refine((participant) => (participant.x == null) === (participant.y == null), {
     message: 'Falta una de las dos coordenadas',
     path: ['x'],
+  })
+  .refine((participant) => (participant.figureId == null) === (participant.slot == null), {
+    message: 'Falta el hueco de la figura',
+    path: ['slot'],
   });
 export type Participant = z.infer<typeof participantSchema>;
 
@@ -49,22 +57,43 @@ const participantsSchema = z
   );
 
 /** One piece as sent by the web; pieces without id are new. */
-export const pieceInputSchema = z.object({
-  id: z.string().min(1).optional(),
-  title: z.string().trim().min(1, 'Ponle un título').max(120, 'Máximo 120 caracteres'),
-  type: pieceTypeSchema,
-  durationSeconds: z
-    .number()
-    .int('Escribe segundos enteros')
-    .min(1, 'Al menos 1 segundo')
-    .max(MAX_PIECE_SECONDS, 'Máximo 1 hora')
-    .nullable()
-    .optional(),
-  structure: z.string().trim().max(300, 'Máximo 300 caracteres').nullable().optional(),
-  optional: z.boolean().optional(),
-  encore: z.boolean().optional(),
-  participants: participantsSchema.optional(),
-});
+export const pieceInputSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    title: z.string().trim().min(1, 'Ponle un título').max(120, 'Máximo 120 caracteres'),
+    type: pieceTypeSchema,
+    durationSeconds: z
+      .number()
+      .int('Escribe segundos enteros')
+      .min(1, 'Al menos 1 segundo')
+      .max(MAX_PIECE_SECONDS, 'Máximo 1 hora')
+      .nullable()
+      .optional(),
+    structure: z.string().trim().max(300, 'Máximo 300 caracteres').nullable().optional(),
+    optional: z.boolean().optional(),
+    encore: z.boolean().optional(),
+    participants: participantsSchema.optional(),
+    figures: z.array(stageFigureSchema).max(100).optional(),
+  })
+  // Members point at a figure of the same piece and at a free place in it.
+  .superRefine((piece, context) => {
+    const figures = new Map((piece.figures ?? []).map((figure) => [figure.id, figure]));
+    if (figures.size !== (piece.figures ?? []).length)
+      context.addIssue({ code: 'custom', message: 'Hay figuras repetidas', path: ['figures'] });
+    const taken = new Set<string>();
+    for (const { figureId, slot } of piece.participants ?? []) {
+      if (figureId == null || slot == null) continue;
+      const figure = figures.get(figureId);
+      const key = `${figureId}:${slot}`;
+      if (!figure || slot >= FIGURE_SLOTS[figure.kind] || taken.has(key))
+        context.addIssue({
+          code: 'custom',
+          message: 'Hueco de figura no válido',
+          path: ['participants'],
+        });
+      taken.add(key);
+    }
+  });
 export type PieceInput = z.infer<typeof pieceInputSchema>;
 
 /** The whole repertoire in order; pieces left out are deleted. */
@@ -88,6 +117,7 @@ export const pieceSchema = z.object({
   optional: z.boolean(),
   encore: z.boolean(),
   participants: z.array(participantSchema),
+  figures: z.array(stageFigureSchema),
 });
 export type Piece = z.infer<typeof pieceSchema>;
 
