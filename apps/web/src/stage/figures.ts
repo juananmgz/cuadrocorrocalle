@@ -105,16 +105,25 @@ export function turn(point: StagePoint, rotation: FigureRotation): StagePoint {
   }
 }
 
+/** Turns an offset by any angle in degrees, anticlockwise seen from above. */
+export function turnBy(point: StagePoint, degrees: number): StagePoint {
+  const radians = (degrees * Math.PI) / 180;
+  const [cos, sin] = [Math.cos(radians), Math.sin(radians)];
+  return { x: point.x * cos - point.y * sin, y: point.x * sin + point.y * cos };
+}
+
 export const nextRotation = (rotation: FigureRotation): FigureRotation =>
   ((rotation + 90) % 360) as FigureRotation;
 
 /** Where each place of the figure is on the stage, in metres. */
 export function slotPositions(
-  figure: Pick<StageFigure, 'kind' | 'x' | 'y' | 'rotation' | 'width'>,
+  figure: Pick<StageFigure, 'kind' | 'x' | 'y' | 'rotation' | 'width'> & { angle?: number | null },
   stage: StageSize,
 ): StagePoint[] {
   return slotOffsets(figure.kind, figure.width).map((offset) => {
-    const turned = turn(offset, figure.rotation);
+    // A free angle (figures in a ring) wins over the quarter turns.
+    const turned =
+      figure.angle != null ? turnBy(offset, figure.angle) : turn(offset, figure.rotation);
     return {
       x: round(figure.x + turned.x * stage.squareSize),
       y: round(figure.y + turned.y * stage.squareSize),
