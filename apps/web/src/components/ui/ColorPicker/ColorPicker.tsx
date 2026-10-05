@@ -1,4 +1,5 @@
 import { RadioGroup } from 'radix-ui';
+import { Check } from 'lucide-react';
 import { useId } from 'react';
 
 import { PERSON_COLORS, type PersonColor } from '../personColors';
@@ -52,7 +53,7 @@ export function ColorPicker({ label, onValueChange, allowRandom, ...props }: Col
             title={color.label}
           >
             <RadioGroup.Indicator className={styles.indicator} style={{ color: color.ink }}>
-              ✓
+              <Check size={16} strokeWidth={3} aria-hidden="true" />
             </RadioGroup.Indicator>
           </RadioGroup.Item>
         ))}

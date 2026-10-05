@@ -1,4 +1,5 @@
 import { FIGURE_LABELS, type FigureKind, type FigureRotation } from '@cuadrocorrocalle/shared';
+import { Minus, Plus, RotateCcw, RotateCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -44,6 +45,12 @@ export function FigureSettings({
   onClose,
 }: FigureSettingsProps) {
   const [rotation, setRotation] = useState(initialRotation);
+  // Turns made in the panel, kept adding up so the preview always spins the short way.
+  const [turned, setTurned] = useState(0);
+  const turnBy = (degrees: number) => {
+    setTurned((total) => total + degrees);
+    setRotation(degrees > 0 ? nextRotation(rotation) : previousRotation(rotation));
+  };
   const [width, setWidth] = useState(initialWidth);
   const panelRef = useRef<HTMLDivElement>(null);
   const step = WIDTH_STEP[kind];
@@ -84,22 +91,19 @@ export function FigureSettings({
     >
       <p className={styles.settingsTitle}>{FIGURE_LABELS[kind]}</p>
       <div className={styles.preview}>
-        <FigureIcon kind={kind} rotation={rotation} width={width} reach={reach} />
+        {/* Drawn at its first angle and spun on screen, so each turn is animated. */}
+        <div className={styles.previewTurn} style={{ transform: `rotate(${-turned}deg)` }}>
+          <FigureIcon kind={kind} rotation={initialRotation} width={width} reach={reach} />
+        </div>
         <span className={styles.audience}>Público</span>
       </div>
       <div className={styles.settingsRow}>
         <span className={styles.settingsLabel}>Giro</span>
-        <Button
-          aria-label="Girar a la izquierda"
-          onClick={() => setRotation(nextRotation(rotation))}
-        >
-          ↺
+        <Button aria-label="Girar a la izquierda" onClick={() => turnBy(90)}>
+          <RotateCcw size={18} />
         </Button>
-        <Button
-          aria-label="Girar a la derecha"
-          onClick={() => setRotation(previousRotation(rotation))}
-        >
-          ↻
+        <Button aria-label="Girar a la derecha" onClick={() => turnBy(-90)}>
+          <RotateCw size={18} />
         </Button>
       </div>
       {kind !== 'solo' && (
@@ -110,14 +114,14 @@ export function FigureSettings({
             disabled={width - step < narrowest}
             onClick={() => setWidth(fitWidth(kind, width - step, stage))}
           >
-            −
+            <Minus size={18} />
           </Button>
           <span className={styles.widthValue}>{String(width).replace('.', ',')} casillas</span>
           <Button
             aria-label="Más ancha"
             onClick={() => setWidth(fitWidth(kind, width + step, stage))}
           >
-            +
+            <Plus size={18} />
           </Button>
         </div>
       )}

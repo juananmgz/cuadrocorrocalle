@@ -135,7 +135,7 @@ erDiagram
   figures {
     text id PK "lo genera la web"
     text piece_id FK
-    text kind "solo, pair, trio_line, trio_triangle, square"
+    text kind "solo, pair, pair_diagonal, trio_line, trio_triangle, square, diamond"
     float x_m "centro"
     float y_m "centro"
     int rotation "0, 90, 180, 270"

@@ -1,4 +1,5 @@
 import { DropdownMenu } from 'radix-ui';
+import { Check, ChevronDown } from 'lucide-react';
 
 import styles from './FilterMenu.module.scss';
 
@@ -29,7 +30,7 @@ export function FilterMenu<T extends string>({
         <button type="button" className={styles.trigger} data-filtered={all ? undefined : ''}>
           {label}
           {!all && <span className={styles.count}>{selected.length}</span>}
-          <span aria-hidden="true">▾</span>
+          <ChevronDown size={16} aria-hidden="true" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
@@ -52,7 +53,9 @@ export function FilterMenu<T extends string>({
               }
             >
               <span className={styles.check} aria-hidden="true">
-                <DropdownMenu.ItemIndicator>✓</DropdownMenu.ItemIndicator>
+                <DropdownMenu.ItemIndicator>
+                  <Check size={16} />
+                </DropdownMenu.ItemIndicator>
               </span>
               {option.label}
             </DropdownMenu.CheckboxItem>

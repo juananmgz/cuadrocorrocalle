@@ -1,4 +1,5 @@
 import { Dialog as RadixDialog } from 'radix-ui';
+import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import styles from './Dialog.module.scss';
@@ -50,7 +51,7 @@ export function Dialog({
           {footer && <div className={styles.footer}>{footer}</div>}
           {dismissable && (
             <RadixDialog.Close className={styles.close} aria-label="Cerrar">
-              ✕
+              <X size={18} aria-hidden="true" />
             </RadixDialog.Close>
           )}
         </RadixDialog.Content>

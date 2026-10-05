@@ -1,4 +1,5 @@
 import type { Performance } from '@cuadrocorrocalle/shared';
+import { ArrowLeft } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 import { useCallUp } from '../../callUps/callUpApi';
@@ -84,12 +85,12 @@ export function PerformanceEditor({
       <div className={styles.header}>
         {summarizing && (
           <button type="button" className={styles.home} onClick={onHome}>
-            ← Inicio
+            <ArrowLeft size={16} aria-hidden="true" /> Inicio
           </button>
         )}
         {performance && editing && (
           <button type="button" className={styles.home} onClick={backToSummary}>
-            ← Resumen
+            <ArrowLeft size={16} aria-hidden="true" /> Resumen
           </button>
         )}
         {/* "Actuación" and "Piezas" only while editing. */}

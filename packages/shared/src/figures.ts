@@ -3,34 +3,48 @@ import { z } from 'zod';
 import { MAX_STAGE_DEPTH, MAX_STAGE_WIDTH } from './performances';
 
 // Simple figures (step 2.2, OA-04): rigid groups of people placed on the stage of a piece.
-export const FIGURE_KINDS = ['solo', 'pair', 'trio_line', 'trio_triangle', 'square'] as const;
+export const FIGURE_KINDS = [
+  'solo',
+  'pair',
+  'pair_diagonal',
+  'trio_line',
+  'trio_triangle',
+  'square',
+  'diamond',
+] as const;
 export const figureKindSchema = z.enum(FIGURE_KINDS);
 export type FigureKind = z.infer<typeof figureKindSchema>;
 
 export const FIGURE_LABELS: Record<FigureKind, string> = {
   solo: 'Solo',
   pair: 'Pareja',
+  pair_diagonal: 'Pareja en diagonal',
   trio_line: 'Trío en fila',
   trio_triangle: 'Trío en triángulo',
   square: 'Cuadrado',
+  diamond: 'Rombo',
 };
 
 /** How many people each figure holds. */
 export const FIGURE_SLOTS: Record<FigureKind, number> = {
   solo: 1,
   pair: 2,
+  pair_diagonal: 2,
   trio_line: 3,
   trio_triangle: 3,
   square: 4,
+  diamond: 4,
 };
 
 /** Width of each figure when placed, in grid squares, until the group sets its own. */
 export const DEFAULT_FIGURE_WIDTH: Record<FigureKind, number> = {
   solo: 1,
   pair: 2,
+  pair_diagonal: 2,
   trio_line: 3,
   trio_triangle: 2,
   square: 2,
+  diamond: 3,
 };
 // Widest figure, in grid squares.
 export const MAX_FIGURE_WIDTH = 40;

@@ -19,17 +19,39 @@ export const loosePeople = (participants: Participant[]) =>
       : [],
   );
 
-/** People standing on their own under the places of a figure, by place: they join it. */
-export function absorbed(participants: Participant[], places: StagePoint[], stage: StageSize) {
+/**
+ * People under the free places of a figure, by place: they join it. That is anyone on their own
+ * or in a solo figure (other than the figure itself, `ownId`), whose solo then goes.
+ */
+export function absorbed(
+  participants: Participant[],
+  places: StagePoint[],
+  stage: StageSize,
+  figures: StageFigure[] = [],
+  ownId: string | null = null,
+) {
+  const solos = new Set(
+    figures.filter((figure) => figure.kind === 'solo' && figure.id !== ownId).map(({ id }) => id),
+  );
   const taken = new Map<number, string>();
-  for (const { personId, point } of loosePeople(participants)) {
-    const slot = slotAt(places, point, stage);
-    if (slot >= 0 && !taken.has(slot)) taken.set(slot, personId);
+  const own = new Set(
+    participants.flatMap((participant) =>
+      ownId && participant.figureId === ownId && participant.slot != null ? [participant.slot] : [],
+    ),
+  );
+  for (const participant of participants) {
+    const { personId, x, y, figureId } = participant;
+    if (x == null || y == null || (figureId != null && !solos.has(figureId))) continue;
+    const slot = slotAt(places, { x, y }, stage);
+    if (slot >= 0 && !own.has(slot) && !taken.has(slot)) taken.set(slot, personId);
   }
   return taken;
 }
 
-/** Puts a figure on the stage (or moves it there), with its members in their places. */
+/**
+ * Puts a figure on the stage (or moves it there), with its members in their places; solo figures
+ * left without their person (taken in by it) go.
+ */
 export function putFigure(
   content: StageContent,
   figure: StageFigure,
@@ -37,27 +59,31 @@ export function putFigure(
   joining: Map<number, string> = new Map(),
 ): StageContent {
   const joiner = new Map([...joining].map(([slot, personId]) => [personId, slot]));
+  const participants = content.participants.map((participant) => {
+    const slot =
+      participant.figureId === figure.id ? participant.slot : joiner.get(participant.personId);
+    if (slot == null) return participant;
+    const place = places[slot];
+    return place
+      ? { ...participant, figureId: figure.id, slot, x: place.x, y: place.y }
+      : { ...participant, ...unplaced };
+  });
+  const emptied = (item: StageFigure) =>
+    item.kind === 'solo' &&
+    content.participants.some(
+      ({ figureId, personId }) => figureId === item.id && joiner.has(personId),
+    );
   return {
-    figures: [...content.figures.filter((item) => item.id !== figure.id), figure],
-    participants: content.participants.map((participant) => {
-      const slot =
-        participant.figureId === figure.id ? participant.slot : joiner.get(participant.personId);
-      if (slot == null) return participant;
-      const place = places[slot];
-      return place
-        ? { ...participant, figureId: figure.id, slot, x: place.x, y: place.y }
-        : { ...participant, ...unplaced };
-    }),
+    figures: [...content.figures.filter((item) => item.id !== figure.id && !emptied(item)), figure],
+    participants,
   };
 }
 
-/** Takes a figure off the stage; its members stay in the piece, without a place. */
+/** Takes a figure off the stage, and its members out of the piece. */
 export function removeFigure(content: StageContent, figureId: string): StageContent {
   return {
     figures: content.figures.filter((figure) => figure.id !== figureId),
-    participants: content.participants.map((participant) =>
-      participant.figureId === figureId ? { ...participant, ...unplaced } : participant,
-    ),
+    participants: content.participants.filter((participant) => participant.figureId !== figureId),
   };
 }
 

@@ -48,6 +48,13 @@
   &[data-incomplete]:not([data-invalid]) {
     border-color: var(--warn);
   }
+
+  // The piece entered: highlighted in blue, like a selection.
+  &[data-selected]:not([data-dragging]) {
+    background: var(--sel-bg);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
 }
 
 .missingPlaces {
@@ -57,11 +64,18 @@
 }
 
 .row {
+  position: relative;
   display: flex;
   gap: var(--space-2);
   align-items: center;
   min-height: 52px;
-  padding-right: var(--space-3);
+}
+
+// Title on top, details below.
+.main {
+  display: grid;
+  flex: 1;
+  min-width: 0;
 }
 
 // Large touch target; dragging starts here so the page still scrolls elsewhere.
@@ -94,12 +108,9 @@
 }
 
 .summary {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-2);
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
   min-width: 0;
   padding: var(--space-2) 0;
   font: inherit;
@@ -120,7 +131,7 @@
   flex: 1 1 12rem;
   min-width: 0;
   padding: var(--space-1) var(--space-2);
-  margin-left: calc(-1 * var(--space-2));
+  margin: var(--space-1) 0 0 calc(-1 * var(--space-2));
   font: inherit;
   font-weight: 700;
   color: var(--ink);
@@ -173,15 +184,50 @@
 }
 
 .duration {
-  min-width: 3.5em;
   font-variant-numeric: tabular-nums;
-  text-align: right;
 }
 
+// A strip at the right of the row that opens the fields.
+.expand {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  width: 44px;
+  padding: 0;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+
+  &:hover {
+    color: var(--ink);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+}
+
+// Pointing down when closed and up when open.
+.chevron {
+  width: 20px;
+  height: 20px;
+  transition: transform 200ms ease;
+
+  &[data-open] {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Under a line that parts them from the preview of the piece.
 .fields {
   display: grid;
   gap: var(--space-3);
-  padding: 0 var(--space-3) var(--space-3);
+  padding: var(--space-3) 0;
+  margin: 0 var(--space-3);
+  border-top: var(--border-width) solid var(--line);
 }
 
 // Fields stay aligned to the top even when only one of them has a hint.
@@ -393,15 +439,21 @@
   cursor: pointer;
   background: transparent;
   border: 0;
+}
 
-  &::after {
-    margin-left: auto;
-    font-size: 0.875rem;
-    content: '▾';
+.encoresChevron {
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  color: var(--ink-soft);
+  transition: transform 200ms ease;
+
+  &[data-open] {
+    transform: rotate(180deg);
   }
 
-  &[aria-expanded='true']::after {
-    content: '▴';
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 }
 
@@ -439,13 +491,13 @@
   }
 }
 
-// Next to the open title, the rest of the row only takes what it needs and wraps under it when
-// the column is narrow.
-.row:has(.nameInput) {
-  flex-wrap: wrap;
+// The fields of a piece, sliding open and shut.
+.pieceAccordionInner {
+  min-height: 0;
+  overflow: hidden;
 }
 
+// Under the open title, its details.
 .nameInput + .summary {
-  flex: 0 1 auto;
-  margin-left: auto;
+  padding-top: 0;
 }

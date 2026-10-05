@@ -5,9 +5,13 @@ import {
   figureDefault,
   fitWidth,
   minWidth,
+  outlineOf,
+  reachOf,
+  slantedBlock,
   slotAt,
   slotPositions,
   snapFigure,
+  widthForReach,
 } from './figures';
 
 // 8 x 4 m with half-metre squares and a 1 m safety strip.
@@ -73,4 +77,63 @@ test('finds the place under a point', () => {
   const places = slotPositions(pair, stage);
   expect(slotAt(places, { x: 0.3, y: 0.1 }, stage)).toBe(1);
   expect(slotAt(places, { x: 1, y: 1 }, stage)).toBe(-1);
+});
+
+test('lets figures touch but not overlap', () => {
+  const other = outlineOf('pair', slotPositions(pair, stage), stage);
+  // Right beside it: blocks touch at x = 0.5.
+  expect(checkFigureDrop(pair, { x: 1, y: 0 }, stage, [], [other]).ok).toBe(true);
+  expect(checkFigureDrop(pair, { x: 0.5, y: 0 }, stage, [], [other])).toMatchObject({
+    ok: false,
+    reason: 'close',
+  });
+});
+
+test('lays out the diagonal pair and the diamond, with people 0.5 m apart', () => {
+  expect(slotPositions({ ...pair, kind: 'pair_diagonal' }, stage)).toEqual([
+    { x: -0.25, y: -0.25 },
+    { x: 0.25, y: 0.25 },
+  ]);
+  expect(slotPositions({ ...pair, kind: 'diamond', width: 3 }, stage)).toEqual([
+    { x: 0, y: -0.5 },
+    { x: -0.5, y: 0 },
+    { x: 0.5, y: 0 },
+    { x: 0, y: 0.5 },
+  ]);
+  // Diagonal neighbours count their real distance, not the one along each side.
+  expect(minWidth('pair_diagonal', stage)).toBe(2);
+  expect(minWidth('diamond', stage)).toBe(3);
+  expect(minWidth('diamond', { ...stage, squareSize: 0.25 })).toBe(4);
+});
+
+test('draws a diagonal pair as a pair on a slant', () => {
+  const block = slantedBlock(
+    [
+      { x: -1, y: -1 },
+      { x: 1, y: 1 },
+    ],
+    1,
+  );
+  expect(block.x).toBeCloseTo(0);
+  expect(block.y).toBeCloseTo(0);
+  expect(block.length).toBeCloseTo(2 * Math.SQRT2 + 1);
+  expect(block.thickness).toBeCloseTo(1);
+});
+
+test('lets slanted figures get as close as their drawn blocks allow', () => {
+  const diagonal = { kind: 'pair_diagonal' as const, x: 0, y: 0, rotation: 0 as const, width: 2 };
+  const other = outlineOf('pair_diagonal', slotPositions(diagonal, stage), stage);
+  // Side by side along the slant: their boxes overlap, their blocks do not.
+  expect(checkFigureDrop(diagonal, { x: 0.5, y: -0.5 }, stage, [], [other]).ok).toBe(true);
+  expect(checkFigureDrop(diagonal, { x: 0.5, y: -0.25 }, stage, [], [other]).ok).toBe(true);
+  // On top of each other they clash.
+  expect(checkFigureDrop(diagonal, { x: 0.25, y: 0.25 }, stage, [], [other]).ok).toBe(false);
+});
+
+test('turns a reach from the centre into a width and back', () => {
+  for (const kind of ['pair', 'pair_diagonal', 'diamond'] as const) {
+    expect(widthForReach(kind, reachOf(kind, 3))).toBeCloseTo(3);
+  }
+  // A diagonal pair two squares wide ends half a square past its places, along the slant.
+  expect(reachOf('pair_diagonal', 2)).toBeCloseTo(Math.SQRT2 / 2 + 0.5);
 });

@@ -42,5 +42,26 @@ test('moves members with their figure and leaves them in the piece when it goes'
 
   const removed = removeFigure(after, pair.id);
   expect(removed.figures).toEqual([]);
-  expect(removed.participants[0]).toMatchObject({ x: null, y: null, figureId: null, slot: null });
+  expect(removed.participants).toEqual([]);
+});
+
+test('takes in people from solo figures, which go', () => {
+  const solo = {
+    id: 'solo-1',
+    kind: 'solo' as const,
+    x: 0.25,
+    y: 0,
+    rotation: 0 as const,
+    width: 1,
+  };
+  const content = {
+    participants: [{ ...person('julia', 0.25, 0), figureId: 'solo-1', slot: 0 }],
+    figures: [solo],
+  };
+  const joining = absorbed(content.participants, places, stage, content.figures);
+  expect([...joining]).toEqual([[1, 'julia']]);
+
+  const placed = putFigure(content, pair, places, joining);
+  expect(placed.figures.map(({ id }) => id)).toEqual(['pair-1']);
+  expect(placed.participants[0]).toMatchObject({ figureId: 'pair-1', slot: 1 });
 });

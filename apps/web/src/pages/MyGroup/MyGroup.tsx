@@ -6,6 +6,7 @@ import {
   type PersonRole,
   ROLE_LABELS,
 } from '@cuadrocorrocalle/shared';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 
 import { useApp } from '../../components/AppLayout/appContext';
@@ -101,8 +102,10 @@ function SortHeader({ sort, onSort, showFigure }: SortHeaderProps) {
               <span className={styles.role} data-role={sort.role} aria-hidden="true">
                 {ROLE_LABELS[sort.role]}
               </span>
+            ) : sort.direction === 1 ? (
+              <ChevronUp size={14} aria-hidden="true" />
             ) : (
-              <span aria-hidden="true">{sort.direction === 1 ? ' ▲' : ' ▼'}</span>
+              <ChevronDown size={14} aria-hidden="true" />
             ))}
         </button>
       ))}
@@ -249,7 +252,7 @@ function GroupSection({
                 onClick={() => onToggle(group.membership)}
               >
                 <span className={styles.chevron} aria-hidden="true">
-                  ▾
+                  <ChevronDown size={16} />
                 </span>
                 {GROUP_TITLES[group.membership]} ({group.people.length})
               </button>

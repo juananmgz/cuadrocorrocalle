@@ -224,7 +224,7 @@ model Figure {
   id             String          @id
   pieceId        String          @map("piece_id")
   piece          Piece           @relation(fields: [pieceId], references: [id], onDelete: Cascade)
-  // "solo", "pair", "trio_line", "trio_triangle" or "square".
+  // "solo", "pair", "pair_diagonal", "trio_line", "trio_triangle", "square" or "diamond".
   kind           String
   x              Float           @map("x_m")
   y              Float           @map("y_m")

@@ -274,17 +274,24 @@ export function RepertoireCard({
                 ) : null
               }
               onToggle={(person) =>
-                openPiece &&
-                change(
-                  pieces.map((piece) =>
-                    piece.key === openPiece.key
-                      ? {
-                          ...piece,
-                          participants: toggleParticipant(piece.participants, person, piece.type),
-                        }
-                      : piece,
-                  ),
-                )
+                // With the stage there, a click also puts them on it.
+                placing
+                  ? editing.togglePerson(person.id)
+                  : openPiece &&
+                    change(
+                      pieces.map((piece) =>
+                        piece.key === openPiece.key
+                          ? {
+                              ...piece,
+                              participants: toggleParticipant(
+                                piece.participants,
+                                person,
+                                piece.type,
+                              ),
+                            }
+                          : piece,
+                      ),
+                    )
               }
             />
           )}
