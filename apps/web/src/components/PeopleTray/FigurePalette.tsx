@@ -1,11 +1,11 @@
 import { useDraggable } from '@dnd-kit/core';
 import {
   DEFAULT_FIGURE_WIDTH,
-  FIGURE_KINDS,
   FIGURE_LABELS,
   FIGURE_SLOTS,
   type FigureKind,
   type FigureRotation,
+  SIMPLE_FIGURE_KINDS,
 } from '@cuadrocorrocalle/shared';
 
 import { isSlanted, slantedBlock, slotOffsets, turn } from '../../stage/figures';
@@ -154,7 +154,7 @@ interface FigurePaletteProps {
 
 // The palette in columns by how many people each figure holds. No solo: dropping someone on the
 // stage already makes one.
-const KINDS = FIGURE_KINDS.filter((kind) => kind !== 'solo');
+const KINDS = SIMPLE_FIGURE_KINDS.filter((kind) => kind !== 'solo');
 const ROWS = [...new Set(KINDS.map((kind) => FIGURE_SLOTS[kind]))].map((count) =>
   KINDS.filter((kind) => FIGURE_SLOTS[kind] === count),
 );

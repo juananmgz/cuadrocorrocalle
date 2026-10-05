@@ -31,6 +31,9 @@ export const WIDTH_STEP: Record<FigureKind, number> = {
   trio_triangle: 1,
   square: 0.5,
   diamond: 1,
+  // Spaces grow a hole at a time.
+  row: 1,
+  ring: 1,
 };
 
 /** Distance between neighbours along each axis, in squares, for its width. */
@@ -74,6 +77,10 @@ export function slotOffsets(kind: FigureKind, width: number): StagePoint[] {
         { x: d / 2, y: d / 2 },
       ];
     // A square standing on a corner: front, sides and back.
+    // Spaces hold figures, not people.
+    case 'row':
+    case 'ring':
+      return [];
     case 'diamond':
       return [
         { x: 0, y: -d },

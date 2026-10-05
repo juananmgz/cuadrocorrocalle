@@ -1,4 +1,5 @@
 import type {
+  Arrangement,
   FigureKind,
   FigureRotation,
   Piece,
@@ -30,7 +31,20 @@ const FIELDS = {
     select: { personId: true, roles: true, x: true, y: true, figureId: true, slot: true },
     orderBy: { personId: 'asc' },
   },
-  figures: { select: { id: true, kind: true, x: true, y: true, rotation: true, width: true } },
+  figures: {
+    select: {
+      id: true,
+      kind: true,
+      x: true,
+      y: true,
+      rotation: true,
+      width: true,
+      arrangement: true,
+      spaceId: true,
+      hole: true,
+      angle: true,
+    },
+  },
 } as const;
 
 export function createPrismaPieceRepository(prisma: PrismaClient): PieceRepository {
@@ -47,6 +61,7 @@ export function createPrismaPieceRepository(prisma: PrismaClient): PieceReposito
         ...figure,
         kind: figure.kind as FigureKind,
         rotation: figure.rotation as FigureRotation,
+        arrangement: figure.arrangement as Arrangement | null,
       })),
       participants: participations.map((participation) => ({
         ...participation,
