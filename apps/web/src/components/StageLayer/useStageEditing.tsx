@@ -426,10 +426,14 @@ export function useStageEditing({
     }
     const figure: StageFigure = { ...result.figure, id: move.id ?? newFigureId() };
     if (isSpace(figure.kind)) {
-      // The space, then the figures in its holes with their people.
+      // The space, then the figures in its holes with their people. A new one comes full of
+      // pairs, so there is always a figure to start from.
+      const pairs = move.id
+        ? []
+        : Array.from({ length: figure.width }, (_, hole) => pairIn(figure.id, hole));
       let next: StageContent = {
         ...content,
-        figures: [...figures.filter((item) => item.id !== figure.id), figure],
+        figures: [...figures.filter((item) => item.id !== figure.id), figure, ...pairs],
       };
       for (const child of placeChildren(figure, next.figures, stage))
         next = putFigure(next, child, slotPositions(child, stage));
@@ -546,6 +550,17 @@ export function useStageEditing({
   const memberOf = (personId: string): Participant | undefined =>
     participants.find((item) => item.personId === personId && item.figureId != null);
 
+  /** A pair for a hole of a space (placed when the space is laid out). */
+  const pairIn = (spaceId: string, hole: number): StageFigure => ({
+    ...EMPTY_HOLE,
+    id: newFigureId(),
+    x: 0,
+    y: 0,
+    rotation: 0,
+    spaceId,
+    hole,
+  });
+
   /** Adds a hole to a space at `at`, moving the holes from there on one along, if it still fits. */
   const addHole = (spaceId: string, at: number) => {
     const space = figures.find((figure) => figure.id === spaceId);
@@ -560,9 +575,13 @@ export function useStageEditing({
     if (!check.ok) return warn(check.reason === 'off' ? 'full' : check.reason, 'figure');
     let next: StageContent = {
       ...content,
-      figures: shifted.map((figure) =>
-        figure.id === spaceId ? { ...grown, ...check.figure } : figure,
-      ),
+      figures: [
+        ...shifted.map((figure) =>
+          figure.id === spaceId ? { ...grown, ...check.figure } : figure,
+        ),
+        // The new hole comes with a pair, like a new space.
+        pairIn(spaceId, at),
+      ],
     };
     const placedSpace = next.figures.find((figure) => figure.id === spaceId)!;
     for (const child of placeChildren(placedSpace, next.figures, stage))
