@@ -570,6 +570,34 @@ export function useStageEditing({
     onChange(next);
   };
 
+  /** Takes a hole out of a space, with its figure and that figure's people (out of the piece too). */
+  const removeHole = (spaceId: string, hole: number) => {
+    const space = figures.find((figure) => figure.id === spaceId);
+    if (!content || !stage || !space || space.width <= 1) return;
+    const gone = figures.find((figure) => figure.spaceId === spaceId && figure.hole === hole);
+    const left = gone ? removeFigure(content, gone.id) : content;
+    let next: StageContent = {
+      ...left,
+      figures: left.figures.map((figure) =>
+        figure.id === spaceId
+          ? { ...figure, width: figure.width - 1 }
+          : figure.spaceId === spaceId && figure.hole != null && figure.hole > hole
+            ? { ...figure, hole: figure.hole - 1 }
+            : figure,
+      ),
+    };
+    // A shorter row keeps to the grid.
+    const shrunk = next.figures.find((figure) => figure.id === spaceId)!;
+    const snapped = snapSpace(shrunk, childrenOf(next.figures, spaceId), stage);
+    next = {
+      ...next,
+      figures: next.figures.map((figure) => (figure.id === spaceId ? snapped : figure)),
+    };
+    for (const child of placeChildren(snapped, next.figures, stage))
+      next = putFigure(next, child, slotPositions(child, stage));
+    onChange(next);
+  };
+
   /** The space a figure fills a hole of, or the figure itself. */
   const spaceAround = (figure: StageFigure) =>
     (figure.spaceId && figures.find((item) => item.id === figure.spaceId)) || figure;
@@ -825,6 +853,7 @@ export function useStageEditing({
       },
       editHandles,
       onAddHole: addHole,
+      onRemoveHole: removeHole,
       trash:
         figureMove?.id || personDrag
           ? { hot: inTrash(dragPointer), near: trashNearness(), top: trashTop }

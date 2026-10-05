@@ -253,3 +253,22 @@ export function addSpots(space: Space, layout: SpaceLayout, stage: StageSize) {
     { at: space.width, x: space.x + axis.x * reach, y: space.y + axis.y * reach },
   ];
 }
+
+/** Where the − of each hole goes: just outside the space, beside the hole (in metres). */
+export function removeSpots(space: Space, layout: SpaceLayout, stage: StageSize) {
+  const square = stage.squareSize;
+  const out = (layout.thickness / 2 + 0.6) * square;
+  const across = turn({ x: 0, y: 1 }, space.rotation);
+  return layout.holes.map((place) => {
+    if (space.kind === 'ring') {
+      const angle = Math.atan2(place.y - space.y, place.x - space.x);
+      const radius = layout.radius * square + out;
+      return {
+        hole: place.hole,
+        x: space.x + Math.cos(angle) * radius,
+        y: space.y + Math.sin(angle) * radius,
+      };
+    }
+    return { hole: place.hole, x: place.x + across.x * out, y: place.y + across.y * out };
+  });
+}

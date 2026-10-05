@@ -1,5 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
-import { Plus, Trash2 } from 'lucide-react';
+import { Minus, Plus, Trash2 } from 'lucide-react';
 import {
   FIGURE_LABELS,
   type FigureKind,
@@ -17,7 +17,13 @@ import {
 import { createPortal } from 'react-dom';
 
 import { isSlanted, slantedBlock } from '../../stage/figures';
-import { addSpots, extentOf, type HolePlace, type SpaceLayout } from '../../stage/spaces';
+import {
+  addSpots,
+  extentOf,
+  removeSpots,
+  type HolePlace,
+  type SpaceLayout,
+} from '../../stage/spaces';
 import {
   type DropCheck,
   isMisplaced,
@@ -466,6 +472,8 @@ interface StageLayerProps {
   editHandles?: EditHandles | null;
   /** The space being edited: a + to add a hole at each spot it can take one. */
   onAddHole?: ((spaceId: string, at: number) => void) | null;
+  /** The space being edited: a − beside each hole to take it out, with its figure. */
+  onRemoveHole?: ((spaceId: string, hole: number) => void) | null;
   /** While something is dragged: the strip at the bottom where dropping removes it. */
   trash?: { hot: boolean; near: number; top: number } | null;
   /** Figure being moved, faded in its old place. */
@@ -493,6 +501,7 @@ export function StageLayer({
   onSelectFigure,
   editHandles = null,
   onAddHole = null,
+  onRemoveHole = null,
   trash = null,
   movingFigureId = null,
   ghost = null,
@@ -852,6 +861,27 @@ export function StageLayer({
               onClick={() => onAddHole(selected.figure.id, spot.at)}
             >
               <Plus aria-hidden="true" />
+            </button>
+          );
+        })}
+      {selected?.layout &&
+        onRemoveHole &&
+        selected.figure.width > 1 &&
+        selected.figure.id !== movingFigureId &&
+        removeSpots(selected.figure, selected.layout, stage).map((spot) => {
+          const { x, y } = toScreen(spot);
+          return (
+            <button
+              key={`remove-${spot.hole}`}
+              type="button"
+              className={styles.removeHole}
+              data-figure-handle=""
+              aria-label={`Quitar el hueco ${spot.hole + 1}`}
+              title="Quitar este hueco (y su figura)"
+              style={{ left: x, top: y }}
+              onClick={() => onRemoveHole(selected.figure.id, spot.hole)}
+            >
+              <Minus aria-hidden="true" />
             </button>
           );
         })}

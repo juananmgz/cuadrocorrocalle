@@ -130,8 +130,10 @@
   box-shadow: none;
 }
 
-// + to add a hole to the space being edited: past the ends of a row, between holes of a ring.
-.addHole {
+// + to add a hole to the space being edited: past the ends of a row, between holes of a ring;
+// − beside each hole to take it out.
+.addHole,
+.removeHole {
   position: absolute;
   z-index: 2;
   display: grid;
@@ -151,6 +153,11 @@
     width: 100%;
     height: 100%;
   }
+}
+
+.removeHole {
+  color: var(--on-danger);
+  background: var(--danger);
 }
 
 // An empty hole of a space, waiting for a figure.
