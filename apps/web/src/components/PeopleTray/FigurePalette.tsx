@@ -5,7 +5,10 @@ import {
   FIGURE_SLOTS,
   type FigureKind,
   type FigureRotation,
+  isSpace,
   SIMPLE_FIGURE_KINDS,
+  SPACE_KINDS,
+  type SpaceKind,
 } from '@cuadrocorrocalle/shared';
 
 import { isSlanted, slantedBlock, slotOffsets, turn } from '../../stage/figures';
@@ -94,6 +97,29 @@ export function FigureIcon({
   );
 }
 
+/** A drawing of a space: a band of empty holes, or a ring of them. */
+export function SpaceIcon({ kind }: { kind: SpaceKind }) {
+  const holes =
+    kind === 'row'
+      ? [-1.2, -0.4, 0.4, 1.2].map((x) => ({ x, y: 0 }))
+      : Array.from({ length: 6 }, (_, index) => {
+          const angle = (index / 6) * 2 * Math.PI;
+          return { x: Math.cos(angle) * 1.15, y: Math.sin(angle) * 1.15 };
+        });
+  return (
+    <svg viewBox="-2 -2 4 4" style={{ width: 40, height: 40 }} aria-hidden="true">
+      {kind === 'row' ? (
+        <rect x={-1.7} y={-0.5} width={3.4} height={1} rx={0.25} className={styles.figureBlock} />
+      ) : (
+        <circle r={1.7} className={styles.figureBlock} />
+      )}
+      {holes.map((hole, index) => (
+        <circle key={index} cx={hole.x} cy={hole.y} r={0.3} className={styles.figureHole} />
+      ))}
+    </svg>
+  );
+}
+
 interface PaletteItemProps {
   kind: FigureKind;
   rotation: FigureRotation;
@@ -125,7 +151,11 @@ function PaletteItem({
       type="button"
       className={styles.figure}
       disabled={!enabled}
-      title={`${FIGURE_LABELS[kind]}: pulsa o arrastra al escenario; clic derecho para configurarla`}
+      title={
+        isSpace(kind)
+          ? `${FIGURE_LABELS[kind]}: pulsa o arrastra al escenario`
+          : `${FIGURE_LABELS[kind]}: pulsa o arrastra al escenario; clic derecho para configurarla`
+      }
       {...attributes}
       aria-label={FIGURE_LABELS[kind]}
       aria-pressed={picked}
@@ -133,10 +163,14 @@ function PaletteItem({
       onClick={onPick}
       onContextMenu={(event) => {
         event.preventDefault();
-        onConfigure(event.currentTarget.getBoundingClientRect());
+        if (!isSpace(kind)) onConfigure(event.currentTarget.getBoundingClientRect());
       }}
     >
-      <FigureIcon kind={kind} rotation={rotation} width={width} />
+      {isSpace(kind) ? (
+        <SpaceIcon kind={kind} />
+      ) : (
+        <FigureIcon kind={kind} rotation={rotation} width={width} />
+      )}
     </button>
   );
 }
@@ -194,5 +228,28 @@ export function FigurePalette({
         );
       })}
     </div>
+  );
+}
+
+type SpacePaletteProps = Pick<FigurePaletteProps, 'enabled' | 'picked' | 'onPick'>;
+
+/** The spaces (step 2.3): a row and a ring of holes to fill with simple figures. */
+export function SpacePalette({ enabled, picked, onPick }: SpacePaletteProps) {
+  return (
+    <ul className={styles.spaces} aria-label="Espacios">
+      {SPACE_KINDS.map((kind) => (
+        <li key={kind}>
+          <PaletteItem
+            kind={kind}
+            rotation={0}
+            width={DEFAULT_FIGURE_WIDTH[kind]}
+            enabled={enabled}
+            picked={picked === kind}
+            onPick={() => onPick(kind)}
+            onConfigure={() => {}}
+          />
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -194,6 +194,23 @@
   vector-effect: non-scaling-stroke;
 }
 
+// An empty hole of a space.
+.figureHole {
+  fill: none;
+  stroke: var(--ink-soft);
+  stroke-width: 1px;
+  stroke-dasharray: 2 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.spaces {
+  display: flex;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
 .figureDot {
   fill: var(--ink-soft);
 }

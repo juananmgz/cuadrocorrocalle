@@ -21,6 +21,8 @@ interface PeopleTrayProps {
   draggable?: boolean;
   /** The figures palette (step 2.2); without it, the block only says what is coming. */
   palette?: ReactNode;
+  /** The spaces palette (step 2.3), like the figures one. */
+  spaces?: ReactNode;
 }
 
 interface SectionProps {
@@ -125,6 +127,7 @@ export function PeopleTray({
   onToggle,
   draggable = false,
   palette,
+  spaces,
 }: PeopleTrayProps) {
   const [open, setOpen] = useState({
     figures: true,
@@ -155,7 +158,9 @@ export function PeopleTray({
         open={open.spaces}
         onToggle={() => toggle('spaces')}
       >
-        <p className={styles.hint}>Llegarán más adelante: fila, corro, baile libre y cruz.</p>
+        {spaces ?? (
+          <p className={styles.hint}>Entra en una pieza para colocar espacios en el escenario.</p>
+        )}
       </Section>
       <Section
         id="people"

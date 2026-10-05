@@ -17,6 +17,7 @@ import {
 import { createPortal } from 'react-dom';
 
 import { isSlanted, slantedBlock } from '../../stage/figures';
+import { extentOf, type HolePlace, type SpaceLayout } from '../../stage/spaces';
 import {
   type DropCheck,
   isMisplaced,
@@ -57,6 +58,8 @@ export interface FigureView {
   figure: StageFigure;
   places: StagePoint[];
   empty: number[];
+  /** Spaces: where their holes are. */
+  layout?: SpaceLayout;
 }
 
 /** Where a figure being placed or moved would land; refused ones are drawn in red. */
@@ -132,11 +135,13 @@ interface BlockProps {
   readOnly: boolean;
   selected: boolean;
   hidden: boolean;
+  /** A space: drawn lighter, under the figures in its holes. */
+  space?: boolean;
   onSelect?: () => void;
 }
 
 /** The block of a figure: dragged as a whole; hovering it (or a right click) shows its handles. */
-function Block({ view, style, readOnly, selected, hidden, onSelect }: BlockProps) {
+function Block({ view, style, readOnly, selected, hidden, space, onSelect }: BlockProps) {
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `figure:${view.figure.id}`,
     disabled: readOnly,
@@ -144,13 +149,21 @@ function Block({ view, style, readOnly, selected, hidden, onSelect }: BlockProps
   const label = `${FIGURE_LABELS[view.figure.kind]}${view.empty.length ? `, ${view.empty.length} huecos vacíos` : ''}`;
 
   return readOnly ? (
-    <span className={styles.block} data-static="" style={style} role="img" aria-label={label} />
+    <span
+      className={styles.block}
+      data-static=""
+      data-space={space ? '' : undefined}
+      style={style}
+      role="img"
+      aria-label={label}
+    />
   ) : (
     <button
       ref={setNodeRef}
       type="button"
       className={styles.block}
       data-figure-block={view.figure.id}
+      data-space={space ? '' : undefined}
       data-selected={selected ? '' : undefined}
       data-hidden={hidden ? '' : undefined}
       data-incomplete={view.empty.length ? '' : undefined}
@@ -507,7 +520,28 @@ export function StageLayer({
   };
 
   // The block drawn for a figure: around its places, or on a slant for diagonal figures.
-  const blockStyle = (kind: FigureKind, places: StagePoint[]): CSSProperties => {
+  /** A box of `width` × `height` squares centred at a stage point, turned `degrees` anticlockwise. */
+  const turnedBox = (centre: StagePoint, width: number, height: number, degrees: number) => {
+    const { x, y } = toScreen(centre);
+    return {
+      left: x - (width * square) / 2,
+      top: y - (height * square) / 2,
+      width: width * square,
+      height: height * square,
+      transform: `rotate(${-degrees}deg)`,
+    };
+  };
+
+  const blockStyle = (
+    kind: FigureKind,
+    places: StagePoint[],
+    figure?: Pick<StageFigure, 'kind' | 'width' | 'x' | 'y' | 'angle'>,
+  ): CSSProperties => {
+    // In a ring: its own block, turned to its angle.
+    if (figure?.angle != null) {
+      const extent = extentOf(figure);
+      return { ...turnedBox(figure, extent.x, extent.y, figure.angle), borderRadius: square / 2 };
+    }
     if (!isSlanted(kind)) return around(places);
     const block = slantedBlock(places.map(toScreen), square);
     return {
@@ -517,6 +551,33 @@ export function StageLayer({
       height: block.thickness,
       borderRadius: square / 2,
       transform: 'rotate(45deg)',
+    };
+  };
+
+  // Holes already taken by a figure.
+  const filled = new Set(
+    figures.flatMap(({ figure }) =>
+      figure.spaceId && figure.hole != null ? [`${figure.spaceId}:${figure.hole}`] : [],
+    ),
+  );
+
+  /** The block of a space: a band along a row, or a disc for a ring. */
+  const spaceStyle = ({ figure, layout }: FigureView): CSSProperties => {
+    if (!layout) return {};
+    if (figure.kind === 'ring') {
+      const size = layout.radius * 2 + layout.thickness;
+      return { ...turnedBox(figure, size, size, 0), borderRadius: '50%' };
+    }
+    return turnedBox(figure, layout.length, layout.thickness, figure.rotation);
+  };
+
+  /** An empty hole, the size of a pair, turned as its figure will be. */
+  const holeStyle = (space: StageFigure, place: HolePlace): CSSProperties => {
+    const battery = space.arrangement === 'battery';
+    const [width, height] = battery ? [place.across, place.along] : [place.along, place.across];
+    return {
+      ...turnedBox(place, width, height, place.angle ?? place.rotation),
+      borderRadius: (Math.min(width, height) * square) / 2,
     };
   };
 
@@ -661,21 +722,54 @@ export function StageLayer({
       {[...warned].map(([key, centre]) => (
         <span key={key} className={styles.warn} style={at(centre, square)} />
       ))}
-      {figures.map((item) => {
-        const open = item.figure.id === selectedFigureId;
-        return (
+      {figures
+        .filter((item) => item.layout)
+        .map((item) => (
           <Fragment key={item.figure.id}>
             <Block
               view={item}
-              style={spinning(item.figure.id, blockStyle(item.figure.kind, item.places))}
+              style={spinning(item.figure.id, spaceStyle(item))}
               readOnly={readOnly}
-              selected={open}
+              selected={item.figure.id === selectedFigureId}
               hidden={item.figure.id === movingFigureId}
+              space
               onSelect={() => onSelectFigure?.(item.figure.id)}
             />
+            {/* Empty holes: a dashed outline of the pair they are waiting for. */}
+            {item
+              .layout!.holes.filter(({ hole }) => !filled.has(`${item.figure.id}:${hole}`))
+              .map((place) => (
+                <span
+                  key={place.hole}
+                  className={styles.hole}
+                  data-hidden={item.figure.id === movingFigureId ? '' : undefined}
+                  style={holeStyle(item.figure, place)}
+                />
+              ))}
           </Fragment>
-        );
-      })}
+        ))}
+      {figures
+        .filter((item) => !item.layout)
+        .map((item) => {
+          const open = item.figure.id === selectedFigureId;
+          const moving =
+            item.figure.id === movingFigureId || item.figure.spaceId === movingFigureId;
+          return (
+            <Fragment key={item.figure.id}>
+              <Block
+                view={item}
+                style={spinning(
+                  item.figure.id,
+                  blockStyle(item.figure.kind, item.places, item.figure),
+                )}
+                readOnly={readOnly}
+                selected={open}
+                hidden={moving}
+                onSelect={() => onSelectFigure?.(item.figure.id)}
+              />
+            </Fragment>
+          );
+        })}
       {figures.flatMap((item) =>
         item.empty.map((slot) => (
           <span

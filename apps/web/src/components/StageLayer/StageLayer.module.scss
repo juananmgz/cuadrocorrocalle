@@ -123,6 +123,24 @@
 }
 
 // An empty place of a figure, waiting for someone.
+// A space: a lighter dashed band or disc under the figures in its holes.
+.block[data-space] {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-style: dashed;
+  box-shadow: none;
+}
+
+// An empty hole of a space, waiting for a figure.
+.hole {
+  position: absolute;
+  pointer-events: none;
+  border: 2px dashed var(--ink-soft);
+
+  &[data-hidden] {
+    opacity: 0.25;
+  }
+}
+
 .placeholder {
   position: absolute;
   pointer-events: none;

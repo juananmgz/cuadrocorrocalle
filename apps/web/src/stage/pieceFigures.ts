@@ -79,11 +79,18 @@ export function putFigure(
   };
 }
 
-/** Takes a figure off the stage, and its members out of the piece. */
+/** Takes a figure off the stage (a space with the figures in its holes) and its people out of the piece. */
 export function removeFigure(content: StageContent, figureId: string): StageContent {
+  const gone = new Set(
+    content.figures
+      .filter((figure) => figure.id === figureId || figure.spaceId === figureId)
+      .map(({ id }) => id),
+  );
   return {
-    figures: content.figures.filter((figure) => figure.id !== figureId),
-    participants: content.participants.filter((participant) => participant.figureId !== figureId),
+    figures: content.figures.filter((figure) => !gone.has(figure.id)),
+    participants: content.participants.filter(
+      (participant) => !participant.figureId || !gone.has(participant.figureId),
+    ),
   };
 }
 

@@ -21,7 +21,7 @@ import { isMisplaced, type StageSize } from '../../stage/placement';
 import { useStageView } from '../GridBackground/stageView';
 import { StageLayer } from '../StageLayer/StageLayer';
 import { useStageEditing } from '../StageLayer/useStageEditing';
-import { FigurePalette } from '../PeopleTray/FigurePalette';
+import { FigurePalette, SpacePalette } from '../PeopleTray/FigurePalette';
 import { PeopleTray, type TrayPerson } from '../PeopleTray/PeopleTray';
 import { FIGURE_LABELS } from '@cuadrocorrocalle/shared';
 import { Card } from '../ui/Card/Card';
@@ -262,6 +262,15 @@ export function RepertoireCard({
               selected={new Set(openPiece?.participants.map((participant) => participant.personId))}
               counts={counts}
               draggable={placing}
+              spaces={
+                placing ? (
+                  <SpacePalette
+                    enabled
+                    picked={editing.palette.picked}
+                    onPick={editing.palette.onPick}
+                  />
+                ) : null
+              }
               palette={
                 placing ? (
                   <FigurePalette
