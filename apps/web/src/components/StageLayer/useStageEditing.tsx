@@ -50,7 +50,9 @@ import {
   childrenOf,
   contains,
   EMPTY_HOLE,
+  gapForReach,
   holeAt,
+  reachOfSpace,
   layoutSpace,
   placeChildren,
   snapSpace,
@@ -160,8 +162,8 @@ export function useStageEditing({
   const [settings, setSettings] = useState<{ kind: FigureKind; anchor: DOMRect } | null>(null);
   // How new spaces come out, set in the tray.
   const [spaceSetup, setSpaceSetup] = useState<Record<SpaceKind, SpaceSetup>>({
-    row: { holes: DEFAULT_FIGURE_WIDTH.row, gap: DEFAULT_SPACE_GAP, arrangement: 'battery' },
-    ring: { holes: DEFAULT_FIGURE_WIDTH.ring, gap: DEFAULT_SPACE_GAP, arrangement: 'battery' },
+    row: { holes: DEFAULT_FIGURE_WIDTH.row, arrangement: 'battery' },
+    ring: { holes: DEFAULT_FIGURE_WIDTH.ring, arrangement: 'battery' },
   });
 
   const participants = content?.participants ?? [];
@@ -303,7 +305,7 @@ export function useStageEditing({
             rotation: 0,
             width: spaceSetup[kind].holes,
             arrangement: spaceSetup[kind].arrangement,
-            gap: spaceSetup[kind].gap,
+            gap: DEFAULT_SPACE_GAP,
           }
         : { kind, x: 0, y: 0, ...figureDefault(kind, figureDefaults, stage) };
 
@@ -734,6 +736,18 @@ export function useStageEditing({
   const reshape = (changes: Partial<Shape>) => {
     if (!selected || !stage || !content) return;
     const shape = { ...selected.figure, ...changes };
+    if (isSpace(shape.kind)) {
+      const check = spaceResult(shape, shape.id, shape);
+      if (!check.ok) return warn(check.reason === 'off' ? 'full' : check.reason, 'figure');
+      const space = { ...shape, ...check.figure, id: shape.id };
+      let next: StageContent = {
+        ...content,
+        figures: figures.map((figure) => (figure.id === space.id ? space : figure)),
+      };
+      for (const child of placeChildren(space, next.figures, stage))
+        next = putFigure(next, child, slotPositions(child, stage));
+      return onChange(next);
+    }
     const others = othersFor(selected.figure.id, slotPositions(shape, stage));
     const result = checkFigureDrop(shape, shape, stage, others, blocksBut(selected.figure.id));
     if (!result.ok) return warn(result.reason === 'off' ? 'full' : result.reason, 'figure');
@@ -804,15 +818,23 @@ export function useStageEditing({
   const held = figureMove ?? carried;
   // While a handle is held, the edited figure as it would end up.
   const reshaped =
-    selected && reshaping && stage
-      ? checkFigureDrop(
-          { ...selected.figure, ...reshaping },
-          { ...selected.figure, ...reshaping },
-          stage,
-          othersFor(selected.figure.id, slotPositions({ ...selected.figure, ...reshaping }, stage)),
-          blocksBut(selected.figure.id),
-        )
-      : null;
+    selected && reshaping && stage && isSpace(selected.figure.kind)
+      ? spaceResult({ ...selected.figure, ...reshaping }, selected.figure.id, {
+          ...selected.figure,
+          ...reshaping,
+        })
+      : selected && reshaping && stage
+        ? checkFigureDrop(
+            { ...selected.figure, ...reshaping },
+            { ...selected.figure, ...reshaping },
+            stage,
+            othersFor(
+              selected.figure.id,
+              slotPositions({ ...selected.figure, ...reshaping }, stage),
+            ),
+            blocksBut(selected.figure.id),
+          )
+        : null;
   // Where the held figure would land; refused places are drawn in red.
   const ghost: FigureGhost | null = held?.result
     ? {
@@ -827,15 +849,39 @@ export function useStageEditing({
 
   // Handles of the figure in edit mode: sides widen it, corners turn it.
   const editHandles: EditHandles | null =
-    selected && stage && !isSpace(selected.figure.kind) && !selected.figure.spaceId
+    selected && stage && !selected.figure.spaceId
       ? {
           resize:
             selected.figure.kind === 'solo'
               ? 'none'
-              : ['pair', 'pair_diagonal', 'trio_line'].includes(selected.figure.kind)
+              : ['pair', 'pair_diagonal', 'trio_line', 'row'].includes(selected.figure.kind)
                 ? 'width'
                 : 'both',
           onResize: ({ reach, towards, fixed }, done) => {
+            if (selected.layout) {
+              // A space keeps its holes: dragging a side stretches the room between them.
+              const { figure, layout } = selected;
+              const gap = gapForReach(figure, layout, reach, stage);
+              const stretched = layoutSpace(
+                { ...figure, gap },
+                childrenOf(figures, figure.id),
+                stage,
+              );
+              const shift =
+                fixed && figure.kind === 'row'
+                  ? (reachOfSpace(figure, stretched) - reachOfSpace(figure, layout)) *
+                    stage.squareSize
+                  : 0;
+              const changes: Partial<Shape> = {
+                gap,
+                x: figure.x + towards.x * shift,
+                y: figure.y + towards.y * shift,
+              };
+              if (!done) return setReshaping(changes);
+              setReshaping(null);
+              if (gap !== (figure.gap ?? DEFAULT_SPACE_GAP)) reshape(changes);
+              return;
+            }
             const { kind, width, x, y } = selected.figure;
             const fitted = fitWidth(kind, widthForReach(kind, reach), stage);
             // Dragging one side keeps the other one where it was: the centre moves half the growth.

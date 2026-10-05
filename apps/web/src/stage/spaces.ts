@@ -88,8 +88,9 @@ export function layoutSpace(
     const radius = Math.max(MIN_RING_RADIUS, length / (2 * Math.PI));
     // The first hole right at the front (towards the audience), then anticlockwise.
     let walked = -(sizes[0]?.along ?? 0) / 2;
+    const start = -Math.PI / 2 + (space.rotation * Math.PI) / 180;
     const holes = sizes.map((size, hole) => {
-      const theta = -Math.PI / 2 + (walked + size.along / 2) / radius;
+      const theta = start + (walked + size.along / 2) / radius;
       walked += size.along + gap;
       const degrees = (theta * 180) / Math.PI;
       return {
@@ -272,3 +273,26 @@ export function removeSpots(space: Space, layout: SpaceLayout, stage: StageSize)
     return { hole: place.hole, x: place.x + across.x * out, y: place.y + across.y * out };
   });
 }
+
+/**
+ * The room between holes (in metres) that puts the side of a space `reach` squares from its
+ * centre: half the length of a row, or the outer radius of a ring. Never below none.
+ */
+export function gapForReach(
+  space: Pick<StageFigure, 'kind' | 'width'>,
+  layout: SpaceLayout,
+  reach: number,
+  stage: StageSize,
+) {
+  const holes = layout.holes.reduce((total, place) => total + place.along, 0);
+  if (space.kind === 'ring') {
+    const radius = Math.max(MIN_RING_RADIUS, reach - layout.thickness / 2);
+    return Math.max(0, (2 * Math.PI * radius - holes) / space.width) * stage.squareSize;
+  }
+  if (space.width < 2) return 0;
+  return Math.max(0, (reach * 2 - holes) / (space.width - 1)) * stage.squareSize;
+}
+
+/** How far the sides of a space are from its centre, in squares. */
+export const reachOfSpace = (space: Pick<StageFigure, 'kind'>, layout: SpaceLayout) =>
+  space.kind === 'ring' ? layout.radius + layout.thickness / 2 : layout.length / 2;

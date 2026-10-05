@@ -2,7 +2,15 @@ import type { StageFigure } from '@cuadrocorrocalle/shared';
 import { expect, test } from 'vitest';
 
 import { slotPositions } from './figures';
-import { contains, holeAt, layoutSpace, placeChildren, snapSpace, spaceOutline } from './spaces';
+import {
+  contains,
+  gapForReach,
+  holeAt,
+  layoutSpace,
+  placeChildren,
+  snapSpace,
+  spaceOutline,
+} from './spaces';
 
 const stage = { width: 8, depth: 4, squareSize: 0.5, edgeDistance: 1 };
 const row: StageFigure = {
@@ -97,4 +105,11 @@ test('leaves room between holes', () => {
   const layout = layoutSpace({ ...row, gap: 0.5 }, new Map(), stage);
   expect(layout.length).toBe(8);
   expect(layout.holes.map(({ x }) => x)).toEqual([-1.5, 0, 1.5]);
+});
+
+test('stretches the room between holes to reach a side', () => {
+  const layout = layoutSpace(row, new Map(), stage);
+  // Three pairs (6 squares) reaching 4 squares each way leave a square between them: 0.5 m.
+  expect(gapForReach(row, layout, 4, stage)).toBe(0.5);
+  expect(gapForReach(row, layout, 2, stage)).toBe(0);
 });

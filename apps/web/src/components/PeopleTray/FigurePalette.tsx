@@ -9,7 +9,6 @@ import {
   ARRANGEMENTS,
   isSpace,
   MAX_FIGURE_WIDTH,
-  MAX_SPACE_GAP,
   SIMPLE_FIGURE_KINDS,
   SPACE_KINDS,
   type SpaceKind,
@@ -235,10 +234,9 @@ export function FigurePalette({
   );
 }
 
-/** How a new space comes out: its holes, the room between them and how its figures stand. */
+/** How a new space comes out: its holes and how its figures stand (the room between holes is stretched on the stage). */
 export interface SpaceSetup {
   holes: number;
-  gap: number;
   arrangement: Arrangement;
 }
 
@@ -255,14 +253,14 @@ const clampNumber = (value: string, min: number, max: number, fallback: number) 
 
 /**
  * The spaces (step 2.3): a row and a ring of holes to fill with simple figures. Each is a line
- * with its drawing (pick or drag it) and how it comes out: holes, room between them and whether
- * its figures stand in series or in battery.
+ * with its drawing (pick or drag it) and how it comes out: holes and whether its figures stand
+ * in series or in battery.
  */
 export function SpacePalette({ enabled, picked, onPick, setup, onSetup }: SpacePaletteProps) {
   return (
     <ul className={styles.spaces} aria-label="Espacios">
       {SPACE_KINDS.map((kind) => {
-        const { holes, gap, arrangement } = setup[kind];
+        const { holes, arrangement } = setup[kind];
         return (
           <li key={kind} className={styles.space}>
             <PaletteItem
@@ -293,21 +291,6 @@ export function SpacePalette({ enabled, picked, onPick, setup, onSetup }: SpaceP
                       })
                     }
                   />
-                </label>
-                <label className={styles.spaceField}>
-                  Separación
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    max={MAX_SPACE_GAP}
-                    step={0.25}
-                    value={gap}
-                    onChange={(event) =>
-                      onSetup(kind, { gap: clampNumber(event.target.value, 0, MAX_SPACE_GAP, gap) })
-                    }
-                  />
-                  m
                 </label>
               </div>
               <div className={styles.segmented} role="group" aria-label="Disposición">

@@ -585,6 +585,15 @@ export function StageLayer({
     return turnedBox(figure, layout.length, layout.thickness, figure.rotation);
   };
 
+  /** The box a space takes up on screen, upright (a row turned a quarter lies the other way). */
+  const uprightSpace = (item: FigureView): CSSProperties => {
+    const style = spaceStyle(item);
+    if (item.figure.kind !== 'row' || item.figure.rotation % 180 === 0) return style;
+    const [width, height] = [Number(style.height), Number(style.width)];
+    const { x, y } = toScreen(item.figure);
+    return { left: x - width / 2, top: y - height / 2, width, height };
+  };
+
   /** An empty hole, the size of a pair, turned as its figure will be. */
   const holeStyle = (space: StageFigure, place: HolePlace): CSSProperties => {
     const battery = space.arrangement === 'battery';
@@ -610,7 +619,11 @@ export function StageLayer({
   const selected = figures.find((item) => item.figure.id === selectedFigureId) ?? null;
   // The block of the figure being edited as an upright box (slanted ones turn it 45°).
   const editStyle =
-    selected && editHandles ? blockStyle(selected.figure.kind, selected.places) : null;
+    selected && editHandles
+      ? selected.layout
+        ? uprightSpace(selected)
+        : blockStyle(selected.figure.kind, selected.places)
+      : null;
   const editBox = editStyle
     ? {
         left: Number(editStyle.left),
