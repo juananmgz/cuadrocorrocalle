@@ -9,6 +9,7 @@ import {
   isSpace,
   type Participant,
   type PieceType,
+  type SpaceKind,
   type StageFigure,
 } from '@cuadrocorrocalle/shared';
 import { useEffect, useState } from 'react';
@@ -56,6 +57,7 @@ import {
   spaceOutline,
 } from '../../stage/spaces';
 import type { StageView } from '../GridBackground/stageView';
+import type { SpaceSetup } from '../PeopleTray/FigurePalette';
 import { FigureSettings } from '../PeopleTray/FigureSettings';
 import type { TrayPerson } from '../PeopleTray/PeopleTray';
 import { Button } from '../ui/Button/Button';
@@ -156,6 +158,11 @@ export function useStageEditing({
     Boolean(pointer && view && pointer.x >= view.left && pointer.y >= trashTop);
   // Figure being set up from the palette, and where its panel opens.
   const [settings, setSettings] = useState<{ kind: FigureKind; anchor: DOMRect } | null>(null);
+  // How new spaces come out, set in the tray.
+  const [spaceSetup, setSpaceSetup] = useState<Record<SpaceKind, SpaceSetup>>({
+    row: { holes: DEFAULT_FIGURE_WIDTH.row, gap: DEFAULT_SPACE_GAP, arrangement: 'series' },
+    ring: { holes: DEFAULT_FIGURE_WIDTH.ring, gap: DEFAULT_SPACE_GAP, arrangement: 'series' },
+  });
 
   const participants = content?.participants ?? [];
   const figures = content?.figures ?? [];
@@ -294,9 +301,9 @@ export function useStageEditing({
             x: 0,
             y: 0,
             rotation: 0,
-            width: DEFAULT_FIGURE_WIDTH[kind],
-            arrangement: 'series',
-            gap: DEFAULT_SPACE_GAP,
+            width: spaceSetup[kind].holes,
+            arrangement: spaceSetup[kind].arrangement,
+            gap: spaceSetup[kind].gap,
           }
         : { kind, x: 0, y: 0, ...figureDefault(kind, figureDefaults, stage) };
 
@@ -849,6 +856,9 @@ export function useStageEditing({
         stage ? figureDefault(kind, figureDefaults, stage) : { rotation: 0 as const, width: 1 },
       onPick: pick,
       onConfigure: (kind: FigureKind, anchor: DOMRect) => setSettings({ kind, anchor }),
+      spaceSetup,
+      onSpaceSetup: (kind: SpaceKind, changes: Partial<SpaceSetup>) =>
+        setSpaceSetup((current) => ({ ...current, [kind]: { ...current[kind], ...changes } })),
     },
     settings:
       settings && settingsKind && stage && settingsDefault ? (

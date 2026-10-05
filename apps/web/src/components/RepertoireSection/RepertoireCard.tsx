@@ -268,6 +268,8 @@ export function RepertoireCard({
                     enabled
                     picked={editing.palette.picked}
                     onPick={editing.palette.onPick}
+                    setup={editing.palette.spaceSetup}
+                    onSetup={editing.palette.onSpaceSetup}
                   />
                 ) : null
               }

@@ -5,7 +5,11 @@ import {
   FIGURE_SLOTS,
   type FigureKind,
   type FigureRotation,
+  type Arrangement,
+  ARRANGEMENTS,
   isSpace,
+  MAX_FIGURE_WIDTH,
+  MAX_SPACE_GAP,
   SIMPLE_FIGURE_KINDS,
   SPACE_KINDS,
   type SpaceKind,
@@ -231,25 +235,97 @@ export function FigurePalette({
   );
 }
 
-type SpacePaletteProps = Pick<FigurePaletteProps, 'enabled' | 'picked' | 'onPick'>;
+/** How a new space comes out: its holes, the room between them and how its figures stand. */
+export interface SpaceSetup {
+  holes: number;
+  gap: number;
+  arrangement: Arrangement;
+}
 
-/** The spaces (step 2.3): a row and a ring of holes to fill with simple figures. */
-export function SpacePalette({ enabled, picked, onPick }: SpacePaletteProps) {
+interface SpacePaletteProps extends Pick<FigurePaletteProps, 'enabled' | 'picked' | 'onPick'> {
+  setup: Record<SpaceKind, SpaceSetup>;
+  onSetup: (kind: SpaceKind, changes: Partial<SpaceSetup>) => void;
+}
+
+// Numbers typed in the fields, kept within their limits.
+const clampNumber = (value: string, min: number, max: number, fallback: number) => {
+  const number = Number(value.replace(',', '.'));
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+};
+
+/**
+ * The spaces (step 2.3): a row and a ring of holes to fill with simple figures. Each is a line
+ * with its drawing (pick or drag it) and how it comes out: holes, room between them and whether
+ * its figures stand in series or in battery.
+ */
+export function SpacePalette({ enabled, picked, onPick, setup, onSetup }: SpacePaletteProps) {
   return (
     <ul className={styles.spaces} aria-label="Espacios">
-      {SPACE_KINDS.map((kind) => (
-        <li key={kind}>
-          <PaletteItem
-            kind={kind}
-            rotation={0}
-            width={DEFAULT_FIGURE_WIDTH[kind]}
-            enabled={enabled}
-            picked={picked === kind}
-            onPick={() => onPick(kind)}
-            onConfigure={() => {}}
-          />
-        </li>
-      ))}
+      {SPACE_KINDS.map((kind) => {
+        const { holes, gap, arrangement } = setup[kind];
+        return (
+          <li key={kind} className={styles.space}>
+            <PaletteItem
+              kind={kind}
+              rotation={0}
+              width={holes}
+              enabled={enabled}
+              picked={picked === kind}
+              onPick={() => onPick(kind)}
+              onConfigure={() => {}}
+            />
+            <div className={styles.spaceSetup}>
+              <span className={styles.spaceName}>{FIGURE_LABELS[kind]}</span>
+              <div className={styles.spaceFields}>
+                <label className={styles.spaceField}>
+                  Huecos
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={MAX_FIGURE_WIDTH}
+                    value={holes}
+                    onChange={(event) =>
+                      onSetup(kind, {
+                        holes: Math.round(
+                          clampNumber(event.target.value, 1, MAX_FIGURE_WIDTH, holes),
+                        ),
+                      })
+                    }
+                  />
+                </label>
+                <label className={styles.spaceField}>
+                  Separación
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    max={MAX_SPACE_GAP}
+                    step={0.25}
+                    value={gap}
+                    onChange={(event) =>
+                      onSetup(kind, { gap: clampNumber(event.target.value, 0, MAX_SPACE_GAP, gap) })
+                    }
+                  />
+                  m
+                </label>
+              </div>
+              <div className={styles.segmented} role="group" aria-label="Disposición">
+                {ARRANGEMENTS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    aria-pressed={arrangement === option}
+                    onClick={() => onSetup(kind, { arrangement: option })}
+                  >
+                    {option === 'series' ? 'En serie' : 'En batería'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
