@@ -224,6 +224,17 @@
 }
 
 // Where a figure being placed or moved would land.
+// The preview, as one piece, so it can spin round its centre.
+.ghostLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none !important;
+  }
+}
+
 .ghostBlock {
   position: absolute;
   pointer-events: none;

@@ -908,9 +908,18 @@ export function useStageEditing({
         places: held.result.places,
         ok: held.result.ok,
         spaceId: held.result.fill?.spaceId,
+        turn: { key: held.id ?? 'new', rotation: held.shape.rotation },
       }
     : reshaped && selected
-      ? { kind: selected.figure.kind, places: reshaped.places, ok: reshaped.ok }
+      ? {
+          kind: selected.figure.kind,
+          places: reshaped.places,
+          ok: reshaped.ok,
+          turn: {
+            key: selected.figure.id,
+            rotation: reshaping?.rotation ?? selected.figure.rotation,
+          },
+        }
       : null;
 
   // Handles of the figure in edit mode: sides widen it, corners turn it.

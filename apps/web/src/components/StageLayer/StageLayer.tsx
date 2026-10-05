@@ -75,6 +75,8 @@ export interface FigureGhost {
   ok: boolean;
   /** A space being filled: its empty holes give way to the preview. */
   spaceId?: string;
+  /** Which figure it shows and at what turn, so a new turn is animated in the preview. */
+  turn?: { key: string; rotation: number };
 }
 
 const initials = (name: string) =>
@@ -686,6 +688,14 @@ export function StageLayer({
 
   // A figure turned where it stands is drawn turning: its block, places and people start at the
   // old angle around its centre and spin to the new one.
+  // The preview of a figure being turned spins as it turns; that turn is not spun again when
+  // the figure lands.
+  const [ghostTurn, setGhostTurn] = useState<{
+    key: string;
+    rotation: number;
+    degrees: number;
+    running: boolean;
+  } | null>(null);
   const [known, setKnown] = useState<Record<string, { rotation: number; x: number; y: number }>>(
     {},
   );
@@ -701,7 +711,15 @@ export function StageLayer({
     const started: Record<string, { degrees: number; running: boolean }> = {};
     for (const [id, now] of Object.entries(current)) {
       const last = known[id];
-      if (last && last.rotation !== now.rotation && last.x === now.x && last.y === now.y) {
+      // Already turned in the preview: it just lands.
+      const shown = ghostTurn?.key === id && ghostTurn.rotation === now.rotation;
+      if (
+        last &&
+        !shown &&
+        last.rotation !== now.rotation &&
+        last.x === now.x &&
+        last.y === now.y
+      ) {
         // Turn back to where it was, the short way round, then spin to the new angle.
         const degrees = ((((now.rotation - last.rotation) % 360) + 540) % 360) - 180;
         started[id] = { degrees, running: false };
@@ -710,6 +728,41 @@ export function StageLayer({
     setKnown(current);
     if (Object.keys(started).length) setSpins(started);
   }
+
+  if (ghost?.turn) {
+    const { key, rotation } = ghost.turn;
+    if (!ghostTurn || ghostTurn.key !== key) {
+      setGhostTurn({ key, rotation, degrees: 0, running: true });
+    } else if (ghostTurn.rotation !== rotation) {
+      const degrees = ((((rotation - ghostTurn.rotation) % 360) + 540) % 360) - 180;
+      setGhostTurn({ key, rotation, degrees, running: false });
+    }
+  } else if (ghostTurn) setGhostTurn(null);
+  const ghostCentre = ghost?.places.length
+    ? toScreen({
+        x: ghost.places.reduce((sum, place) => sum + place.x, 0) / ghost.places.length,
+        y: ghost.places.reduce((sum, place) => sum + place.y, 0) / ghost.places.length,
+      })
+    : null;
+  const ghostTurnStyle: CSSProperties | undefined =
+    ghostTurn && ghostCentre
+      ? {
+          transformOrigin: `${ghostCentre.x}px ${ghostCentre.y}px`,
+          transform: `rotate(${ghostTurn.running ? 0 : ghostTurn.degrees}deg)`,
+          transition: ghostTurn.running ? `transform ${TURN_MS}ms ease` : 'none',
+        }
+      : undefined;
+  const ghostWaiting = ghostTurn ? !ghostTurn.running : false;
+  useEffect(() => {
+    if (!ghostWaiting) return;
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() =>
+        setGhostTurn((turn) => (turn ? { ...turn, degrees: 0, running: true } : turn)),
+      );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [ghostWaiting]);
+
   const waiting = Object.values(spins).some((spin) => !spin.running);
   useEffect(() => {
     if (!waiting) return;
@@ -862,7 +915,8 @@ export function StageLayer({
         )),
       )}
       {ghost && (
-        <>
+        // Turned in the preview: it spins there, so the figure just lands when let go.
+        <div className={styles.ghostLayer} style={ghostTurnStyle}>
           {/* Filling a space, only where its new people would stand. */}
           {!ghost.spaceId && (
             <span
@@ -879,7 +933,7 @@ export function StageLayer({
               style={at(place, token)}
             />
           ))}
-        </>
+        </div>
       )}
       {target && <span className={styles.target} style={at(target, token)} />}
       {placed.map((item) =>
