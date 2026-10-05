@@ -302,3 +302,17 @@ export function gapForReach(
 /** How far the sides of a space are from its centre, in squares. */
 export const reachOfSpace = (space: Pick<StageFigure, 'kind'>, layout: SpaceLayout) =>
   space.kind === 'ring' ? layout.radius + layout.thickness / 2 : layout.length / 2;
+
+/** The hole nearest a point: where a figure moved inside a space would go. */
+export function nearestHole(layout: SpaceLayout, point: StagePoint) {
+  let found = 0;
+  let nearest = Infinity;
+  for (const place of layout.holes) {
+    const distance = Math.hypot(place.x - point.x, place.y - point.y);
+    if (distance < nearest) {
+      found = place.hole;
+      nearest = distance;
+    }
+  }
+  return found;
+}

@@ -36,6 +36,8 @@ import {
   emptySlots,
   putFigure,
   removeFigure,
+  reorderInSpace,
+  takeOutOfSpace,
   type StageContent,
 } from '../../stage/pieceFigures';
 import {
@@ -52,6 +54,7 @@ import {
   EMPTY_HOLE,
   gapForReach,
   holeAt,
+  nearestHole,
   reachOfSpace,
   layoutSpace,
   placeChildren,
@@ -84,7 +87,11 @@ interface Fill {
   spaceId: string;
   holes: number[];
 }
-type MoveResult = FigureDrop<Shape> & { fill?: Fill };
+/** A figure of a space moved inside it (to another hole) or out of it (on its own). */
+interface Shift {
+  to: number | null;
+}
+type MoveResult = FigureDrop<Shape> & { fill?: Fill; shift?: Shift };
 
 interface StageEditingOptions {
   /** The open piece: what it has on its stage and its type (for default roles). */
@@ -171,6 +178,19 @@ export function useStageEditing({
   const toStage = (pointer: StagePoint) =>
     stage && view ? stageProjection(view, stage).toStage(pointer.x, pointer.y) : null;
 
+  const placedOf = (shown: StageContent | null): PlacedPerson[] =>
+    (shown?.participants ?? []).flatMap((participant) => {
+      const person = people.get(participant.personId);
+      return person && participant.x != null && participant.y != null
+        ? [
+            {
+              person,
+              point: { x: participant.x, y: participant.y },
+              figureId: participant.figureId ?? null,
+            },
+          ]
+        : [];
+    });
   const placed: PlacedPerson[] = participants.flatMap((participant) => {
     const person = people.get(participant.personId);
     return person && participant.x != null && participant.y != null
@@ -183,17 +203,25 @@ export function useStageEditing({
         ]
       : [];
   });
-  const figureViews: FigureView[] =
-    stage && content
-      ? figures.map((figure) => ({
+  const viewsOf = (shown: StageContent | null): FigureView[] =>
+    stage && shown
+      ? shown.figures.map((figure) => ({
           figure,
           places: slotPositions(figure, stage),
-          empty: emptySlots(content, figure),
+          empty: emptySlots(shown, figure),
           layout: isSpace(figure.kind)
-            ? layoutSpace(figure, childrenOf(figures, figure.id), stage)
+            ? layoutSpace(figure, childrenOf(shown.figures, figure.id), stage)
             : undefined,
         }))
       : [];
+  const figureViews = viewsOf(content);
+  // While a figure of a space is moved inside it, the others already make room for it.
+  const heldShift = (figureMove ?? carried)?.result?.shift;
+  const heldId = (figureMove ?? carried)?.id;
+  const shown =
+    content && stage && heldShift?.to != null && heldId
+      ? reorderInSpace(content, heldId, heldShift.to, stage)
+      : content;
   const selected = figureViews.find((item) => item.figure.id === selectedId) ?? null;
 
   const warn = (reason: 'off' | 'close' | 'full', what: 'person' | 'figure') => {
@@ -366,6 +394,25 @@ export function useStageEditing({
     if (!point || !stage) return null;
     const centre = { x: point.x - move.grab.x, y: point.y - move.grab.y };
     if (isSpace(move.shape.kind)) return spaceResult(move.shape, move.id, centre);
+    const inSpace = move.id ? figures.find((figure) => figure.id === move.id)?.spaceId : null;
+    const home = inSpace ? figureViews.find((item) => item.figure.id === inSpace) : null;
+    if (home?.layout) {
+      // Inside its space: to the hole nearest the pointer, the others making room.
+      if (contains(spaceOutline(home.figure, home.layout, stage), centre)) {
+        const to = nearestHole(home.layout, centre);
+        const moved = reorderInSpace(content!, move.id!, to, stage).figures.find(
+          (figure) => figure.id === move.id,
+        )!;
+        return { ok: true, figure: moved, places: slotPositions(moved, stage), shift: { to } };
+      }
+      // Out of it: on its own, square to the grid.
+      const loose = { ...move.shape, spaceId: null, hole: null, angle: null };
+      const rough = slotPositions({ ...loose, ...centre }, stage);
+      return {
+        ...checkFigureDrop(loose, centre, stage, othersFor(move.id, rough), blocksBut(move.id)),
+        shift: { to: null },
+      };
+    }
     const fill = fillAt(centre, move.id);
     if (fill) return fillResult(move.shape, move.id, fill);
     // Someone in a solo dropped on an empty place of another figure takes it.
@@ -390,6 +437,13 @@ export function useStageEditing({
   const landFigure = (move: FigureMove, result: MoveResult | null) => {
     if (!content || !stage || !result) return;
     if (!result.ok) return warn(result.reason, 'figure');
+    if (result.shift && move.id) {
+      return onChange(
+        result.shift.to != null
+          ? reorderInSpace(content, move.id, result.shift.to, stage)
+          : takeOutOfSpace(content, { ...result.figure, id: move.id } as StageFigure, stage),
+      );
+    }
     if (result.fill) {
       // Into the holes of a space: the figure (or copies of a new one) and the space, laid out again.
       const { spaceId, holes } = result.fill;
@@ -643,6 +697,14 @@ export function useStageEditing({
     if (id.startsWith('palette:')) {
       const shape = newShape(id.slice('palette:'.length) as FigureKind);
       if (shape) setFigureMove({ shape, id: null, grab: { x: 0, y: 0 }, result: null });
+      return;
+    }
+    if (id.startsWith('child:')) {
+      // Held by its handle, so it is carried by its centre, right under the pointer.
+      const figure = figures.find((item) => item.id === id.slice('child:'.length));
+      if (!figure) return;
+      setSelectedId(null);
+      setFigureMove({ shape: figure, id: figure.id, grab: { x: 0, y: 0 }, result: null });
       return;
     }
     if (id.startsWith('figure:')) {
@@ -910,10 +972,11 @@ export function useStageEditing({
     togglePerson,
     personDrag,
     layer: {
-      placed,
+      placed: placedOf(shown),
       drag: figureMove ? null : personDrag,
       dragged: personDrag && !figureMove ? (people.get(personDrag.personId) ?? null) : null,
-      figures: figureViews,
+      figures: viewsOf(shown),
+      shifting: heldShift?.to != null,
       selectedFigureId: selectedId,
       onSelectFigure: (figureId: string | null) => {
         // A figure in a space edits its space.
@@ -923,6 +986,13 @@ export function useStageEditing({
       },
       editHandles,
       onAddHole: addHole,
+      // Clicking the move handle carries the figure until the next click.
+      onCarryChild: (figureId: string) => {
+        const figure = figures.find((item) => item.id === figureId);
+        if (!figure) return;
+        setSelectedId(null);
+        setCarried({ shape: figure, id: figure.id, grab: { x: 0, y: 0 }, result: null });
+      },
       onRemoveHole: removeHole,
       trash:
         figureMove?.id || personDrag

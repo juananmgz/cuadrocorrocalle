@@ -8,6 +8,22 @@
   pointer-events: none;
 }
 
+// While a figure of a space is moved inside it, the others glide to make room.
+.root[data-shifting] {
+  .block,
+  .token,
+  .placeholder,
+  .hole {
+    transition:
+      left 200ms ease,
+      top 200ms ease;
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+}
+
 .token,
 .ghost {
   position: absolute;
@@ -133,7 +149,8 @@
 // + to add a hole to the space being edited: past the ends of a row, between holes of a ring;
 // − beside each hole to take it out.
 .addHole,
-.removeHole {
+.removeHole,
+.moveHole {
   position: absolute;
   z-index: 2;
   display: grid;
@@ -158,6 +175,11 @@
 .removeHole {
   color: var(--on-danger);
   background: var(--danger);
+}
+
+.moveHole {
+  cursor: grab;
+  touch-action: none;
 }
 
 // An empty hole of a space, waiting for a figure.

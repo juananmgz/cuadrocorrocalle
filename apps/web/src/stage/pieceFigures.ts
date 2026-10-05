@@ -1,6 +1,7 @@
 import { FIGURE_SLOTS, type Participant, type StageFigure } from '@cuadrocorrocalle/shared';
 
-import { slotAt } from './figures';
+import { slotAt, slotPositions } from './figures';
+import { childrenOf, placeChildren, snapSpace } from './spaces';
 import type { StagePoint, StageSize } from './placement';
 
 /** What a piece keeps on its stage: who takes part (with their places) and its figures. */
@@ -109,3 +110,72 @@ export function emptySlots(content: StageContent, figure: StageFigure) {
 /** How many places are still empty across the piece's figures. */
 export const missingPlaces = (content: StageContent) =>
   content.figures.reduce((total, figure) => total + emptySlots(content, figure).length, 0);
+
+/** Lays a space out again: it keeps to the grid and the figures in it (with their people) follow. */
+export function relayoutSpace(content: StageContent, spaceId: string, stage: StageSize) {
+  const space = content.figures.find((figure) => figure.id === spaceId);
+  if (!space) return content;
+  const snapped = snapSpace(space, childrenOf(content.figures, spaceId), stage);
+  let next: StageContent = {
+    ...content,
+    figures: content.figures.map((figure) => (figure.id === spaceId ? snapped : figure)),
+  };
+  for (const child of placeChildren(snapped, next.figures, stage))
+    next = putFigure(next, child, slotPositions(child, stage));
+  return next;
+}
+
+/** Moves a figure in a space to hole `to`; the ones between shift along to make room. */
+export function reorderInSpace(
+  content: StageContent,
+  figureId: string,
+  to: number,
+  stage: StageSize,
+): StageContent {
+  const moving = content.figures.find((figure) => figure.id === figureId);
+  const space = moving?.spaceId && content.figures.find((figure) => figure.id === moving.spaceId);
+  if (!moving || !space || moving.hole == null) return content;
+  const children = childrenOf(content.figures, space.id);
+  // Who is in each hole, in order, with the moving one taken out and put back at `to`.
+  const order = Array.from({ length: space.width }, (_, hole) => children.get(hole)?.id ?? null);
+  order.splice(moving.hole, 1);
+  order.splice(Math.max(0, Math.min(to, order.length)), 0, figureId);
+  const holeOf = new Map(order.flatMap((id, hole) => (id ? [[id, hole] as const] : [])));
+  return relayoutSpace(
+    {
+      ...content,
+      figures: content.figures.map((figure) =>
+        figure.spaceId === space.id && holeOf.has(figure.id)
+          ? { ...figure, hole: holeOf.get(figure.id)! }
+          : figure,
+      ),
+    },
+    space.id,
+    stage,
+  );
+}
+
+/**
+ * Takes a figure out of its space to stand on its own at `at`: its hole goes, the rest close
+ * up, and a space left with no holes goes too.
+ */
+export function takeOutOfSpace(
+  content: StageContent,
+  figure: StageFigure,
+  stage: StageSize,
+): StageContent {
+  const before = content.figures.find((item) => item.id === figure.id);
+  const space = before?.spaceId && content.figures.find((item) => item.id === before.spaceId);
+  if (!before || !space || before.hole == null) return content;
+  const hole = before.hole;
+  const loose = { ...figure, spaceId: null, hole: null, angle: null };
+  const figures = content.figures.flatMap((item) => {
+    if (item.id === figure.id) return [loose];
+    if (item.id === space.id) return space.width > 1 ? [{ ...item, width: item.width - 1 }] : [];
+    if (item.spaceId === space.id && item.hole != null && item.hole > hole)
+      return [{ ...item, hole: item.hole - 1 }];
+    return [item];
+  });
+  const placed = putFigure({ ...content, figures }, loose, slotPositions(loose, stage));
+  return space.width > 1 ? relayoutSpace(placed, space.id, stage) : placed;
+}

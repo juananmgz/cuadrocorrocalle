@@ -1,5 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
-import { Minus, Plus, Trash2 } from 'lucide-react';
+import { Minus, Move, Plus, Trash2 } from 'lucide-react';
 import {
   FIGURE_LABELS,
   type FigureKind,
@@ -137,6 +137,34 @@ function StaticToken({ placed, style, misplaced }: Omit<TokenProps, 'hidden'>) {
   );
 }
 
+interface MoveHandleProps {
+  figureId: string;
+  label: string;
+  style: CSSProperties;
+  onCarry: () => void;
+}
+
+/** Moves one figure of a space: a click carries it until the next click, or it is dragged. */
+function MoveHandle({ figureId, label, style, onCarry }: MoveHandleProps) {
+  const { attributes, listeners, setNodeRef } = useDraggable({ id: `child:${figureId}` });
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      className={styles.moveHole}
+      data-figure-handle=""
+      style={style}
+      {...attributes}
+      aria-label={`Mover la ${label} dentro del espacio o sacarla`}
+      title="Mover: dentro del espacio la cambia de sitio; fuera, la saca"
+      {...listeners}
+      onClick={onCarry}
+    >
+      <Move aria-hidden="true" />
+    </button>
+  );
+}
+
 interface BlockProps {
   view: FigureView;
   style: CSSProperties;
@@ -226,6 +254,9 @@ interface FigureHandlesProps {
 
 // How long the handles stay after the pointer leaves the figure, in ms.
 const HANDLES_LINGER = 250;
+
+// How far the move handle of a figure sits beyond its −, in px.
+const MOVE_BESIDE = 26;
 
 // How far the + of a row sits past its ends, in px: beyond its stretching bars.
 const ADD_OUTSIDE = 38;
@@ -479,6 +510,10 @@ interface StageLayerProps {
   onAddHole?: ((spaceId: string, at: number) => void) | null;
   /** The space being edited: a − beside each hole to take it out, with its figure. */
   onRemoveHole?: ((spaceId: string, hole: number) => void) | null;
+  /** The space being edited: a move handle beside each figure to carry it (a click) or drag it. */
+  onCarryChild?: ((figureId: string) => void) | null;
+  /** A figure of a space is being moved inside it: the rest glide to their new places. */
+  shifting?: boolean;
   /** While something is dragged: the strip at the bottom where dropping removes it. */
   trash?: { hot: boolean; near: number; top: number } | null;
   /** Figure being moved, faded in its old place. */
@@ -507,6 +542,8 @@ export function StageLayer({
   editHandles = null,
   onAddHole = null,
   onRemoveHole = null,
+  onCarryChild = null,
+  shifting = false,
   trash = null,
   movingFigureId = null,
   ghost = null,
@@ -739,7 +776,7 @@ export function StageLayer({
   }, [selectedFigureId, onSelectFigure]);
 
   return createPortal(
-    <div className={styles.root}>
+    <div className={styles.root} data-shifting={shifting ? '' : undefined}>
       {capture && (
         // Only right of the column, so the panels stay usable while placing.
         <div
@@ -909,6 +946,30 @@ export function StageLayer({
               <Minus aria-hidden="true" />
             </button>
           );
+        })}
+      {selected?.layout &&
+        onCarryChild &&
+        !readOnly &&
+        selected.figure.id !== movingFigureId &&
+        removeSpots(selected.figure, selected.layout, stage).flatMap((spot) => {
+          const child = figures.find(
+            ({ figure }) => figure.spaceId === selected.figure.id && figure.hole === spot.hole,
+          );
+          if (!child) return [];
+          const { x, y } = toScreen(spot);
+          // Beside the −: across the line from the hole to it.
+          const hole = toScreen(selected.layout!.holes[spot.hole]!);
+          const length = Math.hypot(x - hole.x, y - hole.y) || 1;
+          const side = { x: -(y - hole.y) / length, y: (x - hole.x) / length };
+          return [
+            <MoveHandle
+              key={`move-${child.figure.id}`}
+              figureId={child.figure.id}
+              label={FIGURE_LABELS[child.figure.kind].toLowerCase()}
+              style={{ left: x - side.x * MOVE_BESIDE, top: y - side.y * MOVE_BESIDE }}
+              onCarry={() => onCarryChild(child.figure.id)}
+            />,
+          ];
         })}
       {selected && editBox && editHandles && (
         <FigureHandles
