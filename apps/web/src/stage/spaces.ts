@@ -285,7 +285,7 @@ export function contains(outline: Outline, point: StagePoint) {
 
 /**
  * Where a new hole can go, with the hole number it would take: past both ends of a row, or
- * between every two holes of a ring (in metres).
+ * the centre of a ring, adding it after the last (in metres).
  */
 export function addSpots(
   space: Space,
@@ -295,20 +295,7 @@ export function addSpots(
   outside = 0.6,
 ) {
   const square = stage.squareSize;
-  if (space.kind === 'ring') {
-    return layout.holes.map((place, index) => {
-      const next = layout.holes[(index + 1) % layout.holes.length]!;
-      let to = next.theta ?? 0;
-      const from = place.theta ?? 0;
-      if (to <= from) to += 2 * Math.PI;
-      const theta = (from + to) / 2;
-      return {
-        at: index + 1,
-        x: space.x + Math.cos(theta) * layout.radius * square,
-        y: space.y + Math.sin(theta) * layout.radiusY * square,
-      };
-    });
-  }
+  if (space.kind === 'ring') return [{ at: space.width, x: space.x, y: space.y }];
   const axis = turn({ x: 1, y: 0 }, space.rotation);
   const reach = (layout.length / 2 + outside) * square;
   return [

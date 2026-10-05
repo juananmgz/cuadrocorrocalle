@@ -203,7 +203,7 @@
 // An empty hole of a space, waiting for a figure.
 .hole {
   position: absolute;
-  pointer-events: none;
+  pointer-events: auto;
   border: 2px dashed var(--ink-soft);
 
   &[data-hidden] {

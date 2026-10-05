@@ -351,16 +351,9 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
   ];
   // Each corner: a curved stroke around it, as if the block grew a bent arm there.
   const reach = HANDLE_GAP + HANDLE_STROKE;
+  // Only one corner turns it, the top right one, to keep the handles few.
   const corners = [
-    { key: 'tl', left: -reach, top: -reach, pivot: [0, 0] },
     { key: 'tr', left: width + reach - CORNER_SIZE, top: -reach, pivot: [width, 0] },
-    { key: 'bl', left: -reach, top: height + reach - CORNER_SIZE, pivot: [0, height] },
-    {
-      key: 'br',
-      left: width + reach - CORNER_SIZE,
-      top: height + reach - CORNER_SIZE,
-      pivot: [width, height],
-    },
   ];
 
   // Follows one pointer from press to release, whatever it passes over.
@@ -794,6 +787,39 @@ export function StageLayer({
       transition: spin.running ? `transform ${TURN_MS}ms ease` : 'none',
     };
   };
+  // The hole of a space under the pointer (its figure, people, empty outline or chip), whose
+  // chip shows; it lingers a moment so the pointer can reach it.
+  const [hoveredHole, setHoveredHole] = useState<string | null>(null);
+  useEffect(() => {
+    if (readOnly) return;
+    let timer: number | undefined;
+    const keyOf = (target: Element | null) => {
+      const tools = target?.closest<HTMLElement>('[data-hole-tools]')?.dataset.holeTools;
+      if (tools) return tools;
+      const hole = target?.closest<HTMLElement>('[data-hole]')?.dataset.hole;
+      if (hole) return hole;
+      const id =
+        target?.closest<HTMLElement>('[data-figure-block]')?.dataset.figureBlock ??
+        target?.closest<HTMLElement>('[data-figure-member]')?.dataset.figureMember;
+      const figure = id ? figures.find((item) => item.figure.id === id)?.figure : undefined;
+      return figure?.spaceId != null && figure.hole != null
+        ? `${figure.spaceId}:${figure.hole}`
+        : null;
+    };
+    const hover = (event: PointerEvent) => {
+      if ('grabbing' in document.documentElement.dataset) return;
+      const key = keyOf(event.target instanceof Element ? event.target : null);
+      window.clearTimeout(timer);
+      if (key) setHoveredHole(key);
+      else timer = window.setTimeout(() => setHoveredHole(null), HANDLES_LINGER);
+    };
+    window.addEventListener('pointermove', hover);
+    return () => {
+      window.removeEventListener('pointermove', hover);
+      window.clearTimeout(timer);
+    };
+  }, [readOnly, figures]);
+
   // Hovering a figure (its block, people or handles) shows its handles; they go a moment after
   // the pointer leaves, so it can cross the gap to them. Nothing changes while something is held.
   useEffect(() => {
@@ -876,6 +902,8 @@ export function StageLayer({
                 <span
                   key={place.hole}
                   className={styles.hole}
+                  data-hole={`${item.figure.id}:${place.hole}`}
+                  data-figure-member={item.figure.id}
                   data-hidden={item.figure.id === movingFigureId ? '' : undefined}
                   style={holeStyle(item.figure, place)}
                 />
@@ -999,7 +1027,8 @@ export function StageLayer({
             ({ figure }) => figure.spaceId === selected.figure.id && figure.hole === spot.hole,
           );
           const canRemove = onRemoveHole && selected.figure.width > 1;
-          if (!canRemove && !(child && onCarryChild)) return null;
+          const key = `${selected.figure.id}:${spot.hole}`;
+          if (hoveredHole !== key || (!canRemove && !(child && onCarryChild))) return null;
           const { x, y } = toScreen(spot);
           // One chip per hole, centred on it: move its figure and take the hole out.
           return (
@@ -1007,6 +1036,7 @@ export function StageLayer({
               key={`tools-${spot.hole}`}
               className={styles.holeTools}
               data-figure-handle=""
+              data-hole-tools={key}
               style={{ left: x, top: y }}
             >
               {child && onCarryChild && (
