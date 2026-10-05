@@ -33,6 +33,18 @@ const PeopleIcon = () => (
   </svg>
 );
 
+const FiguresIcon = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+    <path
+      d="M3 3h8v8H3zM13 13h8v8h-8zM13 3h8v8h-8zM3 13h8v8H3z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const BoxIcon = () => (
   <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
     <path
@@ -139,7 +151,7 @@ function TrayDropZone({ children }: { children: ReactNode }) {
   );
 }
 
-/** Toolbar next to the repertoire: people now; props, equipment… can join as more blocks. */
+/** Toolbar next to the repertoire: figures, people, and props or equipment later. */
 export function PeopleTray({
   people,
   pieceTitle,
@@ -148,12 +160,21 @@ export function PeopleTray({
   onToggle,
   draggable = false,
 }: PeopleTrayProps) {
-  const [open, setOpen] = useState({ people: true, objects: false });
+  const [open, setOpen] = useState({ figures: true, people: true, objects: false });
   const toggle = (key: keyof typeof open) =>
     setOpen((current) => ({ ...current, [key]: !current[key] }));
 
   return (
     <TrayDropZone>
+      <Section
+        id="figures"
+        icon={<FiguresIcon />}
+        title="Figuras"
+        open={open.figures}
+        onToggle={() => toggle('figures')}
+      >
+        <p className={styles.hint}>Llegarán en el paso 2.2: solo, pareja, tríos y cuadrado.</p>
+      </Section>
       <Section
         id="people"
         icon={<PeopleIcon />}

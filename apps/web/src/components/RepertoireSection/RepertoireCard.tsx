@@ -25,7 +25,6 @@ import { useStageView } from '../GridBackground/stageView';
 import { type PlacedPerson, type StageDrag, StageLayer } from '../StageLayer/StageLayer';
 import { stageProjection } from '../../stage/projection';
 import { PeopleTray, type TrayPerson } from '../PeopleTray/PeopleTray';
-import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
 import { useToast } from '../ui/Toast/toastContext';
 import { RepertoireSection } from './RepertoireSection';
@@ -38,15 +37,12 @@ interface RepertoireCardProps {
   performanceId: string;
   /** Reports the open piece's title, e.g. for a sign over the stage. */
   onOpenPiece?: (title: string | null) => void;
-  /** Shows "Terminar", which saves any pending change first. */
-  onFinish?: () => void;
   /** Both panels take the full height available, each scrolling on its own. */
   fill?: boolean;
-  /** Time available for the performance, for the summary. */
-  minMinutes?: number | null;
-  maxMinutes?: number | null;
   /** Stage of the performance; with it, people of the open piece are placed on it (step 2.1). */
   stage?: StageSize | null;
+  /** Opens this piece when it changes, e.g. chosen from the summary. */
+  openPieceId?: string | null;
   /** Whether the stage layer is shown, e.g. only while the pieces are on screen. */
   stageActive?: boolean;
 }
@@ -65,12 +61,10 @@ function startPoint(event: Event) {
 export function RepertoireCard({
   performanceId,
   onOpenPiece,
-  onFinish,
   fill = false,
-  minMinutes = null,
-  maxMinutes = null,
   stage = null,
   stageActive = false,
+  openPieceId = null,
 }: RepertoireCardProps) {
   const toast = useToast();
   const { activeGroup } = useApp();
@@ -84,14 +78,21 @@ export function RepertoireCard({
   const [pending, setPending] = useState(false);
   const pieces = useMemo(() => drafts ?? saved?.map(toDraft) ?? [], [drafts, saved]);
   const invalid = pieces.some((piece) => draftError(piece));
-  const finishing = useRef(false);
-  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [openKey, setOpenKey] = useState<string | null>(openPieceId);
   const openPiece = pieces.find((piece) => piece.key === openKey) ?? null;
   const openTitle = openPiece ? openPiece.title.trim() || 'Sin título' : null;
 
+  // Reported again when the pieces come back on screen, e.g. from the summary.
   useEffect(() => {
     onOpenPiece?.(openTitle);
-  }, [openTitle, onOpenPiece]);
+  }, [openTitle, onOpenPiece, stageActive]);
+
+  // A saved piece keeps its id as key, so it can be opened from outside.
+  const [requested, setRequested] = useState(openPieceId);
+  if (openPieceId !== requested) {
+    setRequested(openPieceId);
+    if (openPieceId) setOpenKey(openPieceId);
+  }
 
   // People are placed on the stage from tablets and PCs, where the stage is beside the editor.
   const wide = useMediaQuery(FROM_TABLET);
@@ -236,7 +237,6 @@ export function RepertoireCard({
       },
       onError: (error) => {
         setPending(true);
-        finishing.current = false;
         toast.show({ title: error.message, tone: 'warning' });
       },
     });
@@ -251,6 +251,19 @@ export function RepertoireCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drafts, pending, invalid, save.isPending]);
 
+  // Leaving the editor (e.g. back home) saves what is still pending.
+  const latest = useRef({ pending, invalid, pieces, mutate: save.mutate });
+  useEffect(() => {
+    latest.current = { pending, invalid, pieces, mutate: save.mutate };
+  });
+  useEffect(
+    () => () => {
+      const { pending: left, invalid: broken, pieces: last, mutate } = latest.current;
+      if (left && !broken) mutate(last.map(toPieceInput));
+    },
+    [],
+  );
+
   const change = (next: PieceDraft[]) => {
     setDrafts(next);
     setPending(true);
@@ -262,9 +275,7 @@ export function RepertoireCard({
       ? 'Guardando…'
       : pending
         ? 'Cambios sin guardar'
-        : drafts
-          ? 'Cambios guardados'
-          : null;
+        : null;
 
   return (
     <DndContext
@@ -285,37 +296,17 @@ export function RepertoireCard({
               <RepertoireSection
                 pieces={pieces}
                 onChange={change}
-                onSave={() => !invalid && saveNow()}
                 limit={activeGroup?.isTrial ? TRIAL_PIECE_LIMIT : undefined}
                 people={people}
                 openKey={openKey}
                 onOpenKeyChange={setOpenKey}
-                minMinutes={minMinutes}
-                maxMinutes={maxMinutes}
               />
             )}
-            {(status || onFinish) && (
+            {status && (
               <div className={styles.add}>
-                {status && (
-                  <span className={styles.saveStatus} aria-live="polite">
-                    {status}
-                  </span>
-                )}
-                {onFinish && (
-                  <Button
-                    variant="primary"
-                    className={styles.finish}
-                    onClick={() => {
-                      if (finishing.current) return;
-                      finishing.current = true;
-                      if (pending || save.isPending) saveNow(onFinish);
-                      else onFinish();
-                    }}
-                    disabled={invalid}
-                  >
-                    Terminar
-                  </Button>
-                )}
+                <span className={styles.saveStatus} aria-live="polite">
+                  {status}
+                </span>
               </div>
             )}
           </Card>

@@ -17,6 +17,7 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | PR                                                                | Commit                                                                    | Cambio                                                   |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------- |
 | [CCC-0036](https://github.com/juananmgz/cuadrocorrocalle/pull/36) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/36/commits) | ✨ Place people on the stage by dragging them (paso 2.1) |
+| [CCC-0037](https://github.com/juananmgz/cuadrocorrocalle/pull/37) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/37/commits) | 💄 Open performances on a summary and save edits live    |
 
 ## v0.2.1 (en curso)
 

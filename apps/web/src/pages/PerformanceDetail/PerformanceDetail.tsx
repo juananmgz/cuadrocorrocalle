@@ -48,7 +48,7 @@ export function PerformanceDetail() {
           performance={performance}
           initialView={params.get('vista') === 'piezas' ? 'pieces' : 'settings'}
           onCancel={() => navigate('/inicio')}
-          onFinish={() => navigate('/inicio')}
+          onHome={() => navigate('/inicio')}
           onStageChange={setPreviewStage}
           onPieceLabel={setPieceLabel}
         />

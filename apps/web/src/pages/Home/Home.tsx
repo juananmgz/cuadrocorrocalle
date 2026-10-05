@@ -128,7 +128,7 @@ export function Home() {
           groupId={activeGroup.id}
           initialTitle={createTitle}
           onCancel={stopCreating}
-          onFinish={stopCreating}
+          onHome={stopCreating}
           onStageChange={setPreviewStage}
           onPieceLabel={setPieceLabel}
         />

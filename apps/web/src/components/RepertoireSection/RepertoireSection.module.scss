@@ -33,10 +33,11 @@
   border: var(--border-width) solid var(--ctl);
   border-radius: var(--radius);
 
+  // Its place in the list while the copy under the pointer is dragged.
   &[data-dragging] {
-    z-index: 1;
+    border-style: dashed;
     border-color: var(--accent);
-    box-shadow: 4px 4px 0 var(--ink);
+    opacity: 0.4;
   }
 
   &[data-invalid] {
@@ -101,6 +102,44 @@
 .name {
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+// Open piece: its title is an inline field that reads as text until hovered or focused.
+.nameInput {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  margin-left: calc(-1 * var(--space-2));
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius);
+
+  &::placeholder {
+    color: var(--warn);
+  }
+
+  &:hover {
+    border-color: var(--ctl);
+  }
+
+  &:focus-visible {
+    background: var(--surface);
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  &[aria-invalid='true'] {
+    border-color: var(--warn);
+  }
+}
+
+.titleError {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--danger);
 }
 
 .meta {
@@ -180,24 +219,28 @@
   align-items: center;
 }
 
-.limit {
-  color: var(--ink-soft);
+// "+ Añadir pieza" / "+ Añadir bis": a secondary action across the whole list, with a dashed
+// accent border so it stands apart from the pieces without competing with "Guardar".
+.addButton {
+  flex: 1 1 100%;
+  color: var(--accent);
+  border-style: dashed;
+  border-color: var(--accent);
+
+  &:hover:not(:disabled) {
+    background: var(--sel-bg);
+  }
+}
+
+// Blocked at the piece limit: the warning takes the place of the label (over the button default).
+.add .addButton:disabled {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 .peopleCount {
   font-size: 0.8125rem;
   color: var(--ink-soft);
-}
-
-.participants {
-  display: grid;
-  gap: var(--space-2);
-}
-
-.participantsTitle {
-  @include mixins.label;
-
-  margin: 0;
 }
 
 .hint {
@@ -206,45 +249,9 @@
   color: var(--ink-soft);
 }
 
-.participantList {
-  display: grid;
-  gap: var(--space-2);
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.participant {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  align-items: center;
-}
-
-.removePerson {
-  width: 32px;
-  height: 32px;
-  margin-left: auto;
-  font: inherit;
-  color: var(--ink-soft);
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius);
-
-  &:hover {
-    color: var(--danger);
-    background: var(--sel-bg);
-  }
-}
-
 .saveStatus {
   font-size: 0.875rem;
   color: var(--ink-soft);
-}
-
-.finish {
-  margin-left: auto;
 }
 
 // Repertoire and people tray side by side (60 / 40) when the column is wide enough,
@@ -299,15 +306,59 @@
   border-radius: var(--radius);
 }
 
+// No room is kept for an empty encores list: the whole "Bis" block takes the drop.
+.list[aria-label='Bis'][data-empty] {
+  min-height: 0;
+}
+
+// Copy of the piece under the pointer while dragging.
+.dragPreview {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 52px;
+  padding-right: var(--space-3);
+  cursor: grabbing;
+  background: var(--surface);
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
 .encores {
   display: grid;
   padding-top: var(--space-2);
   border-top: var(--border-width) solid var(--line);
-  border-radius: var(--radius);
+}
 
-  &[data-over] {
-    outline: var(--border-width) dashed var(--accent);
-    outline-offset: 4px;
+// Drop zone of the encores: hidden, it grows in while a piece is dragged over the block.
+.dropZone {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 200ms ease;
+
+  &[data-open] {
+    grid-template-rows: 1fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.dropZoneInner {
+  overflow: hidden;
+
+  span {
+    display: grid;
+    place-items: center;
+    min-height: 72px;
+    margin: var(--space-2) 0;
+    font-size: 0.875rem;
+    color: var(--accent);
+    background: var(--sel-bg);
+    border: var(--border-width) dashed var(--accent);
+    border-radius: var(--radius);
   }
 }
 
@@ -377,57 +428,13 @@
   }
 }
 
-// Summary box: highlighted in blue when everything fits, yellow when there is any problem.
-.overview {
-  display: grid;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  background: var(--sel-bg);
-  border: var(--border-width) solid var(--accent);
-  border-left-width: 6px;
-  border-radius: var(--radius);
-
-  &:not([data-status='ok']) {
-    background: var(--warn-bg);
-    border-color: var(--warn);
-  }
-}
-
-.figures {
-  display: flex;
+// Next to the open title, the rest of the row only takes what it needs and wraps under it when
+// the column is narrow.
+.row:has(.nameInput) {
   flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: 0;
-
-  dt {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--ink-soft);
-    text-transform: uppercase;
-  }
-
-  dd {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
 }
 
-.summaryBlock {
-  display: grid;
-  gap: var(--space-1);
-}
-
-// Note under the box when the performance has no duration to compare with.
-.disclaimer {
-  margin: 0;
-  font-size: 0.875rem;
-  font-style: italic;
-  color: var(--warn);
-}
-
-.verdict {
-  margin: 0;
-  font-weight: 700;
+.nameInput + .summary {
+  flex: 0 1 auto;
+  margin-left: auto;
 }

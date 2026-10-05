@@ -12,14 +12,10 @@
     bottom: var(--space-4);
     left: var(--space-4);
     z-index: 2;
-    width: 380px;
-    overflow-y: auto;
-    transition: width 300ms ease;
 
-    // Creating takes a third of the screen, like 4 of 12 columns.
-    &[data-wide] {
-      width: max(380px, calc((100vw - 2 * var(--space-4)) / 3));
-    }
+    // A third of the screen, like 4 of 12 columns: the list, the summary and the editor alike.
+    width: max(380px, calc((100vw - 2 * var(--space-4)) / 3));
+    overflow-y: auto;
 
     // The editor scrolls inside its own views.
     &[data-editor] {

@@ -1,8 +1,12 @@
 import {
   closestCenter,
   DndContext,
+  defaultDropAnimationSideEffects,
   type DragEndEvent,
+  type DropAnimation,
+  DragOverlay,
   type DragOverEvent,
+  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -11,24 +15,23 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import {
+  type AnimateLayoutChanges,
   arrayMove,
+  defaultAnimateLayoutChanges,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { type Participant, PIECE_TYPE_LABELS, type PieceType } from '@cuadrocorrocalle/shared';
+import { PIECE_TYPE_LABELS, type PieceType } from '@cuadrocorrocalle/shared';
 import { type ReactNode, useMemo, useState } from 'react';
 
 import { formatClock } from '../../pieces/clock';
 import { draftError, emptyDraft, type PieceDraft } from '../../pieces/draft';
 import { summarize } from '../../pieces/summary';
-import { formatDuration } from '../../performances/format';
 import { cleanText } from '../../performances/sanitize';
 import type { TrayPerson } from '../PeopleTray/PeopleTray';
-import { RoleToggles } from '../PersonFields/PersonFields';
-import { PersonChip } from '../ui/PersonChip/PersonChip';
 import { Button } from '../ui/Button/Button';
 import { Select } from '../ui/Select/Select';
 import { TextField } from '../ui/TextField/TextField';
@@ -39,6 +42,18 @@ const TYPE_OPTIONS = Object.entries(PIECE_TYPE_LABELS).map(([value, label]) => (
   label,
 }));
 
+// Every move while sorting and after dropping is animated, at the same pace.
+const SLIDE = { duration: 200, easing: 'ease' };
+// The piece stays hidden in the list until the copy has landed on it.
+const DROP: DropAnimation = {
+  ...SLIDE,
+  sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0' } } }),
+};
+// While sorting, dnd-kit moves the pieces itself; animating every other layout change too made
+// them flicker, so besides that only the change right after a drop is animated.
+const animateAlways: AnimateLayoutChanges = (args) =>
+  defaultAnimateLayoutChanges({ ...args, wasDragging: true });
+
 const cleanClock = (value: string) => value.replace(/[^\d:.,]/g, '').slice(0, 5);
 
 interface RepertoireSectionProps {
@@ -46,16 +61,11 @@ interface RepertoireSectionProps {
   onChange: (pieces: PieceDraft[]) => void;
   /** Most pieces allowed, as in the "Grupo de Prueba". */
   limit?: number;
-  /** Called after "Guardar" closes a piece, e.g. to store the repertoire. */
-  onSave?: () => void;
-  /** Called-up people; when given, each piece lists who takes part in it. */
+  /** Called-up people; when given, each piece shows how many take part in it. */
   people?: TrayPerson[];
   /** Open piece, when someone else (e.g. the people tray) needs to know it. */
   openKey?: string | null;
   onOpenKeyChange?: (key: string | null) => void;
-  /** Time available for the performance, to compare the repertoire with. */
-  minMinutes?: number | null;
-  maxMinutes?: number | null;
 }
 
 interface PieceRowProps {
@@ -66,73 +76,11 @@ interface PieceRowProps {
   onToggle: () => void;
   onChange: (draft: PieceDraft) => void;
   onRemove: () => void;
-  onSave: () => void;
   people?: Map<string, TrayPerson>;
 }
 
-interface ParticipantsProps {
-  participants: Participant[];
-  people: Map<string, TrayPerson>;
-  onChange: (participants: Participant[]) => void;
-}
-
-/** Who takes part in a piece and what each one does. */
-function Participants({ participants, people, onChange }: ParticipantsProps) {
-  const set = (personId: string, changes: Partial<Participant>) =>
-    onChange(
-      participants.map((participant) =>
-        participant.personId === personId ? { ...participant, ...changes } : participant,
-      ),
-    );
-
-  return (
-    <div className={styles.participants}>
-      <p className={styles.participantsTitle}>Quién sale ({participants.length})</p>
-      {participants.length === 0 && (
-        <p className={styles.hint}>Elige a las personas en la bandeja de personas.</p>
-      )}
-      <ul className={styles.participantList}>
-        {participants.map((participant) => {
-          const person = people.get(participant.personId);
-          if (!person) return null;
-          return (
-            <li key={participant.personId} className={styles.participant}>
-              <PersonChip name={person.name} color={person.mainColor} />
-              <RoleToggles
-                compact
-                label={`Qué hace ${person.name}`}
-                value={participant.roles}
-                onChange={(roles) => set(participant.personId, { roles })}
-              />
-              <button
-                type="button"
-                className={styles.removePerson}
-                aria-label={`Sacar a ${person.name} de la pieza`}
-                onClick={() =>
-                  onChange(participants.filter((item) => item.personId !== participant.personId))
-                }
-              >
-                ✕
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
 /** One piece: a summary row that can be dragged, opening into its fields. */
-function PieceRow({
-  draft,
-  label,
-  open,
-  onToggle,
-  onChange,
-  onRemove,
-  onSave,
-  people,
-}: PieceRowProps) {
+function PieceRow({ draft, label, open, onToggle, onChange, onRemove, people }: PieceRowProps) {
   const {
     attributes,
     listeners,
@@ -141,7 +89,7 @@ function PieceRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: draft.key });
+  } = useSortable({ id: draft.key, transition: SLIDE, animateLayoutChanges: animateAlways });
   const error = draftError(draft);
   const set = (changes: Partial<PieceDraft>) => onChange({ ...draft, ...changes });
 
@@ -165,14 +113,30 @@ function PieceRow({
           ⠿
         </button>
         <span className={styles.number}>{label}</span>
+        {/* Open, the title itself is the field, like the name of a document. */}
+        {open && (
+          <input
+            className={styles.nameInput}
+            aria-label="Título de la pieza"
+            aria-invalid={!draft.title.trim()}
+            aria-describedby={draft.title.trim() ? undefined : `${draft.key}-title-error`}
+            required
+            maxLength={120}
+            placeholder="Ponle un título"
+            autoFocus={!draft.title}
+            value={draft.title}
+            onChange={(event) => set({ title: cleanText(event.target.value) })}
+          />
+        )}
         <button
           type="button"
           className={styles.summary}
           aria-expanded={open}
           aria-controls={`${draft.key}-fields`}
+          aria-label={open ? `Cerrar «${draft.title.trim() || 'Sin título'}»` : undefined}
           onClick={onToggle}
         >
-          <span className={styles.name}>{draft.title.trim() || 'Sin título'}</span>
+          {!open && <span className={styles.name}>{draft.title.trim() || 'Sin título'}</span>}
           <span className={styles.meta}>
             <span className={styles.type} data-type={draft.type}>
               {PIECE_TYPE_LABELS[draft.type]}
@@ -190,15 +154,11 @@ function PieceRow({
       </div>
       {open && (
         <div id={`${draft.key}-fields`} className={styles.fields}>
-          <TextField
-            label="Título"
-            requiredMark
-            maxLength={120}
-            autoFocus={!draft.title}
-            value={draft.title}
-            onChange={(event) => set({ title: cleanText(event.target.value) })}
-            error={draft.title.trim() ? undefined : 'Ponle un título'}
-          />
+          {!draft.title.trim() && (
+            <p id={`${draft.key}-title-error`} className={styles.titleError}>
+              Ponle un título
+            </p>
+          )}
           <div className={styles.pair}>
             <Select
               label="Tipo"
@@ -224,13 +184,6 @@ function PieceRow({
             value={draft.structure}
             onChange={(event) => set({ structure: cleanText(event.target.value) })}
           />
-          {people && (
-            <Participants
-              participants={draft.participants}
-              people={people}
-              onChange={(participants) => set({ participants })}
-            />
-          )}
           <div className={styles.footer}>
             <label className={styles.check}>
               <input
@@ -247,9 +200,6 @@ function PieceRow({
               </Button>
               <Button variant="danger" onClick={onRemove}>
                 Quitar
-              </Button>
-              <Button variant="primary" onClick={onSave} disabled={Boolean(error)}>
-                Guardar
               </Button>
             </div>
           </div>
@@ -273,7 +223,9 @@ interface PieceListProps {
 
 /** One of the two lists; it also takes drops while empty. */
 function PieceList({ id, pieces, highlighted, droppable = true, children }: PieceListProps) {
-  const { setNodeRef } = useDroppable({ id, disabled: !droppable });
+  // Only an empty list takes drops itself; otherwise its pieces do, or the pointer would flicker
+  // between the list and the piece under it and the pieces would jump back and forth.
+  const { setNodeRef } = useDroppable({ id, disabled: !droppable || pieces.length > 0 });
   return (
     <SortableContext
       items={pieces.map((piece) => piece.key)}
@@ -300,16 +252,16 @@ export function RepertoireSection({
   pieces,
   onChange,
   limit,
-  onSave,
   people,
   openKey: controlledKey,
   onOpenKeyChange,
-  minMinutes = null,
-  maxMinutes = null,
 }: RepertoireSectionProps) {
   const [ownKey, setOwnKey] = useState<string | null>(null);
   // List a piece is being dragged into, to highlight it.
   const [targetList, setTargetList] = useState<ListId | null>(null);
+  // Piece being dragged, drawn under the pointer; it glides into its new place on dropping.
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const active = pieces.find((piece) => piece.key === activeKey) ?? null;
   const openKey = controlledKey !== undefined ? controlledKey : ownKey;
   const setOpenKey = onOpenKeyChange ?? setOwnKey;
   const peopleById = useMemo(
@@ -324,9 +276,12 @@ export function RepertoireSection({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const full = limit !== undefined && pieces.length >= limit;
+  // At the limit, the add buttons say so instead, in red, and stay blocked.
+  const limitText = `El Grupo de Prueba admite hasta ${limit} piezas`;
   const main = pieces.filter((piece) => !piece.encore);
   const encores = pieces.filter((piece) => piece.encore);
-  const summary = summarize(pieces, minMinutes, maxMinutes);
+  // Encores are timed apart; the time available does not matter here.
+  const summary = summarize(pieces, null, null);
 
   const listOf = (id: string | number): ListId | null => {
     if (id === 'main' || id === 'encore') return id;
@@ -348,6 +303,7 @@ export function RepertoireSection({
 
   const drop = ({ active, over }: DragEndEvent) => {
     setTargetList(null);
+    setActiveKey(null);
     if (!over || active.id === over.id) return;
     const from = listOf(active.id);
     const to = listOf(over.id);
@@ -377,34 +333,30 @@ export function RepertoireSection({
       onChange={updatePiece}
       people={peopleById}
       onRemove={() => onChange(pieces.filter((piece) => piece.key !== draft.key))}
-      onSave={() => {
-        setOpenKey(null);
-        onSave?.();
-      }}
     />
   );
 
   return (
     <div className={styles.root}>
-      <RepertoireSummaryView summary={summary} minMinutes={minMinutes} maxMinutes={maxMinutes} />
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        onDragStart={({ active: dragged }: DragStartEvent) => setActiveKey(String(dragged.id))}
         onDragOver={highlight}
         onDragEnd={drop}
-        onDragCancel={() => setTargetList(null)}
+        onDragCancel={() => {
+          setTargetList(null);
+          setActiveKey(null);
+        }}
       >
         <PieceList id="main" pieces={main} highlighted={targetList === 'main'}>
           {main.length === 0 && <li className={styles.emptyList}>Sin piezas todavía</li>}
           {main.map((draft, index) => row(draft, String(index + 1)))}
         </PieceList>
         <div className={styles.add}>
-          <Button onClick={() => add(false)} disabled={full}>
-            + Añadir pieza
+          <Button className={styles.addButton} onClick={() => add(false)} disabled={full}>
+            {full ? limitText : '+ Añadir pieza'}
           </Button>
-          {full && (
-            <span className={styles.limit}>El Grupo de Prueba admite hasta {limit} piezas</span>
-          )}
         </div>
 
         <EncoreSection
@@ -413,15 +365,29 @@ export function RepertoireSection({
           highlighted={targetList === 'encore'}
         >
           <PieceList id="encore" pieces={encores} highlighted={false} droppable={false}>
-            {encores.length === 0 && <li className={styles.emptyList}>Suelta aquí una pieza</li>}
             {encores.map((draft, index) => row(draft, `B${index + 1}`))}
           </PieceList>
           <div className={styles.add}>
-            <Button onClick={() => add(true)} disabled={full}>
-              + Añadir bis
+            <Button className={styles.addButton} onClick={() => add(true)} disabled={full}>
+              {full ? limitText : '+ Añadir bis'}
             </Button>
           </div>
         </EncoreSection>
+
+        {/* On dropping, the copy glides to where the piece ends up, also into the other list. */}
+        <DragOverlay dropAnimation={DROP}>
+          {active && (
+            <div className={styles.dragPreview}>
+              <span className={styles.handle} aria-hidden="true">
+                ⠿
+              </span>
+              <span className={styles.name}>{active.title.trim() || 'Sin título'}</span>
+              <span className={styles.type} data-type={active.type}>
+                {PIECE_TYPE_LABELS[active.type]}
+              </span>
+            </div>
+          )}
+        </DragOverlay>
       </DndContext>
     </div>
   );
@@ -461,71 +427,20 @@ function EncoreSection({ count, seconds, highlighted, children }: EncoreSectionP
           {seconds > 0 && <span className={styles.encoresTime}>{formatClock(seconds)}</span>}
         </button>
       </h3>
+      {/* Only while a piece is dragged over the block: where it will land, growing into view. */}
+      <div className={styles.dropZone} data-open={highlighted ? '' : undefined} aria-hidden="true">
+        <div className={styles.dropZoneInner}>
+          <span>Suelta aquí una pieza</span>
+        </div>
+      </div>
       <div
         id="encores-body"
         className={styles.accordion}
         data-open={open ? '' : undefined}
         inert={!open}
       >
-        <div className={styles.accordionInner}>
-          <p className={styles.hint}>
-            Por si el público pide otra. No cuentan para el resumen; arrastra piezas aquí o desde
-            aquí.
-          </p>
-          {children}
-        </div>
+        <div className={styles.accordionInner}>{children}</div>
       </div>
     </section>
-  );
-}
-
-interface SummaryViewProps {
-  summary: ReturnType<typeof summarize>;
-  minMinutes: number | null;
-  maxMinutes: number | null;
-}
-
-/** Repertoire time against the time available for the performance (step 1.12). */
-function RepertoireSummaryView({ summary, minMinutes, maxMinutes }: SummaryViewProps) {
-  const available = formatDuration(minMinutes, maxMinutes);
-  const message = {
-    over: `Te pasas de la duración máxima en ${formatClock(summary.required - (maxMinutes ?? 0) * 60)}.`,
-    short: `Te faltan ${formatClock((minMinutes ?? 0) * 60 - summary.required - summary.optional)} para la duración mínima.`,
-    ok: 'Cabe en el tiempo de la actuación.',
-    unknown: 'Pon la duración mínima o máxima de la actuación para compararlo.',
-  }[summary.status];
-
-  // Without the time available, the note goes under the box, as a disclaimer.
-  const unknown = summary.status === 'unknown';
-  return (
-    <div className={styles.summaryBlock} aria-live="polite">
-      <div className={styles.overview} data-status={summary.status}>
-        <dl className={styles.figures}>
-          <div>
-            <dt>Repertorio</dt>
-            <dd>{formatClock(summary.required)}</dd>
-          </div>
-          {summary.optional > 0 && (
-            <div>
-              <dt>Opcionales</dt>
-              <dd>+{formatClock(summary.optional)}</dd>
-            </div>
-          )}
-          <div>
-            <dt>Disponible</dt>
-            <dd>{available ?? 'Sin indicar'}</dd>
-          </div>
-        </dl>
-        {!unknown && <p className={styles.verdict}>{message}</p>}
-        {summary.missingDurations > 0 && (
-          <p className={styles.hint}>
-            {summary.missingDurations === 1
-              ? '1 pieza no tiene duración y no cuenta.'
-              : `${summary.missingDurations} piezas no tienen duración y no cuentan.`}
-          </p>
-        )}
-      </div>
-      {unknown && <p className={styles.disclaimer}>{message}</p>}
-    </div>
   );
 }
