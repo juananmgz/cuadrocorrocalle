@@ -72,17 +72,45 @@ function Token({ placed, style, hidden, misplaced }: TokenProps) {
   );
 }
 
+/** One person on the stage, only to look at, e.g. in the preview of a piece. */
+function StaticToken({ placed, style, misplaced }: Omit<TokenProps, 'hidden'>) {
+  const { person } = placed;
+  const { fill, ink } = getPersonColor(person.mainColor);
+  return (
+    <span
+      className={styles.token}
+      data-static=""
+      data-misplaced={misplaced ? '' : undefined}
+      style={{ ...style, background: fill, color: ink }}
+      title={person.name}
+      role="img"
+      aria-label={`${person.name}${misplaced ? ' (fuera de sitio)' : ''}`}
+    >
+      {initials(person.name)}
+    </span>
+  );
+}
+
 interface StageLayerProps {
   view: StageView;
   stage: StageSize;
   placed: PlacedPerson[];
-  drag: StageDrag | null;
+  drag?: StageDrag | null;
   /** The person being dragged, to draw under the pointer. */
-  dragged: TrayPerson | null;
+  dragged?: TrayPerson | null;
+  /** Only to look at: nothing can be dragged (a preview). */
+  readOnly?: boolean;
 }
 
-/** The people of the open piece drawn over the stage of the background grid. */
-export function StageLayer({ view, stage, placed, drag, dragged }: StageLayerProps) {
+/** The people of a piece drawn over the stage of the background grid: to edit or to look at. */
+export function StageLayer({
+  view,
+  stage,
+  placed,
+  drag = null,
+  dragged = null,
+  readOnly = false,
+}: StageLayerProps) {
   const { perMetre, toScreen } = stageProjection(view, stage);
   const token = Math.min(MAX_TOKEN, Math.max(MIN_TOKEN, personSize(stage) * perMetre));
   const square = stage.squareSize * perMetre;
@@ -110,15 +138,24 @@ export function StageLayer({ view, stage, placed, drag, dragged }: StageLayerPro
         <span key={key} className={styles.warn} style={at(centre, square)} />
       ))}
       {target && <span className={styles.target} style={at(target, token)} />}
-      {placed.map((item) => (
-        <Token
-          key={item.person.id}
-          placed={item}
-          style={at(item.point, token)}
-          hidden={drag?.personId === item.person.id}
-          misplaced={misplaced.has(item.person.id)}
-        />
-      ))}
+      {placed.map((item) =>
+        readOnly ? (
+          <StaticToken
+            key={item.person.id}
+            placed={item}
+            style={at(item.point, token)}
+            misplaced={misplaced.has(item.person.id)}
+          />
+        ) : (
+          <Token
+            key={item.person.id}
+            placed={item}
+            style={at(item.point, token)}
+            hidden={drag?.personId === item.person.id}
+            misplaced={misplaced.has(item.person.id)}
+          />
+        ),
+      )}
       {dragged && drag && ghost && (
         <span
           className={styles.ghost}

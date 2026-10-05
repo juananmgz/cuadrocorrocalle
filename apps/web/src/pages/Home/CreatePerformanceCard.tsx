@@ -55,8 +55,10 @@ interface CreatePerformanceCardProps {
   /** Title to start with when creating, e.g. from the guided start. */
   initialTitle?: string;
   onCancel: () => void;
-  /** Called with the performance once created or saved. */
+  /** Called with the performance once created. */
   onCreated: (performance: Performance) => void;
+  /** Editing saves as it changes; called with the performance after each save. */
+  onSaved?: (performance: Performance) => void;
   /** Reports the stage to preview on the grid. */
   onStageChange: (stage: GridStage | null) => void;
   /** The same stage in metres, as shown, e.g. for the people placed on it. */
@@ -65,6 +67,9 @@ interface CreatePerformanceCardProps {
   onMissingChange?: (missing: boolean) => void;
   handleRef?: Ref<PerformanceFormHandle>;
 }
+
+// Editing saves this long after the last change.
+const AUTOSAVE_DELAY = 800;
 
 const toNumber = (value: string) => {
   const number = Number(value.replace(',', '.'));
@@ -219,6 +224,7 @@ export function CreatePerformanceCard({
   initialTitle,
   onCancel,
   onCreated,
+  onSaved,
   onStageChange,
   onStageSizeChange,
   onMissingChange,
@@ -360,6 +366,50 @@ export function CreatePerformanceCard({
 
   useImperativeHandle(handleRef, () => ({ attempt }));
   useEffect(() => onMissingChange?.(missing.length > 0), [missing.length, onMissingChange]);
+
+  // Editing saves on its own a moment after each change, once nothing required is missing.
+  const liveValues = {
+    title: title.trim(),
+    place: info.place || null,
+    date: info.date || null,
+    minMinutes: toNumber(info.minMinutes ?? ''),
+    maxMinutes: toNumber(info.maxMinutes ?? ''),
+    stageWidth: toNumber(settled.width),
+    stageDepth: toNumber(settled.depth),
+    squareSize: toNumber(settled.squareSize) ?? DEFAULT_SQUARE_SIZE,
+    edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(settled.edgeDistance)),
+  };
+  const valuesKey = JSON.stringify(liveValues);
+  const callUpKeyValue = JSON.stringify(callUp.entries);
+  const lastSaved = useRef({ values: valuesKey, callUp: callUpKeyValue });
+  useEffect(() => {
+    if (!performance || missing.length || callUp.pending) return;
+    const saved = lastSaved.current;
+    if (saved.values === valuesKey && saved.callUp === callUpKeyValue) return;
+    const timer = window.setTimeout(async () => {
+      setSaving(true);
+      setSaveError('');
+      try {
+        const next =
+          saved.values === valuesKey
+            ? performance
+            : await updatePerformance.mutateAsync({ id: performance.id, ...JSON.parse(valuesKey) });
+        if (saved.callUp !== callUpKeyValue) {
+          await saveCallUp(performance.id, JSON.parse(callUpKeyValue));
+          await queryClient.invalidateQueries({ queryKey: callUpKey(performance.id) });
+        }
+        lastSaved.current = { values: valuesKey, callUp: callUpKeyValue };
+        onSaved?.(next);
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : 'No se ha podido guardar');
+      } finally {
+        setSaving(false);
+      }
+    }, AUTOSAVE_DELAY);
+    return () => window.clearTimeout(timer);
+    // Saves when what would be stored changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valuesKey, callUpKeyValue, missing.length, callUp.pending]);
 
   const calledCount = callUp.entries.filter((entry) => entry.status === 'yes').length;
   const dataSummary =
@@ -585,32 +635,38 @@ export function CreatePerformanceCard({
           {saveError}
         </p>
       )}
+      {/* Editing saves as it goes, so only a status shows; creating has its buttons. */}
+      <p className={styles.saveStatus} aria-live="polite">
+        {editing && saving ? 'Guardando…' : ''}
+      </p>
       {/* Under the last block; leaving asks first because nothing is saved until then. */}
-      <div className={styles.actions}>
-        <Button onClick={() => setConfirmingCancel(true)}>Cancelar</Button>
-        <Button
-          type="submit"
-          variant="primary"
-          className={styles.create}
-          // Not disabled, so a click can point at what is missing.
-          disabled={saving}
-          aria-disabled={missing.length > 0}
-          title={missing.length ? 'Rellena los campos necesarios' : undefined}
-          onClick={(event) => {
-            if (!missing.length) return;
-            event.preventDefault();
-            attempt();
-          }}
-        >
-          {editing
-            ? saving
-              ? 'Guardando…'
-              : 'Guardar cambios'
-            : saving
-              ? 'Creando…'
-              : 'Crear actuación'}
-        </Button>
-      </div>
+      {!editing && (
+        <div className={styles.actions}>
+          <Button onClick={() => setConfirmingCancel(true)}>Cancelar</Button>
+          <Button
+            type="submit"
+            variant="primary"
+            className={styles.create}
+            // Not disabled, so a click can point at what is missing.
+            disabled={saving}
+            aria-disabled={missing.length > 0}
+            title={missing.length ? 'Rellena los campos necesarios' : undefined}
+            onClick={(event) => {
+              if (!missing.length) return;
+              event.preventDefault();
+              attempt();
+            }}
+          >
+            {editing
+              ? saving
+                ? 'Guardando…'
+                : 'Guardar cambios'
+              : saving
+                ? 'Creando…'
+                : 'Crear actuación'}
+          </Button>
+        </div>
+      )}
       {missing.length > 0 && (
         <p className={styles.missing}>
           <RequiredMark /> Falta {missing.join(', ')}.

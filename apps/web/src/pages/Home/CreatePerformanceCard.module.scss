@@ -65,6 +65,14 @@
   position: relative;
   display: grid;
   gap: var(--space-1);
+
+  // The title sits at the top edge of the scrolling column, which would clip a ring drawn
+  // outside it: here it is drawn just inside, around the title itself.
+  // It beats without growing, so the column edges do not cut it either.
+  > .heartbeat {
+    inset: 0;
+    animation-name: heartbeat-fade;
+  }
 }
 
 .titleRow {
@@ -328,4 +336,16 @@
 .actions .create[aria-disabled='true'] {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+// "Guardando…" while an edit saves on its own; empty otherwise.
+.saveStatus {
+  min-height: 1lh;
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+
+  &:empty {
+    display: none;
+  }
 }

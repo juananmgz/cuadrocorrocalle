@@ -100,6 +100,24 @@ function readColors(): Colors {
   ) as Colors;
 }
 
+// Theme colours as RGB, worked out once each.
+const rgbCache = new Map<string, string>();
+
+/** The colour with the given opacity, whatever CSS notation it comes in. */
+function withAlpha(color: string, alpha: number) {
+  let rgb = rgbCache.get(color);
+  if (!rgb) {
+    const probe = document.createElement('canvas').getContext('2d');
+    if (!probe) return color;
+    probe.fillStyle = color;
+    probe.fillRect(0, 0, 1, 1);
+    const [r, g, b] = probe.getImageData(0, 0, 1, 1).data;
+    rgb = `${r} ${g} ${b}`;
+    rgbCache.set(color, rgb);
+  }
+  return `rgb(${rgb} / ${alpha})`;
+}
+
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const logLerp = (a: number, b: number, t: number) => Math.exp(lerp(Math.log(a), Math.log(b), t));
@@ -305,6 +323,19 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
   // Stage, centred on the middle point, with the audience at the near edge.
   // It grows a little while it fades in.
   const shown = ease(frame.stageShown);
+  let drawLabels: (() => void) | null = null;
+  // A patch of floor colour behind a label, fading at its edges, so no line crosses it.
+  const drawHalo = (x: number, y: number, halfWidth: number, halfHeight: number) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1, halfHeight / halfWidth);
+    const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, halfWidth);
+    halo.addColorStop(0.55, withAlpha(colors['--floor'], 1));
+    halo.addColorStop(1, withAlpha(colors['--floor'], 0));
+    ctx.fillStyle = halo;
+    ctx.fillRect(-halfWidth, -halfWidth, halfWidth * 2, halfWidth * 2);
+    ctx.restore();
+  };
   if (stage && shown > 0) {
     const grow = lerp(0.94, 1, shown);
     const halfX = (axisX.current / 2) * grow;
@@ -347,39 +378,52 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
         ctx.setLineDash([]);
       }
 
-      const label = project(0, -halfY - 0.6);
-      if (label) {
-        ctx.fillStyle = colors['--ink-soft'];
-        ctx.font = `700 ${Math.max(12, Math.min(20, camera.scale * 0.6))}px ${colors['--font-heading']}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.letterSpacing = '0.3em';
-        ctx.fillText('PÚBLICO', label.x, label.y);
-        ctx.letterSpacing = '0px';
-      }
+      // Labels go on top of the cross, drawn after it.
+      drawLabels = () => {
+        ctx.globalAlpha = shown;
+        const label = project(0, -halfY - 0.6);
+        if (label) {
+          const size = Math.max(12, Math.min(20, camera.scale * 0.6));
+          ctx.font = `700 ${size}px ${colors['--font-heading']}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.letterSpacing = '0.3em';
+          drawHalo(
+            label.x,
+            label.y + size / 2,
+            ctx.measureText('PÚBLICO').width / 2 + size * 2.2,
+            size * 1.4,
+          );
+          ctx.fillStyle = colors['--ink-soft'];
+          ctx.fillText('PÚBLICO', label.x, label.y);
+          ctx.letterSpacing = '0px';
+        }
 
-      // Sign above the stage with the piece being edited.
-      const sign = frame.label ? project(0, halfY + 0.4) : null;
-      if (sign && frame.label) {
-        ctx.font = `700 18px ${colors['--font-heading']}`;
-        const text = frame.label.toUpperCase();
-        const width = Math.min(
-          ctx.measureText(text).width + 28,
-          frame.width - frame.leftInset - 32,
-        );
-        const height = 32;
-        ctx.fillStyle = colors['--surface'];
-        ctx.strokeStyle = colors['--stage-edge'];
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(sign.x - width / 2, sign.y - height - 6, width, height, 4);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = colors['--ink'];
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, sign.x, sign.y - 6 - height / 2, width - 16);
-      }
+        // Sign above the stage with the piece being edited.
+        const sign = frame.label ? project(0, halfY + 0.4) : null;
+        if (sign && frame.label) {
+          ctx.font = `700 18px ${colors['--font-heading']}`;
+          const text = frame.label.toUpperCase();
+          const width = Math.min(
+            ctx.measureText(text).width + 28,
+            frame.width - frame.leftInset - 32,
+          );
+          const height = 32;
+          drawHalo(sign.x, sign.y - 6 - height / 2, width / 2 + 40, height * 1.25);
+          ctx.fillStyle = colors['--surface'];
+          ctx.strokeStyle = colors['--stage-edge'];
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(sign.x - width / 2, sign.y - height - 6, width, height, 4);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = colors['--ink'];
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(text, sign.x, sign.y - 6 - height / 2, width - 16);
+        }
+        ctx.globalAlpha = 1;
+      };
       ctx.globalAlpha = 1;
     }
   }
@@ -391,6 +435,7 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
     addLine(0, false, cross);
     strokeLevels(cross, colors['--grid-major'], 2);
   }
+  drawLabels?.();
 
   // Soft edge where the curved floor meets the sky; it fades out as the camera looks down.
   if (t < 1) {
@@ -599,7 +644,12 @@ export function GridBackground({
   }, [leftInset, view, stage, showCross, label]);
 
   return (
-    <div className={styles.root} aria-hidden="true">
+    // A click on the floor clears any text left selected in the panels.
+    <div
+      className={styles.root}
+      aria-hidden="true"
+      onPointerDown={() => window.getSelection()?.removeAllRanges()}
+    >
       <canvas ref={canvasRef} className={styles.floor} />
       <canvas ref={fadeRef} className={styles.fade} />
     </div>

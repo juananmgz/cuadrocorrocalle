@@ -28,6 +28,11 @@
     opacity: 0.25;
   }
 
+  // Preview: only to look at.
+  &[data-static] {
+    cursor: default;
+  }
+
   // Left off the stage or in the safety strip by a resize.
   &[data-misplaced] {
     border-color: var(--danger);
