@@ -221,6 +221,8 @@
 
 // Its name on top; under it, the drawing beside how it comes out.
 .space {
+  --space-tile: 64px;
+
   display: grid;
   grid-template-columns: auto 1fr;
   gap: var(--space-1) var(--space-2);
@@ -235,6 +237,8 @@
 
 .spaceSetup {
   display: grid;
+  align-content: space-between;
+  min-height: var(--space-tile);
   flex: 1;
   gap: var(--space-1);
   min-width: 0;
@@ -243,6 +247,17 @@
 .spaceName {
   grid-column: 1 / -1;
   font-weight: 700;
+}
+
+// Its drawing as tall as the two rows of fields beside it, and square.
+.space .figure {
+  width: var(--space-tile);
+  height: var(--space-tile);
+
+  svg {
+    width: 80%;
+    height: 80%;
+  }
 }
 
 .spaceFields {

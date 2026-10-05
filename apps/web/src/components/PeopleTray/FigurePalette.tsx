@@ -110,7 +110,7 @@ export function SpaceIcon({ kind }: { kind: SpaceKind }) {
           return { x: Math.cos(angle) * 1.15, y: Math.sin(angle) * 1.15 };
         });
   return (
-    <svg viewBox="-2 -2 4 4" style={{ width: 40, height: 40 }} aria-hidden="true">
+    <svg viewBox="-2 -2 4 4" aria-hidden="true">
       {kind === 'row' ? (
         <rect x={-1.7} y={-0.5} width={3.4} height={1} rx={0.25} className={styles.figureBlock} />
       ) : (
