@@ -1,5 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { LayoutGrid, Package, Shapes, Users } from 'lucide-react';
+import { ChevronDown, LayoutGrid, Package, Shapes, Users } from 'lucide-react';
 import type { CallUpStatus, Person } from '@cuadrocorrocalle/shared';
 import { type ReactNode, useState } from 'react';
 
@@ -48,6 +48,12 @@ function Section({ id, icon, title, open, onToggle, children }: SectionProps) {
         >
           {icon}
           <span>{title}</span>
+          {/* Turns over when the block opens or closes. */}
+          <ChevronDown
+            className={styles.chevron}
+            data-open={open ? '' : undefined}
+            aria-hidden="true"
+          />
         </button>
       </h3>
       <div
@@ -118,7 +124,7 @@ function TrayDropZone({ children }: { children: ReactNode }) {
   );
 }
 
-/** Toolbar next to the repertoire: figures, people, and props or equipment later. */
+/** Toolbar next to the repertoire: spaces, figures, people, and props or equipment later. */
 export function PeopleTray({
   people,
   pieceTitle,
@@ -130,8 +136,8 @@ export function PeopleTray({
   spaces,
 }: PeopleTrayProps) {
   const [open, setOpen] = useState({
+    spaces: true,
     figures: true,
-    spaces: false,
     people: true,
     objects: false,
   });
@@ -141,17 +147,6 @@ export function PeopleTray({
   return (
     <TrayDropZone>
       <Section
-        id="figures"
-        icon={<Shapes size={20} aria-hidden="true" />}
-        title="Figuras"
-        open={open.figures}
-        onToggle={() => toggle('figures')}
-      >
-        {palette ?? (
-          <p className={styles.hint}>Entra en una pieza para colocar figuras en el escenario.</p>
-        )}
-      </Section>
-      <Section
         id="spaces"
         icon={<LayoutGrid size={20} aria-hidden="true" />}
         title="Espacios"
@@ -160,6 +155,17 @@ export function PeopleTray({
       >
         {spaces ?? (
           <p className={styles.hint}>Entra en una pieza para colocar espacios en el escenario.</p>
+        )}
+      </Section>
+      <Section
+        id="figures"
+        icon={<Shapes size={20} aria-hidden="true" />}
+        title="Figuras"
+        open={open.figures}
+        onToggle={() => toggle('figures')}
+      >
+        {palette ?? (
+          <p className={styles.hint}>Entra en una pieza para colocar figuras en el escenario.</p>
         )}
       </Section>
       <Section

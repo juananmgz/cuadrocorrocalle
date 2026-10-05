@@ -41,18 +41,25 @@
     flex: none;
   }
 
-  &::after {
-    margin-left: auto;
-    font-size: 0.875rem;
-    content: '▾';
-  }
-
-  &[aria-expanded='true']::after {
-    content: '▴';
-  }
-
   &:hover {
     background: var(--sel-bg);
+  }
+}
+
+// At the right of the header, pointing down when closed and up when open.
+.chevron {
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  color: var(--ink-soft);
+  transition: transform 200ms ease;
+
+  &[data-open] {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 }
 
