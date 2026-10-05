@@ -227,6 +227,9 @@ interface FigureHandlesProps {
 // How long the handles stay after the pointer leaves the figure, in ms.
 const HANDLES_LINGER = 250;
 
+// How far the + of a row sits past its ends, in px: beyond its stretching bars.
+const ADD_OUTSIDE = 38;
+
 // Opacity of the trash strip while the pointer is still on the stage.
 const TRASH_FAINT = 0.2;
 
@@ -868,7 +871,8 @@ export function StageLayer({
       {selected?.layout &&
         onAddHole &&
         selected.figure.id !== movingFigureId &&
-        addSpots(selected.figure, selected.layout, stage).map((spot) => {
+        // Clear of the stretching bars at the ends of a row.
+        addSpots(selected.figure, selected.layout, stage, ADD_OUTSIDE / square).map((spot) => {
           const { x, y } = toScreen(spot);
           return (
             <button
