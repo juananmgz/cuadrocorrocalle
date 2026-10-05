@@ -1,6 +1,7 @@
 import type { DragEndEvent, DragMoveEvent, DragStartEvent } from '@dnd-kit/core';
 import {
   DEFAULT_FIGURE_WIDTH,
+  MAX_FIGURE_WIDTH,
   type FigureDefaults,
   type FigureKind,
   type FigureRotation,
@@ -536,6 +537,30 @@ export function useStageEditing({
   const memberOf = (personId: string): Participant | undefined =>
     participants.find((item) => item.personId === personId && item.figureId != null);
 
+  /** Adds a hole to a space at `at`, moving the holes from there on one along, if it still fits. */
+  const addHole = (spaceId: string, at: number) => {
+    const space = figures.find((figure) => figure.id === spaceId);
+    if (!content || !stage || !space || space.width >= MAX_FIGURE_WIDTH) return;
+    const shifted = figures.map((figure) =>
+      figure.spaceId === spaceId && figure.hole != null && figure.hole >= at
+        ? { ...figure, hole: figure.hole + 1 }
+        : figure,
+    );
+    const grown = { ...space, width: space.width + 1 };
+    const check = spaceResult(grown, spaceId, grown, childrenOf(shifted, spaceId));
+    if (!check.ok) return warn(check.reason === 'off' ? 'full' : check.reason, 'figure');
+    let next: StageContent = {
+      ...content,
+      figures: shifted.map((figure) =>
+        figure.id === spaceId ? { ...grown, ...check.figure } : figure,
+      ),
+    };
+    const placedSpace = next.figures.find((figure) => figure.id === spaceId)!;
+    for (const child of placeChildren(placedSpace, next.figures, stage))
+      next = putFigure(next, child, slotPositions(child, stage));
+    onChange(next);
+  };
+
   /** The space a figure fills a hole of, or the figure itself. */
   const spaceAround = (figure: StageFigure) =>
     (figure.spaceId && figures.find((item) => item.id === figure.spaceId)) || figure;
@@ -784,10 +809,13 @@ export function useStageEditing({
       figures: figureViews,
       selectedFigureId: selectedId,
       onSelectFigure: (figureId: string | null) => {
-        setSelectedId(figureId);
+        // A figure in a space edits its space.
+        const figure = figures.find((item) => item.id === figureId);
+        setSelectedId(figure ? spaceAround(figure).id : null);
         setReshaping(null);
       },
       editHandles,
+      onAddHole: addHole,
       trash:
         figureMove?.id || personDrag
           ? { hot: inTrash(dragPointer), near: trashNearness(), top: trashTop }

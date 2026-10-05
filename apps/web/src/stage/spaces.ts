@@ -215,3 +215,32 @@ export function contains(outline: Outline, point: StagePoint) {
   }
   return true;
 }
+
+/**
+ * Where a new hole can go, with the hole number it would take: past both ends of a row, or
+ * between every two holes of a ring (in metres).
+ */
+export function addSpots(space: Space, layout: SpaceLayout, stage: StageSize) {
+  const square = stage.squareSize;
+  if (space.kind === 'ring') {
+    return layout.holes.map((place, index) => {
+      const next = layout.holes[(index + 1) % layout.holes.length]!;
+      const angle = Math.atan2(
+        place.y - space.y + next.y - space.y,
+        place.x - space.x + next.x - space.x,
+      );
+      const radius = layout.radius * square;
+      return {
+        at: index + 1,
+        x: space.x + Math.cos(angle) * radius,
+        y: space.y + Math.sin(angle) * radius,
+      };
+    });
+  }
+  const axis = turn({ x: 1, y: 0 }, space.rotation);
+  const reach = (layout.length / 2 + 0.6) * square;
+  return [
+    { at: 0, x: space.x - axis.x * reach, y: space.y - axis.y * reach },
+    { at: space.width, x: space.x + axis.x * reach, y: space.y + axis.y * reach },
+  ];
+}

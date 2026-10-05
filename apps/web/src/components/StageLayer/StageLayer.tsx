@@ -1,5 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
-import { Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import {
   FIGURE_LABELS,
   type FigureKind,
@@ -17,7 +17,7 @@ import {
 import { createPortal } from 'react-dom';
 
 import { isSlanted, slantedBlock } from '../../stage/figures';
-import { extentOf, type HolePlace, type SpaceLayout } from '../../stage/spaces';
+import { addSpots, extentOf, type HolePlace, type SpaceLayout } from '../../stage/spaces';
 import {
   type DropCheck,
   isMisplaced,
@@ -464,6 +464,8 @@ interface StageLayerProps {
   onSelectFigure?: (figureId: string | null) => void;
   /** Handles of the figure being edited: its sides widen it and its corners turn it. */
   editHandles?: EditHandles | null;
+  /** The space being edited: a + to add a hole at each spot it can take one. */
+  onAddHole?: ((spaceId: string, at: number) => void) | null;
   /** While something is dragged: the strip at the bottom where dropping removes it. */
   trash?: { hot: boolean; near: number; top: number } | null;
   /** Figure being moved, faded in its old place. */
@@ -490,6 +492,7 @@ export function StageLayer({
   selectedFigureId = null,
   onSelectFigure,
   editHandles = null,
+  onAddHole = null,
   trash = null,
   movingFigureId = null,
   ghost = null,
@@ -832,6 +835,26 @@ export function StageLayer({
           {initials(dragged.name)}
         </span>
       )}
+      {selected?.layout &&
+        onAddHole &&
+        selected.figure.id !== movingFigureId &&
+        addSpots(selected.figure, selected.layout, stage).map((spot) => {
+          const { x, y } = toScreen(spot);
+          return (
+            <button
+              key={spot.at}
+              type="button"
+              className={styles.addHole}
+              data-figure-handle=""
+              aria-label={`Añadir un hueco a${selected.figure.kind === 'ring' ? 'l corro' : ' la fila'}`}
+              title="Añadir un hueco"
+              style={{ left: x, top: y }}
+              onClick={() => onAddHole(selected.figure.id, spot.at)}
+            >
+              <Plus aria-hidden="true" />
+            </button>
+          );
+        })}
       {selected && editBox && editHandles && (
         <FigureHandles
           box={editBox}
