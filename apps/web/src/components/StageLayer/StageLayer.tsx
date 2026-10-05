@@ -243,6 +243,8 @@ export interface FigureResize {
   fixed: boolean;
   /** Shift held: both ways at once (a ring keeps its shape). */
   uniform: boolean;
+  /** From a corner: the other direction, stretched at the same time. */
+  also?: { reach: number; towards: StagePoint };
 }
 
 interface Box {
@@ -273,6 +275,9 @@ const TRASH_FAINT = 0.2;
 
 // Appendages of the figure being edited: gap from the block, stroke and corner size, in px.
 const HANDLE_GAP = 9;
+// Straight corners that stretch both ways: how far out from the block, and their arms, in px.
+const SCALE_OUT = 4;
+const SCALE_SIZE = 12;
 const HANDLE_STROKE = 6;
 const CORNER_SIZE = 18;
 const BAR_LENGTH = 26;
@@ -357,6 +362,25 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
         ]
       : []),
   ];
+  // Figures that grow both ways also get a straight corner at each corner, to stretch both at once.
+  const scaling = handles.resize === 'both' && !slanted;
+  const scales = [
+    { key: 'tl', out: [-1, -1] },
+    { key: 'tr', out: [1, -1] },
+    { key: 'bl', out: [-1, 1] },
+    { key: 'br', out: [1, 1] },
+  ].map((corner) => {
+    // Its tip just outside the block's corner, inside the turning curve.
+    const tip = {
+      x: (corner.out[0]! > 0 ? width : 0) + corner.out[0]! * SCALE_OUT,
+      y: (corner.out[1]! > 0 ? height : 0) + corner.out[1]! * SCALE_OUT,
+    };
+    return {
+      ...corner,
+      left: corner.out[0]! > 0 ? tip.x - SCALE_SIZE : tip.x,
+      top: corner.out[1]! > 0 ? tip.y - SCALE_SIZE : tip.y,
+    };
+  });
   // Each corner: a curved stroke around it, as if the block grew a bent arm there.
   const reach = HANDLE_GAP + HANDLE_STROKE;
   // Only one corner turns it, the top right one, to keep the handles few.
@@ -414,6 +438,38 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
         ((point.x - figure.x) * towards.x + (point.y - figure.y) * towards.y) / squareSize;
       handles.onResize(
         { reach: ctrl ? along : (along + extent) / 2, towards, fixed: !ctrl, uniform: shift },
+        done,
+      );
+    });
+  };
+
+  // A corner stretches both ways at once: each from its own side, like two bars together.
+  const scale = (corner: { out: number[] }) => {
+    const metresPerPx = toStage(1, 0).x - toStage(0, 0).x;
+    const across = {
+      towards: { x: corner.out[0]!, y: 0 },
+      extent: ((width / 2) * metresPerPx) / squareSize,
+    };
+    const deep = {
+      towards: { x: 0, y: -corner.out[1]! },
+      extent: ((height / 2) * metresPerPx) / squareSize,
+    };
+    return follow((x, y, done, moved, { ctrl, shift }) => {
+      if (!moved) return;
+      const point = toStage(x, y);
+      const reachOf = ({ towards, extent }: typeof across) => {
+        const along =
+          ((point.x - figure.x) * towards.x + (point.y - figure.y) * towards.y) / squareSize;
+        return ctrl ? along : (along + extent) / 2;
+      };
+      handles.onResize(
+        {
+          reach: reachOf(across),
+          towards: across.towards,
+          fixed: !ctrl,
+          uniform: shift,
+          also: { reach: reachOf(deep), towards: deep.towards },
+        },
         done,
       );
     });
@@ -478,6 +534,25 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
           onPointerDown={resize(side)}
         />
       ))}
+      {scaling &&
+        scales.map((corner) => (
+          <span
+            key={`scale-${corner.key}`}
+            className={styles.scaleHandle}
+            data-figure-handle=""
+            data-corner={corner.key}
+            role="slider"
+            aria-label="Arrastra para estirar la figura en las dos direcciones a la vez"
+            style={{
+              left: corner.left,
+              top: corner.top,
+              width: SCALE_SIZE,
+              height: SCALE_SIZE,
+              cursor: corner.out[0] === corner.out[1] ? 'nwse-resize' : 'nesw-resize',
+            }}
+            onPointerDown={scale(corner)}
+          />
+        ))}
       {corners.map((corner) => (
         <span
           key={corner.key}

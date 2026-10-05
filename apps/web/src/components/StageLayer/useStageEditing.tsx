@@ -29,6 +29,7 @@ import {
   reachOf,
   slotAt,
   slotPositions,
+  turn,
   widthForReach,
 } from '../../stage/figures';
 import {
@@ -55,7 +56,6 @@ import {
   gapForReach,
   holeAt,
   nearestHole,
-  reachOfSpace,
   layoutSpace,
   placeChildren,
   snapSpace,
@@ -85,6 +85,9 @@ interface FigureMove {
   grab: StagePoint;
   result: MoveResult | null;
 }
+
+/** A change of shape from the handles; a row may also widen the figures in its holes. */
+type Reshape = Partial<Shape> & { childWidth?: number };
 
 /** A simple figure dropped on a space fills one of its holes, or all the empty ones. */
 interface Fill {
@@ -148,7 +151,7 @@ export function useStageEditing({
   const [carriedPointer, setCarriedPointer] = useState<StagePoint | null>(null);
   // Figure in edit mode (handles shown) and its reshape while a handle is held.
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [reshaping, setReshaping] = useState<Partial<Shape> | null>(null);
+  const [reshaping, setReshaping] = useState<Reshape | null>(null);
   // Pointer while dragging, to light up and use the trash strip at the bottom.
   const [dragPointer, setDragPointer] = useState<StagePoint | null>(null);
   // The trash takes everything below "PÚBLICO" (drawn 0.6 squares under the stage, 12 to 20 px tall).
@@ -799,16 +802,33 @@ export function useStageEditing({
   };
 
   /** Turns or widens the selected figure where it is, if it still fits. */
-  const reshape = (changes: Partial<Shape>) => {
+  /** The figures of a space by hole, widened to `width` (each as far as its kind allows). */
+  const childrenWidened = (spaceId: string, width?: number) =>
+    new Map(
+      [...childrenOf(figures, spaceId)].map(([hole, child]) => [
+        hole,
+        width == null ? child : { ...child, width: fitWidth(child.kind, width, stage!) },
+      ]),
+    );
+
+  const reshape = ({ childWidth, ...changes }: Reshape) => {
     if (!selected || !stage || !content) return;
     const shape = { ...selected.figure, ...changes };
     if (isSpace(shape.kind)) {
-      const check = spaceResult(shape, shape.id, shape);
+      const children = childrenWidened(shape.id, childWidth);
+      const check = spaceResult(shape, shape.id, shape, children);
       if (!check.ok) return warn(check.reason === 'off' ? 'full' : check.reason, 'figure');
       const space = { ...shape, ...check.figure, id: shape.id };
+      const widened = new Map([...children.values()].map((child) => [child.id, child.width]));
       let next: StageContent = {
         ...content,
-        figures: figures.map((figure) => (figure.id === space.id ? space : figure)),
+        figures: figures.map((figure) =>
+          figure.id === space.id
+            ? space
+            : widened.has(figure.id)
+              ? { ...figure, width: widened.get(figure.id)! }
+              : figure,
+        ),
       };
       for (const child of placeChildren(space, next.figures, stage))
         next = putFigure(next, child, slotPositions(child, stage));
@@ -885,10 +905,12 @@ export function useStageEditing({
   // While a handle is held, the edited figure as it would end up.
   const reshaped =
     selected && reshaping && stage && isSpace(selected.figure.kind)
-      ? spaceResult({ ...selected.figure, ...reshaping }, selected.figure.id, {
-          ...selected.figure,
-          ...reshaping,
-        })
+      ? spaceResult(
+          { ...selected.figure, ...reshaping },
+          selected.figure.id,
+          { ...selected.figure, ...reshaping },
+          childrenWidened(selected.figure.id, reshaping.childWidth),
+        )
       : selected && reshaping && stage
         ? checkFigureDrop(
             { ...selected.figure, ...reshaping },
@@ -934,59 +956,86 @@ export function useStageEditing({
           resize:
             selected.figure.kind === 'solo'
               ? 'none'
-              : ['pair', 'pair_diagonal', 'trio_line', 'row'].includes(selected.figure.kind)
+              : ['pair', 'pair_diagonal', 'trio_line'].includes(selected.figure.kind)
                 ? 'width'
                 : 'both',
-          onResize: ({ reach, towards, fixed, uniform }, done) => {
-            if (selected.layout && selected.figure.kind === 'ring') {
-              // A ring stretches one way into an oval (or both ways with Shift) and its holes
-              // spread round it; the other side stays put unless Ctrl is held.
-              const { figure, layout } = selected;
-              const across = Math.abs(towards.x) >= Math.abs(towards.y);
-              const axis = across === (figure.rotation % 180 === 0) ? 'x' : 'y';
-              const { gap, aspect, grown } = stretchRing(
-                figure,
-                layout,
-                axis,
-                reach,
-                uniform,
-                stage,
-              );
-              const shift = fixed ? grown * stage.squareSize : 0;
-              const changes: Partial<Shape> = {
-                gap,
-                aspect,
-                x: figure.x + towards.x * shift,
-                y: figure.y + towards.y * shift,
-              };
+          onResize: ({ reach, towards, fixed, uniform, also }, done) => {
+            const pulls = [{ reach, towards }, ...(also ? [also] : [])];
+            const apply = (changes: Reshape) => {
               if (!done) return setReshaping(changes);
               setReshaping(null);
               reshape(changes);
-              return;
+            };
+            if (selected.layout && selected.figure.kind === 'ring') {
+              // A ring stretches one way into an oval (or both ways with Shift, or from a corner
+              // each way to the pointer); the other side stays put unless Ctrl is held.
+              let ring: Shape = selected.figure;
+              let layout = selected.layout;
+              for (const pull of pulls) {
+                const across = Math.abs(pull.towards.x) >= Math.abs(pull.towards.y);
+                const axis = across === (ring.rotation % 180 === 0) ? 'x' : 'y';
+                const stretched = stretchRing(
+                  ring,
+                  layout,
+                  axis,
+                  pull.reach,
+                  uniform && !also,
+                  stage,
+                );
+                const shift = fixed ? stretched.grown * stage.squareSize : 0;
+                ring = {
+                  ...ring,
+                  gap: stretched.gap,
+                  aspect: stretched.aspect,
+                  x: ring.x + pull.towards.x * shift,
+                  y: ring.y + pull.towards.y * shift,
+                };
+                layout = layoutSpace(ring, childrenOf(figures, selected.figure.id), stage);
+              }
+              return apply({ gap: ring.gap, aspect: ring.aspect, x: ring.x, y: ring.y });
             }
             if (selected.layout) {
-              // A space keeps its holes: dragging a side stretches the room between them.
-              const { figure, layout } = selected;
-              const gap = gapForReach(figure, layout, reach, stage);
-              const stretched = layoutSpace(
-                { ...figure, gap },
-                childrenOf(figures, figure.id),
-                stage,
-              );
-              const shift =
-                fixed && figure.kind === 'row'
-                  ? (reachOfSpace(figure, stretched) - reachOfSpace(figure, layout)) *
-                    stage.squareSize
-                  : 0;
-              const changes: Partial<Shape> = {
-                gap,
-                x: figure.x + towards.x * shift,
-                y: figure.y + towards.y * shift,
-              };
-              if (!done) return setReshaping(changes);
-              setReshaping(null);
-              if (gap !== (figure.gap ?? DEFAULT_SPACE_GAP)) reshape(changes);
-              return;
+              // A row: along it, the room between holes; across it, the width of its figures
+              // (how far apart the people of each pair stand).
+              const { figure } = selected;
+              const axis = turn({ x: 1, y: 0 }, figure.rotation);
+              let row: Reshape = {};
+              let layout = selected.layout;
+              let { x, y } = figure;
+              for (const pull of pulls) {
+                const lengthwise =
+                  Math.abs(pull.towards.x * axis.x + pull.towards.y * axis.y) > 0.5;
+                // In series the figures lie along the row: nothing to widen across it.
+                if (!lengthwise && figure.arrangement !== 'battery') continue;
+                const before = lengthwise ? layout.length / 2 : layout.thickness / 2;
+                if (lengthwise)
+                  row = { ...row, gap: gapForReach(figure, layout, pull.reach, stage) };
+                else row = { ...row, childWidth: pull.reach * 2 };
+                layout = layoutSpace(
+                  { ...figure, ...row },
+                  childrenWidened(figure.id, row.childWidth),
+                  stage,
+                );
+                const after = lengthwise ? layout.length / 2 : layout.thickness / 2;
+                const shift = fixed ? (after - before) * stage.squareSize : 0;
+                x += pull.towards.x * shift;
+                y += pull.towards.y * shift;
+              }
+              return apply({ ...row, x, y });
+            }
+            if (also) {
+              // A figure from a corner: as far as the further of the two directions.
+              const main = also.reach > reach ? also : { reach, towards };
+              const { kind, width } = selected.figure;
+              const fitted = fitWidth(kind, widthForReach(kind, main.reach), stage);
+              const shift = fixed
+                ? (reachOf(kind, fitted) - reachOf(kind, width)) * stage.squareSize
+                : 0;
+              return apply({
+                width: fitted,
+                x: selected.figure.x + (towards.x + also.towards.x) * shift,
+                y: selected.figure.y + (towards.y + also.towards.y) * shift,
+              });
             }
             const { kind, width, x, y } = selected.figure;
             const fitted = fitWidth(kind, widthForReach(kind, reach), stage);
