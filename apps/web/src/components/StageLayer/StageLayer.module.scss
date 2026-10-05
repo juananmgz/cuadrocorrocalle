@@ -148,23 +148,41 @@
 
 // + to add a hole to the space being edited: past the ends of a row, between holes of a ring;
 // − beside each hole to take it out.
+.addHole {
+  position: absolute;
+  z-index: 2;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+// Beside each hole of the space being edited: a chip, centred on it, to move its figure or take
+// the hole out.
+.holeTools {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  pointer-events: auto;
+  background: var(--surface);
+  border: var(--border-width) solid var(--line);
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+}
+
 .addHole,
 .removeHole,
 .moveHole {
-  position: absolute;
-  z-index: 2;
   display: grid;
   place-items: center;
   width: 22px;
   height: 22px;
   padding: 3px;
   color: var(--on-accent);
-  pointer-events: auto;
   cursor: pointer;
   background: var(--accent);
   border: 0;
   border-radius: 50%;
-  transform: translate(-50%, -50%);
 
   svg {
     width: 100%;

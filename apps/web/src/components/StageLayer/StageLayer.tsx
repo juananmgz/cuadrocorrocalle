@@ -140,12 +140,11 @@ function StaticToken({ placed, style, misplaced }: Omit<TokenProps, 'hidden'>) {
 interface MoveHandleProps {
   figureId: string;
   label: string;
-  style: CSSProperties;
   onCarry: () => void;
 }
 
 /** Moves one figure of a space: a click carries it until the next click, or it is dragged. */
-function MoveHandle({ figureId, label, style, onCarry }: MoveHandleProps) {
+function MoveHandle({ figureId, label, onCarry }: MoveHandleProps) {
   const { attributes, listeners, setNodeRef } = useDraggable({ id: `child:${figureId}` });
   return (
     <button
@@ -153,7 +152,6 @@ function MoveHandle({ figureId, label, style, onCarry }: MoveHandleProps) {
       type="button"
       className={styles.moveHole}
       data-figure-handle=""
-      style={style}
       {...attributes}
       aria-label={`Mover la ${label} dentro del espacio o sacarla`}
       title="Mover: dentro del espacio la cambia de sitio; fuera, la saca"
@@ -254,9 +252,6 @@ interface FigureHandlesProps {
 
 // How long the handles stay after the pointer leaves the figure, in ms.
 const HANDLES_LINGER = 250;
-
-// How far the move handle of a figure sits beyond its −, in px.
-const MOVE_BESIDE = 26;
 
 // How far the + of a row sits past its ends, in px: beyond its stretching bars.
 const ADD_OUTSIDE = 38;
@@ -927,49 +922,44 @@ export function StageLayer({
           );
         })}
       {selected?.layout &&
-        onRemoveHole &&
-        selected.figure.width > 1 &&
-        selected.figure.id !== movingFigureId &&
-        removeSpots(selected.figure, selected.layout, stage).map((spot) => {
-          const { x, y } = toScreen(spot);
-          return (
-            <button
-              key={`remove-${spot.hole}`}
-              type="button"
-              className={styles.removeHole}
-              data-figure-handle=""
-              aria-label={`Quitar el hueco ${spot.hole + 1}`}
-              title="Quitar este hueco (y su figura)"
-              style={{ left: x, top: y }}
-              onClick={() => onRemoveHole(selected.figure.id, spot.hole)}
-            >
-              <Minus aria-hidden="true" />
-            </button>
-          );
-        })}
-      {selected?.layout &&
-        onCarryChild &&
         !readOnly &&
         selected.figure.id !== movingFigureId &&
-        removeSpots(selected.figure, selected.layout, stage).flatMap((spot) => {
+        removeSpots(selected.figure, selected.layout, stage).map((spot) => {
           const child = figures.find(
             ({ figure }) => figure.spaceId === selected.figure.id && figure.hole === spot.hole,
           );
-          if (!child) return [];
+          const canRemove = onRemoveHole && selected.figure.width > 1;
+          if (!canRemove && !(child && onCarryChild)) return null;
           const { x, y } = toScreen(spot);
-          // Beside the −: across the line from the hole to it.
-          const hole = toScreen(selected.layout!.holes[spot.hole]!);
-          const length = Math.hypot(x - hole.x, y - hole.y) || 1;
-          const side = { x: -(y - hole.y) / length, y: (x - hole.x) / length };
-          return [
-            <MoveHandle
-              key={`move-${child.figure.id}`}
-              figureId={child.figure.id}
-              label={FIGURE_LABELS[child.figure.kind].toLowerCase()}
-              style={{ left: x - side.x * MOVE_BESIDE, top: y - side.y * MOVE_BESIDE }}
-              onCarry={() => onCarryChild(child.figure.id)}
-            />,
-          ];
+          // One chip per hole, centred on it: move its figure and take the hole out.
+          return (
+            <div
+              key={`tools-${spot.hole}`}
+              className={styles.holeTools}
+              data-figure-handle=""
+              style={{ left: x, top: y }}
+            >
+              {child && onCarryChild && (
+                <MoveHandle
+                  figureId={child.figure.id}
+                  label={FIGURE_LABELS[child.figure.kind].toLowerCase()}
+                  onCarry={() => onCarryChild(child.figure.id)}
+                />
+              )}
+              {canRemove && (
+                <button
+                  type="button"
+                  className={styles.removeHole}
+                  data-figure-handle=""
+                  aria-label={`Quitar el hueco ${spot.hole + 1}`}
+                  title="Quitar este hueco (y su figura)"
+                  onClick={() => onRemoveHole(selected.figure.id, spot.hole)}
+                >
+                  <Minus aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          );
         })}
       {selected && editBox && editHandles && (
         <FigureHandles
