@@ -160,8 +160,8 @@ export function useStageEditing({
   const [settings, setSettings] = useState<{ kind: FigureKind; anchor: DOMRect } | null>(null);
   // How new spaces come out, set in the tray.
   const [spaceSetup, setSpaceSetup] = useState<Record<SpaceKind, SpaceSetup>>({
-    row: { holes: DEFAULT_FIGURE_WIDTH.row, gap: DEFAULT_SPACE_GAP, arrangement: 'series' },
-    ring: { holes: DEFAULT_FIGURE_WIDTH.ring, gap: DEFAULT_SPACE_GAP, arrangement: 'series' },
+    row: { holes: DEFAULT_FIGURE_WIDTH.row, gap: DEFAULT_SPACE_GAP, arrangement: 'battery' },
+    ring: { holes: DEFAULT_FIGURE_WIDTH.ring, gap: DEFAULT_SPACE_GAP, arrangement: 'battery' },
   });
 
   const participants = content?.participants ?? [];
