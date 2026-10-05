@@ -150,13 +150,8 @@ export function PeopleTray({
         open={open.people}
         onToggle={() => toggle('people')}
       >
-        <p className={styles.hint}>
-          {!pieceTitle
-            ? 'Entra en una pieza para elegir quién sale.'
-            : draggable
-              ? `Pulsa para meter o sacar a alguien de «${pieceTitle}», o arrástralo al escenario para colocarlo.`
-              : `Pulsa para meter o sacar a alguien de «${pieceTitle}».`}
-        </p>
+        {/* How to use it will live in a help button (a guided tour), not here. */}
+        {!pieceTitle && <p className={styles.hint}>Entra en una pieza para elegir quién sale.</p>}
         {people.length ? (
           <ul className={styles.people}>
             {people.map((person) => (
