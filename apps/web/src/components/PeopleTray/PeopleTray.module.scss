@@ -338,7 +338,9 @@
   padding: 0 var(--space-2);
   overflow: hidden;
 
+  // A little room under the line, so its hover does not touch the fields.
   .space[data-open] & {
+    padding-top: 8px;
     padding-bottom: var(--space-2);
   }
 }
