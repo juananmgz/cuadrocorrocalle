@@ -137,25 +137,10 @@
 
 // Figures palette: just the drawings.
 // One column per number of people (2, 3, 4), each with its count on top.
-.figureColumns {
+// The figures, side by side, wrapping onto as many lines as they need.
+.figures {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
-}
-
-.figureColumn {
-  display: grid;
-  gap: var(--space-1);
-  justify-items: center;
-}
-
-.figureCount {
-  font-size: 0.75rem;
-  color: var(--ink-soft);
-}
-
-.figures {
-  display: grid;
   gap: var(--space-1);
   padding: 0;
   margin: 0;
@@ -210,53 +195,153 @@
   vector-effect: non-scaling-stroke;
 }
 
-// Spaces: one line each, its drawing beside how it comes out.
+// Spaces: one line each, like a piece of the repertoire.
 .spaces {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-1);
   padding: 0;
   margin: 0;
   list-style: none;
 }
 
-// Its name on top; under it, the drawing beside how it comes out.
 .space {
-  --space-tile: 64px;
-
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-1) var(--space-2);
-  align-items: start;
+  background: var(--surface);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius);
 }
 
-// A line and some room between one space and the next.
-.space + .space {
-  padding-top: var(--space-2);
-  border-top: var(--border-width) solid var(--line);
+// The line itself: picked or dragged as a whole, with "Editar" at its end.
+.spaceHead {
+  display: flex;
+  align-items: stretch;
 }
 
-.spaceSetup {
-  display: grid;
-  align-content: space-between;
-  min-height: var(--space-tile);
+.spaceMain {
+  display: flex;
   flex: 1;
-  gap: var(--space-1);
+  gap: calc(var(--space-2) + 4px);
+  align-items: center;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  &:hover:not(:disabled) {
+    background: var(--sel-bg);
+  }
+
+  &[aria-pressed='true'] {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+  }
+}
+
+.spaceTile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.spaceText {
+  display: grid;
   min-width: 0;
 }
 
 .spaceName {
-  grid-column: 1 / -1;
   font-weight: 700;
 }
 
-// Its drawing as tall as the two rows of fields beside it, and square.
-.space .figure {
-  width: var(--space-tile);
-  height: var(--space-tile);
+.spaceSummary {
+  overflow: hidden;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spaceEdit {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  padding: 0;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
 
   svg {
-    width: 80%;
-    height: 80%;
+    transition: transform 200ms ease;
+  }
+
+  &[aria-expanded='true'] svg {
+    transform: rotate(180deg);
+  }
+
+  &:hover {
+    color: var(--ink);
+    background: var(--sel-bg);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    svg {
+      transition: none;
+    }
+  }
+}
+
+// How it comes out, folded away until "Editar" (the same sweep as the tray's blocks).
+.spaceFold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms ease;
+
+  .space[data-open] & {
+    grid-template-rows: 1fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.spaceSetup {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 0 var(--space-2);
+  overflow: hidden;
+
+  // A little room under the line, so its hover does not touch the fields.
+  .space[data-open] & {
+    padding-top: 8px;
+    padding-bottom: var(--space-2);
   }
 }
 

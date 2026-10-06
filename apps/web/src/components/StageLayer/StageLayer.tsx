@@ -306,10 +306,18 @@ const ADD_CLOSE = 20;
 // How far out of the top left corner of a free dance its shuffle button sits, in px.
 const SHUFFLE_OUTSIDE = 38;
 // Simple figures that can grow into a row from their sides (slanted ones and solos do not).
-const GROWS_INTO_ROW = new Set<FigureKind>(['pair', 'trio_line', 'trio_triangle', 'square']);
+const GROWS_INTO_ROW = new Set<FigureKind>([
+  'pair',
+  'trio_line',
+  'trio_triangle',
+  'square',
+  'pair_diagonal',
+  'trio_diagonal',
+]);
 // What the + of each space adds.
 const ADD_LABELS: Partial<Record<FigureKind, string>> = {
   row: 'un hueco a la fila',
+  row_diagonal: 'un hueco a la fila diagonal',
   ring: 'un hueco al corro',
   free: 'un sitio al baile libre',
 };
@@ -669,17 +677,36 @@ function growSpots(
   box: { left: number; top: number; width: number; height: number },
   resize: EditHandles['resize'],
   rotation: FigureRotation,
+  /** On a slant: the box is turned 45° clockwise on screen, like its handles. */
+  slanted = false,
 ) {
-  const across = resize === 'both' || (resize === 'width' && rotation % 180 === 0);
-  const deep = resize === 'both' || (resize === 'width' && rotation % 180 !== 0);
-  const sideways = across ? ADD_OUTSIDE : ADD_CLOSE;
-  const upwards = deep ? ADD_OUTSIDE : ADD_CLOSE;
+  // Which of the box's own sides have bars: all, or the two ends of its long side.
+  const long = slanted ? box.width >= box.height : rotation % 180 === 0;
+  const across = resize === 'both' || (resize === 'width' && long);
+  const deep = resize === 'both' || (resize === 'width' && !long);
+  const sideways = box.width / 2 + (across ? ADD_OUTSIDE : ADD_CLOSE);
+  const upwards = box.height / 2 + (deep ? ADD_OUTSIDE : ADD_CLOSE);
   const middle = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  const angle = slanted ? Math.PI / 4 : 0;
+  // A point given in the box's own axes (y down), on screen, and the way it points on the stage.
+  const spot = (key: string, x: number, y: number) => {
+    const turned = {
+      x: x * Math.cos(angle) - y * Math.sin(angle),
+      y: x * Math.sin(angle) + y * Math.cos(angle),
+    };
+    const length = Math.hypot(turned.x, turned.y) || 1;
+    return {
+      key,
+      x: middle.x + turned.x,
+      y: middle.y + turned.y,
+      towards: { x: turned.x / length, y: -turned.y / length },
+    };
+  };
   return [
-    { key: 'left', x: box.left - sideways, y: middle.y, towards: { x: -1, y: 0 } },
-    { key: 'right', x: box.left + box.width + sideways, y: middle.y, towards: { x: 1, y: 0 } },
-    { key: 'top', x: middle.x, y: box.top - upwards, towards: { x: 0, y: 1 } },
-    { key: 'bottom', x: middle.x, y: box.top + box.height + upwards, towards: { x: 0, y: -1 } },
+    spot('left', -sideways, 0),
+    spot('right', sideways, 0),
+    spot('top', 0, -upwards),
+    spot('bottom', 0, upwards),
   ];
 }
 
@@ -851,7 +878,9 @@ export function StageLayer({
       const [width, height] = figure.rotation % 180 === 0 ? [across, deep] : [deep, across];
       return { ...turnedBox(figure, width, height, 0), borderRadius: '50%' };
     }
-    return turnedBox(figure, layout.length, layout.thickness, figure.rotation);
+    // A diagonal row lies on the diagonal.
+    const slant = figure.kind === 'row_diagonal' ? 45 : 0;
+    return turnedBox(figure, layout.length, layout.thickness, figure.rotation + slant);
   };
 
   /**
@@ -860,6 +889,15 @@ export function StageLayer({
    */
   const uprightSpace = (item: FigureView): CSSProperties => {
     const style = spaceStyle(item);
+    if (item.figure.kind === 'row_diagonal' && item.layout) {
+      // Its handles go on a frame turned like a diagonal figure's (45° clockwise on screen).
+      const { length, thickness } = item.layout;
+      const [width, height] = (
+        item.figure.rotation % 180 === 0 ? [thickness, length] : [length, thickness]
+      ).map((side) => side * square) as [number, number];
+      const { x, y } = toScreen(item.figure);
+      return { left: x - width / 2, top: y - height / 2, width, height };
+    }
     if (item.figure.kind === 'ring' || item.figure.rotation % 180 === 0) return style;
     const [width, height] = [Number(style.height), Number(style.width)];
     const { x, y } = toScreen(item.figure);
@@ -871,7 +909,12 @@ export function StageLayer({
     const battery = space.arrangement === 'battery';
     const [width, height] = battery ? [place.across, place.along] : [place.along, place.across];
     return {
-      ...turnedBox(place, width, height, place.angle ?? place.rotation),
+      ...turnedBox(
+        place,
+        width,
+        height,
+        (place.angle ?? place.rotation) + (space.kind === 'row_diagonal' ? 45 : 0),
+      ),
       borderRadius: (Math.min(width, height) * square) / 2,
     };
   };
@@ -1322,7 +1365,12 @@ export function StageLayer({
         selected.figure.id !== movingFigureId &&
         // One on each side, past its bars (closer where there are none): another figure like it
         // there, in a new row.
-        growSpots(editBox, editHandles.resize, selected.figure.rotation).map((side) => (
+        growSpots(
+          editBox,
+          editHandles.resize,
+          selected.figure.rotation,
+          isSlanted(selected.figure.kind),
+        ).map((side) => (
           <button
             key={`grow-${side.key}`}
             type="button"
@@ -1432,7 +1480,7 @@ export function StageLayer({
       {selected && editBox && editHandles && (
         <FigureHandles
           box={editBox}
-          slanted={isSlanted(selected.figure.kind)}
+          slanted={isSlanted(selected.figure.kind) || selected.figure.kind === 'row_diagonal'}
           figure={selected.figure}
           handles={editHandles}
           toStage={(x, y) => stageProjection(view, stage).toStage(x, y)}

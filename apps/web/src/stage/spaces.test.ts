@@ -165,3 +165,39 @@ test('an empty hole waits for a pair as wide as the row was stretched', () => {
   expect(layoutSpace(wide, new Map(), stage).thickness).toBe(3);
   expect(layoutSpace({ ...wide, holeWidth: null }, new Map(), stage).thickness).toBe(2);
 });
+
+test('lays a diagonal row on the diagonal, its people on the half-square grid', () => {
+  const pairs = new Map(
+    [0, 1, 2].map((hole) => [hole, { kind: 'pair_diagonal' as const, width: 2 }]),
+  );
+  for (const arrangement of ['series', 'battery'] as const) {
+    for (const rotation of [0, 90] as const) {
+      const diagonal = snapSpace(
+        { ...row, kind: 'row_diagonal' as const, arrangement, rotation, x: 0.1, y: 0.2, gap: 0.5 },
+        pairs,
+        stage,
+      );
+      const layout = layoutSpace(diagonal, pairs, stage);
+      const people = layout.holes.flatMap((place) =>
+        slotPositions({ ...pairs.get(place.hole)!, ...place }, stage),
+      );
+      for (const person of people) {
+        const grid = (value: number, size: number) => ((value + size / 2) / 0.25) % 1;
+        expect(Math.min(grid(person.x, stage.width), 1 - grid(person.x, stage.width))).toBeLessThan(
+          1e-6,
+        );
+        expect(Math.min(grid(person.y, stage.depth), 1 - grid(person.y, stage.depth))).toBeLessThan(
+          1e-6,
+        );
+      }
+      // Never closer than people keep.
+      people.forEach((a, index) =>
+        people
+          .slice(index + 1)
+          .forEach((b) =>
+            expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(0.5 - 1e-6),
+          ),
+      );
+    }
+  }
+});
