@@ -96,6 +96,8 @@ model Group {
   inactiveSince  DateTime?     @map("inactive_since")
   // How each figure comes out when placed: { pair: { rotation, width }, … } (step 2.2).
   figureDefaults Json          @default("{}") @map("figure_defaults")
+  // Instruments the group plays (step 2.7), offered in its pieces.
+  instruments    String[]      @default([])
   people         Person[]
   performances   Performance[]
   createdAt      DateTime      @default(now()) @map("created_at")
@@ -119,6 +121,8 @@ model Person {
   membership String   @default("member")
   // "dance", "music", "singing"… (more may come).
   roles      String[] @default([])
+  // Instruments they play (step 2.7), from the group's list.
+  instruments String[] @default([])
   notes      String?
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -146,6 +150,10 @@ model Performance {
   squareSize   Float     @default(0.5) @map("square_m")
   // Safety distance kept clear inside the stage edge, in metres.
   edgeDistance Float     @default(0.25) @map("edge_distance_m")
+  // Musicians' zone (step 2.7): "back", "left" or "right" (none when null), and how wide it is in
+  // metres from the stage edge.
+  musicSide    String?   @default("back") @map("music_side")
+  musicDepth   Float     @default(1.5) @map("music_depth_m")
   notes        String?
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
@@ -184,6 +192,8 @@ model Piece {
   optional        Boolean         @default(false)
   // Encore ("bis"): kept ready in case the audience asks for more; not counted in the summary.
   encore          Boolean         @default(false)
+  // Instruments the piece needs (step 2.7), each with a seat in the musicians' zone.
+  instruments     String[]        @default([])
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
   participations  Participation[]
@@ -231,6 +241,10 @@ model Figure {
   y              Float           @map("y_m")
   rotation       Int             @default(0)
   width          Float
+  // Musicians' seats (step 2.7): the instrument played in this solo.
+  instrument     String?
+  // Crosses (step 2.5): people along each arm (front, left, right, back); empty for others.
+  arms           Int[]           @default([])
   // Trios in a triangle (step 2.4): their depth in squares, when not as deep as wide.
   depth          Float?
   // Spaces: "series" or "battery", and the room between holes in metres.

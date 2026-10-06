@@ -27,6 +27,16 @@ export const MIN_STAGE_DEPTH = 2;
 export const MAX_STAGE_WIDTH = 32;
 export const MAX_STAGE_DEPTH = 20;
 
+// The musicians' zone (step 2.7): a band along the back (by default) or one side of the stage,
+// kept for them in every piece, as wide as chosen from the stage edge in (1,5 m by default).
+export const MUSIC_SIDES = ['back', 'left', 'right'] as const;
+export const musicSideSchema = z.enum(MUSIC_SIDES);
+export type MusicSide = z.infer<typeof musicSideSchema>;
+export const DEFAULT_MUSIC_SIDE: MusicSide = 'back';
+export const DEFAULT_MUSIC_DEPTH = 1.5;
+export const MIN_MUSIC_DEPTH = 0.5;
+export const MAX_MUSIC_DEPTH = 6;
+
 const metres = (min: number, max: number) =>
   z
     .number()
@@ -51,6 +61,14 @@ const baseSchema = z.object({
     .number()
     .min(MIN_EDGE_DISTANCE, 'Mínimo 0,25 m')
     .max(MAX_EDGE_DISTANCE, 'Máximo 2 m')
+    .refine((value) => Number.isInteger(value * 4), 'El borde va de 0,25 en 0,25 m')
+    .optional(),
+  /** Where the musicians play; none without a zone. */
+  musicSide: musicSideSchema.nullable().optional(),
+  musicDepth: z
+    .number()
+    .min(MIN_MUSIC_DEPTH, 'Mínimo 0,5 m')
+    .max(MAX_MUSIC_DEPTH, `Máximo ${MAX_MUSIC_DEPTH} m`)
     .optional(),
 });
 
@@ -83,6 +101,8 @@ export const performanceSchema = z.object({
   stageDepth: z.number().nullable(),
   squareSize: z.number(),
   edgeDistance: z.number(),
+  musicSide: musicSideSchema.nullable(),
+  musicDepth: z.number(),
   createdAt: z.string(),
 });
 export type Performance = z.infer<typeof performanceSchema>;

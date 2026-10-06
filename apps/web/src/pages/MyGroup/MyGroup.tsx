@@ -2,11 +2,12 @@ import {
   type Figure,
   type Membership,
   type Person,
+  missingInstruments,
   PERSON_ROLES,
   type PersonRole,
   ROLE_LABELS,
 } from '@cuadrocorrocalle/shared';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, TriangleAlert } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 
 import { useApp } from '../../components/AppLayout/appContext';
@@ -15,19 +16,21 @@ import { PersonDialog } from '../../components/PersonDialog/PersonDialog';
 import { Button } from '../../components/ui/Button/Button';
 import { Card } from '../../components/ui/Card/Card';
 import { PersonChip } from '../../components/ui/PersonChip/PersonChip';
-import { GRID_COLOR_LABELS, gridColorVar } from '../../groups/gridColors';
+import { Tabs } from '../../components/ui/Tabs/Tabs';
 import { normalizeName } from '../../callUps/matchNames';
 import { FIGURE_LABELS, usePeople, usePeopleMutations } from '../../people/peopleApi';
 import { DeleteAllPeopleDialog } from './DeleteAllPeopleDialog';
+import { GroupInstruments } from './GroupInstruments';
+import { GroupOverview } from './GroupOverview';
 import styles from './MyGroup.module.scss';
 
-/** "Mi grupo": the group's information and its people (OA-01). */
+/** "Mi grupo": the group's information, its people and its instruments, in tabs (OA-01). */
 export function MyGroup() {
   const { activeGroup } = useApp();
 
   return (
-    // data-wide lets the layout give this page more room.
-    <div className={styles.page} data-wide="">
+    // data-full lets the layout give this page the whole width.
+    <div className={styles.page} data-full="">
       <h1 className={styles.title}>Mi grupo</h1>
       {activeGroup && <GroupPeople key={activeGroup.id} groupId={activeGroup.id} />}
     </div>
@@ -171,7 +174,19 @@ function PeopleList({ people, onEdit, slideRef, showFigure }: PeopleListProps) {
             onClick={() => onEdit(person)}
             aria-label={`Editar ${person.name}`}
           >
-            <PersonChip name={person.name} color={person.mainColor} />
+            <span className={styles.who}>
+              <PersonChip name={person.name} color={person.mainColor} />
+              {missingInstruments(person) ? (
+                <span className={styles.incomplete}>
+                  <TriangleAlert size={14} aria-hidden="true" />
+                  Incompleto: asígnale instrumentos
+                </span>
+              ) : (
+                person.instruments.length > 0 && (
+                  <span className={styles.plays}>{person.instruments.join(', ')}</span>
+                )
+              )}
+            </span>
             <span className={styles.roles}>
               {/* One slot per role, always in the same order, so each tag lines up in its column. */}
               {person.roles.length ? (
@@ -271,9 +286,21 @@ function GroupSection({
   );
 }
 
+// The tab open last, so coming back to "Mi grupo" opens it again.
+const TAB_KEY = 'ccc.myGroupTab';
+const TABS = ['info', 'members', 'instruments'];
+const readTab = () => {
+  try {
+    const saved = localStorage.getItem(TAB_KEY);
+    return saved && TABS.includes(saved) ? saved : 'info';
+  } catch {
+    return 'info';
+  }
+};
+
 function GroupPeople({ groupId }: { groupId: string }) {
   const { activeGroup } = useApp();
-  const { data: people, isPending } = usePeople(groupId);
+  const { data: people } = usePeople(groupId);
   const mutations = usePeopleMutations(groupId);
   const [editing, setEditing] = useState<Person | 'new' | null>(null);
   const [pasting, setPasting] = useState(false);
@@ -282,10 +309,18 @@ function GroupPeople({ groupId }: { groupId: string }) {
   const [sort, setSort] = useState<Sort>({ key: 'name', direction: 1, role: 'dance' });
   const [collapsed, setCollapsed] = useState(new Set<Membership>());
   const [search, setSearch] = useState('');
+  const [tab, setTab] = useState(readTab);
+  const changeTab = (value: string) => {
+    setTab(value);
+    try {
+      localStorage.setItem(TAB_KEY, value);
+    } catch {
+      // Private mode: it just starts on the first tab next time.
+    }
+  };
   const slide = useSlide();
   const group = activeGroup!;
   const count = people?.length ?? 0;
-  const collaboratorCount = people?.filter((p) => p.membership === 'collaborator').length ?? 0;
 
   // Every change of the filters slides people to their new place.
   const toggleGender = () => {
@@ -331,123 +366,116 @@ function GroupPeople({ groupId }: { groupId: string }) {
 
   return (
     <>
-      {/* Information on the left (4 of 12 columns), members on the right (8 of 12). */}
-      <div className={styles.layout}>
-        <Card title="Información" className={styles.panel}>
-          <dl className={`${styles.info} ${styles.scroll}`}>
-            <div>
-              <dt>Nombre</dt>
-              <dd>{group.name}</dd>
-            </div>
-            <div>
-              <dt>Cuadrícula</dt>
-              <dd>
-                <span
-                  className={styles.swatch}
-                  style={{ background: gridColorVar(group.gridColor) }}
-                  aria-hidden="true"
-                />
-                {GRID_COLOR_LABELS[group.gridColor]}
-              </dd>
-            </div>
-            <div>
-              <dt>Licencia</dt>
-              <dd>{group.isTrial ? 'Grupo de prueba' : 'Sin licencia'}</dd>
-            </div>
-            <div>
-              <dt>Personas</dt>
-              <dd>
-                {isPending
-                  ? '…'
-                  : `${count} (${count - collaboratorCount} miembros, ${collaboratorCount} colaboradores)`}
-              </dd>
-            </div>
-          </dl>
-        </Card>
-
-        <Card
-          className={styles.panel}
-          title="Miembros"
-          actions={
-            <>
-              <Button variant="primary" onClick={() => setEditing('new')}>
-                Añadir persona
-              </Button>
-              <Button onClick={() => setPasting(true)}>Pegar lista</Button>
-            </>
-          }
-        >
-          {people && people.length === 0 && (
-            <p className={styles.empty}>
-              Aún no hay nadie. Añade a las personas una a una o pega la lista del grupo.
-            </p>
-          )}
-          {people && people.length > 0 && (
-            <>
-              <div className={styles.filters}>
-                <input
-                  type="search"
-                  className={styles.search}
-                  placeholder="Buscar por nombre"
-                  aria-label="Buscar por nombre"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-                <label className={styles.check}>
-                  <input type="checkbox" checked={byGender} onChange={toggleGender} />
-                  Separar por género
-                </label>
-              </div>
-              {/* Only the list scrolls; the title, filters and actions stay in view. */}
-              <div className={styles.scroll}>
-                {query && !found.length && <p className={styles.empty}>Nadie se llama así.</p>}
-
-                {byGender ? (
+      {/* Three tabs, each as wide and tall as the page. */}
+      <Tabs
+        label="Mi grupo"
+        className={styles.tabs}
+        value={tab}
+        onValueChange={changeTab}
+        items={[
+          {
+            value: 'info',
+            label: 'Información y estadísticas',
+            content: <GroupOverview group={group} people={people} />,
+          },
+          {
+            value: 'members',
+            label: `Miembros${people ? ` (${count})` : ''}`,
+            content: (
+              <Card
+                className={styles.panel}
+                title="Miembros"
+                actions={
                   <>
-                    <div className={styles.genders}>
-                      <GroupSection
-                        title="Chicos"
-                        people={ofFigure('boy')}
-                        showFigure={false}
-                        {...listProps}
-                      />
-                      <GroupSection
-                        title="Chicas"
-                        people={ofFigure('girl')}
-                        showFigure={false}
-                        {...listProps}
-                      />
-                    </div>
-                    {ofFigure(null).length > 0 && (
-                      <GroupSection
-                        title="Sin género"
-                        people={ofFigure(null)}
-                        showFigure={false}
-                        {...listProps}
-                      />
-                    )}
+                    <Button variant="primary" onClick={() => setEditing('new')}>
+                      Añadir persona
+                    </Button>
+                    <Button onClick={() => setPasting(true)}>Pegar lista</Button>
                   </>
-                ) : (
-                  <GroupSection people={sorted} showFigure {...listProps} />
+                }
+              >
+                {people && people.length === 0 && (
+                  <p className={styles.empty}>
+                    Aún no hay nadie. Añade a las personas una a una o pega la lista del grupo.
+                  </p>
                 )}
-              </div>
-            </>
-          )}
-          {people && people.length > 0 && (
-            <div className={styles.dangerZone}>
-              <Button variant="danger" onClick={() => setDeletingAll(true)}>
-                Borrar todos los miembros
-              </Button>
-            </div>
-          )}
-        </Card>
-      </div>
+                {people && people.length > 0 && (
+                  <>
+                    <div className={styles.filters}>
+                      <input
+                        type="search"
+                        className={styles.search}
+                        placeholder="Buscar por nombre"
+                        aria-label="Buscar por nombre"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                      />
+                      <label className={styles.check}>
+                        <input type="checkbox" checked={byGender} onChange={toggleGender} />
+                        Separar por género
+                      </label>
+                    </div>
+                    {/* Only the list scrolls; the title, filters and actions stay in view. */}
+                    <div className={styles.scroll}>
+                      {query && !found.length && (
+                        <p className={styles.empty}>Nadie se llama así.</p>
+                      )}
+
+                      {byGender ? (
+                        <>
+                          <div className={styles.genders}>
+                            <GroupSection
+                              title="Chicos"
+                              people={ofFigure('boy')}
+                              showFigure={false}
+                              {...listProps}
+                            />
+                            <GroupSection
+                              title="Chicas"
+                              people={ofFigure('girl')}
+                              showFigure={false}
+                              {...listProps}
+                            />
+                          </div>
+                          {ofFigure(null).length > 0 && (
+                            <GroupSection
+                              title="Sin género"
+                              people={ofFigure(null)}
+                              showFigure={false}
+                              {...listProps}
+                            />
+                          )}
+                        </>
+                      ) : (
+                        <GroupSection people={sorted} showFigure {...listProps} />
+                      )}
+                    </div>
+                  </>
+                )}
+                {people && people.length > 0 && (
+                  <div className={styles.dangerZone}>
+                    <Button variant="danger" onClick={() => setDeletingAll(true)}>
+                      Borrar todos los miembros
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            ),
+          },
+          {
+            value: 'instruments',
+            label: 'Instrumentos',
+            content: <GroupInstruments group={group} people={people ?? []} mutations={mutations} />,
+          },
+        ]}
+      />
 
       <PersonDialog
         open={editing !== null}
         onOpenChange={(open) => !open && setEditing(null)}
         person={editing && editing !== 'new' ? editing : undefined}
         mutations={mutations}
+        instruments={group.instruments}
       />
       <PasteNamesDialog
         open={pasting}

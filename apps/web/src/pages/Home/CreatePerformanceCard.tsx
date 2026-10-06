@@ -6,10 +6,15 @@ import {
   MIN_EDGE_DISTANCE,
   MIN_STAGE_DEPTH,
   MIN_STAGE_WIDTH,
+  DEFAULT_MUSIC_DEPTH,
+  DEFAULT_MUSIC_SIDE,
+  MAX_MUSIC_DEPTH,
+  MIN_MUSIC_DEPTH,
   type CallUpEntry,
+  type MusicSide,
   type Performance,
 } from '@cuadrocorrocalle/shared';
-import { Pencil } from 'lucide-react';
+import { ChevronDown, Pencil } from 'lucide-react';
 import {
   type FormEvent,
   type InputEvent,
@@ -29,6 +34,7 @@ import type { StageSize } from '../../stage/placement';
 import { Button } from '../../components/ui/Button/Button';
 import { Dialog, DialogClose } from '../../components/ui/Dialog/Dialog';
 import { RequiredMark } from '../../components/ui/RequiredMark/RequiredMark';
+import { Select } from '../../components/ui/Select/Select';
 import { TextField } from '../../components/ui/TextField/TextField';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -44,7 +50,24 @@ interface StageValues {
   depth: string;
   squareSize: string;
   edgeDistance: string;
+  /** Where the musicians play ('' without a zone) and how wide their band is, in metres. */
+  musicSide: MusicSide | '';
+  musicDepth: string;
 }
+
+const MUSIC_SIDE_OPTIONS = [
+  { value: 'none', label: 'Sin zona de músicos' },
+  { value: 'back', label: 'Atrás' },
+  { value: 'left', label: 'A la izquierda' },
+  { value: 'right', label: 'A la derecha' },
+];
+
+/** How wide the musicians' zone is, in half metres within its limits. */
+const musicDepthOf = (value: string) =>
+  Math.min(
+    MAX_MUSIC_DEPTH,
+    Math.max(MIN_MUSIC_DEPTH, Math.round((toNumber(value) ?? DEFAULT_MUSIC_DEPTH) * 2) / 2),
+  );
 
 type Step = 'data' | 'stage' | 'callUp';
 
@@ -80,10 +103,19 @@ const toNumber = (value: string) => {
   return value.trim() && Number.isFinite(number) && number > 0 ? number : null;
 };
 
-const edgeOf = (value: string) => Math.max(MIN_EDGE_DISTANCE, toNumber(value) ?? 0);
+// The edge goes in quarters of a metre: 0,25, 0,5, 0,75…
+const edgeOf = (value: string) =>
+  Math.max(MIN_EDGE_DISTANCE, Math.round((toNumber(value) ?? 0) * 4) / 4);
 
 /** Stage in metres, or null until both measures are valid. */
-function toStageSize({ width, depth, squareSize, edgeDistance }: StageValues): StageSize | null {
+function toStageSize({
+  width,
+  depth,
+  squareSize,
+  edgeDistance,
+  musicSide,
+  musicDepth,
+}: StageValues): StageSize | null {
   const w = toNumber(width);
   const d = toNumber(depth);
   return w && d
@@ -92,6 +124,8 @@ function toStageSize({ width, depth, squareSize, edgeDistance }: StageValues): S
         depth: d,
         squareSize: toNumber(squareSize) ?? DEFAULT_SQUARE_SIZE,
         edgeDistance: edgeOf(edgeDistance),
+        musicSide: musicSide || null,
+        musicDepth: musicDepthOf(musicDepth),
       }
     : null;
 }
@@ -104,6 +138,12 @@ function toStage(values: StageValues): GridStage | null {
         cols: size.width / size.squareSize,
         rows: size.depth / size.squareSize,
         edge: size.edgeDistance / size.squareSize,
+        music: size.musicSide
+          ? {
+              side: size.musicSide,
+              deep: (size.musicDepth ?? DEFAULT_MUSIC_DEPTH) / size.squareSize,
+            }
+          : null,
       }
     : null;
 }
@@ -185,23 +225,31 @@ function StepPanel({
       onClick={open ? undefined : onOpen}
     >
       <Heartbeat beat={attention} />
-      <h2 id={`${id}-title`} className={styles.title}>
-        <button
-          type="button"
-          className={styles.header}
-          aria-expanded={open}
-          aria-controls={`${id}-body`}
-          onClick={(event) => {
-            // Avoid a second toggle from the section's own click.
-            event.stopPropagation();
-            onOpen();
-          }}
-        >
-          {title}
-          {required && <RequiredMark />}
-        </button>
-      </h2>
-      {!open && summary && <p className={styles.summary}>{summary}</p>}
+      {/* Title and, while closed, its summary: the chevron sits halfway down both. */}
+      <div className={styles.head}>
+        <h2 id={`${id}-title`} className={styles.title}>
+          <button
+            type="button"
+            className={styles.header}
+            aria-expanded={open}
+            aria-controls={`${id}-body`}
+            onClick={(event) => {
+              // Avoid a second toggle from the section's own click.
+              event.stopPropagation();
+              onOpen();
+            }}
+          >
+            {title}
+            {required && <RequiredMark />}
+            <ChevronDown
+              className={styles.chevron}
+              data-open={open ? '' : undefined}
+              aria-hidden="true"
+            />
+          </button>
+        </h2>
+        {!open && summary && <p className={styles.summary}>{summary}</p>}
+      </div>
       {/* Closed blocks stay mounted so their fields keep what was typed. */}
       <div
         id={`${id}-body`}
@@ -244,6 +292,9 @@ export function CreatePerformanceCard({
     depth: String(performance?.stageDepth ?? (performance ? '' : 8)),
     squareSize: formatNumber(String(performance?.squareSize ?? DEFAULT_SQUARE_SIZE)),
     edgeDistance: formatNumber(String(performance?.edgeDistance ?? MIN_EDGE_DISTANCE)),
+    // A new performance keeps the back for its musicians.
+    musicSide: performance ? (performance.musicSide ?? '') : DEFAULT_MUSIC_SIDE,
+    musicDepth: formatNumber(String(performance?.musicDepth ?? DEFAULT_MUSIC_DEPTH)),
   }));
   // Values shown on the grid: they only change when a field loses focus, so typing "9" over "10"
   // does not flash a 1 m stage.
@@ -294,8 +345,18 @@ export function CreatePerformanceCard({
       width: limit(stage.width, MIN_STAGE_WIDTH, MAX_STAGE_WIDTH, ''),
       depth: limit(stage.depth, MIN_STAGE_DEPTH, MAX_STAGE_DEPTH, ''),
       edgeDistance: formatNumber(
-        limit(stage.edgeDistance, MIN_EDGE_DISTANCE, MAX_EDGE_DISTANCE, String(MIN_EDGE_DISTANCE)),
+        String(
+          edgeOf(
+            limit(
+              stage.edgeDistance,
+              MIN_EDGE_DISTANCE,
+              MAX_EDGE_DISTANCE,
+              String(MIN_EDGE_DISTANCE),
+            ),
+          ),
+        ),
       ),
+      musicDepth: formatNumber(String(musicDepthOf(stage.musicDepth))),
     };
     setStage(next);
     // Incomplete measures keep the previous preview.
@@ -334,6 +395,8 @@ export function CreatePerformanceCard({
       stageDepth: toNumber(stage.depth),
       squareSize: toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE,
       edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(stage.edgeDistance)),
+      musicSide: stage.musicSide || null,
+      musicDepth: musicDepthOf(stage.musicDepth),
     };
     try {
       const saved = performance
@@ -383,6 +446,8 @@ export function CreatePerformanceCard({
     stageDepth: toNumber(settled.depth),
     squareSize: toNumber(settled.squareSize) ?? DEFAULT_SQUARE_SIZE,
     edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(settled.edgeDistance)),
+    musicSide: settled.musicSide || null,
+    musicDepth: musicDepthOf(settled.musicDepth),
   };
   const valuesKey = JSON.stringify(liveValues);
   const callUpKeyValue = JSON.stringify(callUp.entries);
@@ -417,6 +482,7 @@ export function CreatePerformanceCard({
   }, [valuesKey, callUpKeyValue, missing.length, callUp.pending]);
 
   const calledCount = callUp.entries.filter((entry) => entry.status === 'yes').length;
+  const maybeCount = callUp.entries.filter((entry) => entry.status === 'maybe').length;
   const dataSummary =
     [
       info.place?.trim(),
@@ -425,11 +491,20 @@ export function CreatePerformanceCard({
     ]
       .filter(Boolean)
       .join(' · ') || 'Sin datos todavía';
-  const stageSummary = settled.width ? `${settled.width} × ${settled.depth} m` : '';
+  const musicSummary = settled.musicSide
+    ? ` · músicos ${MUSIC_SIDE_OPTIONS.find((option) => option.value === settled.musicSide)?.label.toLowerCase()}`
+    : '';
+  const stageSummary = settled.width ? `${settled.width} × ${settled.depth} m${musicSummary}` : '';
   const callUpSummary = callUp.pending
     ? 'Faltan personas por crear'
     : callUp.entries.length
-      ? `${calledCount} ${calledCount === 1 ? 'viene' : 'vienen'} de ${callUp.entries.length} convocados`
+      ? // «9 confirmados», or «7 confirmados, 2 por confirmar».
+        [
+          `${calledCount} ${calledCount === 1 ? 'confirmado' : 'confirmados'}`,
+          maybeCount ? `${maybeCount} por confirmar` : null,
+        ]
+          .filter(Boolean)
+          .join(', ')
       : 'Sin convocatoria todavía';
 
   // Big editable title, like a document name; it goes back to the default if left empty. With a
@@ -567,8 +642,34 @@ export function CreatePerformanceCard({
               autoComplete="off"
               value={stage.edgeDistance}
               onChange={update('edgeDistance', cleanDecimal)}
-              hint="De 0,25 a 2 m"
+              hint="De 0,25 a 2 m, de 0,25 en 0,25"
             />
+          </div>
+          {/* Where the musicians play, kept for them in every piece. */}
+          <div className={styles.pair} data-top="">
+            <Select
+              label="Zona de músicos"
+              options={MUSIC_SIDE_OPTIONS}
+              value={stage.musicSide || 'none'}
+              onValueChange={(value) => {
+                const next: StageValues = {
+                  ...stage,
+                  musicSide: value === 'none' ? '' : (value as MusicSide),
+                };
+                setStage(next);
+                setSettled(next);
+              }}
+            />
+            {stage.musicSide && (
+              <TextField
+                label="Espacio para músicos (m)"
+                inputMode="decimal"
+                autoComplete="off"
+                value={stage.musicDepth}
+                onChange={update('musicDepth', cleanDecimal)}
+                hint="De 0,5 a 6 m, desde el borde"
+              />
+            )}
           </div>
           <div className={styles.scaleNote}>
             <span>{square === '1' ? '1 m = 1 cuadrado' : `1 cuadrado = ${square} m`}</span>

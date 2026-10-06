@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 
 import { TopBar } from '../../components/TopBar/TopBar';
@@ -121,7 +122,11 @@ export function Components() {
           <Card title="Menú">
             <Menu
               align="start"
-              trigger={<Button>Opciones ▾</Button>}
+              trigger={
+                <Button>
+                  Opciones <ChevronDown size={16} aria-hidden="true" />
+                </Button>
+              }
               items={[
                 { label: 'Duplicar', onSelect: () => notify('Duplicar') },
                 { label: 'Compartir', onSelect: () => notify('Compartir') },

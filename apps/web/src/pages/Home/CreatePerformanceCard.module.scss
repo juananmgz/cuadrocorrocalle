@@ -37,8 +37,17 @@
   font-size: 1.75rem;
 }
 
+// Title and summary of a block, with its chevron halfway down at the right.
+.head {
+  position: relative;
+  padding-right: 28px;
+}
+
 // The block title opens and closes it.
 .header {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
   width: 100%;
   padding: 0;
   font: inherit;
@@ -49,15 +58,25 @@
   cursor: pointer;
   background: transparent;
   border: 0;
+}
 
-  &::after {
-    float: right;
-    font-size: 1rem;
-    content: '▾';
+// Lucide's chevron at the right, turning over when the block opens (as in the tray).
+.chevron {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  color: var(--ink-soft);
+  transition: transform var(--duration) ease;
+
+  &[data-open] {
+    transform: rotate(180deg);
   }
 
-  &[aria-expanded='true']::after {
-    content: '▴';
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 }
 
@@ -110,7 +129,7 @@
 .editIcon {
   flex: none;
   color: var(--ink-soft);
-  transition: opacity 150ms;
+  transition: opacity var(--duration);
 
   .titleRow:hover &,
   .titleRow:focus-within & {
@@ -171,6 +190,11 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
+
+  // Fields lined up by their top, so a hint under one does not stretch the other.
+  &[data-top] {
+    align-items: start;
+  }
 }
 
 .stage {
@@ -210,7 +234,7 @@
 .accordion {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 250ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   &[data-open] {
     grid-template-rows: 1fr;

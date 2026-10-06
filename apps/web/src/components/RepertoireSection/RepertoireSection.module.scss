@@ -210,7 +210,7 @@
 .chevron {
   width: 20px;
   height: 20px;
-  transition: transform 200ms ease;
+  transition: transform var(--duration) ease;
 
   &[data-open] {
     transform: rotate(180deg);
@@ -322,8 +322,23 @@
   gap: var(--space-3);
   align-items: start;
 
+  // Side by side: the tray takes two fifths and the repertoire the rest. Folding the tray
+  // shrinks it to its icons (and the repertoire grows) with a sweep.
   @container (min-width: 500px) {
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-columns: minmax(0, 1fr) auto;
+
+    > [data-tray] {
+      width: calc((100cqw - var(--space-3)) * 0.4);
+      transition: width var(--duration) ease;
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
+    }
+
+    > [data-tray-collapsed] {
+      width: 46px;
+    }
   }
 }
 
@@ -392,7 +407,7 @@
 .dropZone {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 200ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   &[data-open] {
     grid-template-rows: 1fr;
@@ -446,7 +461,7 @@
   height: 20px;
   margin-left: auto;
   color: var(--ink-soft);
-  transition: transform 200ms ease;
+  transition: transform var(--duration) ease;
 
   &[data-open] {
     transform: rotate(180deg);
@@ -469,7 +484,7 @@
 .accordion {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 250ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   &[data-open] {
     grid-template-rows: 1fr;
@@ -500,4 +515,15 @@
 // Under the open title, its details.
 .nameInput + .summary {
   padding-top: 0;
+}
+
+// Instruments of a piece not yet in the group's list, with the button to add them.
+.newInstruments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
 }

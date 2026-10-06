@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { FIGURE_SLOTS, isSpace, stageFigureSchema } from './figures';
+import { isSpace, slotCount, stageFigureSchema } from './figures';
 import { roleSchema } from './people';
 import { MAX_STAGE_DEPTH, MAX_STAGE_WIDTH, PERFORMANCES_PATH } from './performances';
 
@@ -20,6 +20,11 @@ export const PIECE_TYPE_LABELS = {
   song: 'Canción',
   recorded: 'Voz en off / Música enlatada',
 } as const;
+
+// What a piece needs played (step 2.7): free tags like "Dulzaina", "Redoblante" or "Canto", each
+// as many times as there are of it (two dulzainas: "Dulzaina" twice).
+export const MAX_INSTRUMENTS = 30;
+export const instrumentSchema = z.string().trim().min(1).max(40, 'Máximo 40 caracteres');
 
 /** A coordinate on the stage, in metres from its centre. */
 const coordinate = (max: number) => z.number().min(-max).max(max).nullable().optional();
@@ -72,6 +77,8 @@ export const pieceInputSchema = z
     structure: z.string().trim().max(300, 'Máximo 300 caracteres').nullable().optional(),
     optional: z.boolean().optional(),
     encore: z.boolean().optional(),
+    /** Instruments it needs: each gets a seat in the musicians' zone. */
+    instruments: z.array(instrumentSchema).max(MAX_INSTRUMENTS).optional(),
     participants: participantsSchema.optional(),
     figures: z.array(stageFigureSchema).max(100).optional(),
   })
@@ -85,7 +92,7 @@ export const pieceInputSchema = z
       if (figureId == null || slot == null) continue;
       const figure = figures.get(figureId);
       const key = `${figureId}:${slot}`;
-      if (!figure || slot >= FIGURE_SLOTS[figure.kind] || taken.has(key))
+      if (!figure || slot >= slotCount(figure) || taken.has(key))
         context.addIssue({
           code: 'custom',
           message: 'Hueco de figura no válido',
@@ -136,6 +143,7 @@ export const pieceSchema = z.object({
   structure: z.string().nullable(),
   optional: z.boolean(),
   encore: z.boolean(),
+  instruments: z.array(z.string()),
   participants: z.array(participantSchema),
   figures: z.array(stageFigureSchema),
 });

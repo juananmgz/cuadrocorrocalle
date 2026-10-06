@@ -1,0 +1,273 @@
+@use '../../styles/mixins';
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+
+  @include mixins.from-desktop {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+// The people on one side and the instruments on the other.
+.layout {
+  display: grid;
+  gap: var(--space-4);
+
+  @include mixins.from-tablet {
+    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  }
+
+  @include mixins.from-desktop {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+// Each side scrolls on its own; the field to add instruments stays in view.
+.pool,
+.scroll {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+
+  @include mixins.from-desktop {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+.pool {
+  padding: var(--space-3);
+  border: var(--border-width) dashed var(--line);
+  border-radius: var(--radius);
+
+  // Dropping someone from an instrument back here takes it from them.
+  &[data-over] {
+    border-color: var(--accent);
+  }
+}
+
+.group {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.warning {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--warn-bg);
+  border: var(--border-width) solid var(--warn);
+  border-radius: var(--radius);
+}
+
+.heading,
+.subheading {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.heading {
+  color: var(--warn);
+}
+
+.subheading {
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+// No gap between rows: the line under each one stays halfway between the people.
+.list {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+// One instrument per row: its name, how many play it and who.
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid transparent;
+  border-bottom-color: var(--line);
+  border-radius: var(--radius);
+
+  // On a phone the people go on a line of their own.
+  .players {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+
+  @include mixins.from-tablet {
+    grid-template-columns: minmax(120px, 200px) 88px minmax(0, 1fr) auto;
+
+    .players {
+      grid-row: auto;
+      grid-column: auto;
+    }
+  }
+
+  // Someone held over it.
+  &[data-over] {
+    background: var(--sel-bg);
+    border-color: var(--accent);
+  }
+}
+
+.name {
+  font-weight: 700;
+}
+
+.unlisted {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.count {
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+// As tall as a chip (44 px) from the start, so adding the first person does not resize the row.
+.players {
+  display: flex;
+  min-height: 44px;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.people {
+  display: contents;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+
+  .group > &,
+  .warning > & {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+}
+
+// A person who can be dragged, with the cross inside the chip.
+.handle {
+  display: inline-flex;
+  cursor: grab;
+  border-radius: 999px;
+  touch-action: none;
+
+  &[data-dragging] {
+    opacity: 0.4;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+.remove,
+.add {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 var(--space-1);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--ink);
+    background: var(--sel-bg);
+  }
+}
+
+// Always a round + button beside the people.
+.add {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border: var(--border-width) dashed var(--line);
+  border-radius: 50%;
+}
+
+// The cross removes: red on hover, like the chip around it.
+.remove:hover,
+.remove:focus-visible {
+  color: var(--on-danger);
+  background: var(--danger);
+}
+
+// Takes the instrument out of the group; with people in it, it asks first, in red.
+.delete {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+
+  &:hover,
+  &:focus-visible,
+  &[data-confirming] {
+    color: var(--on-danger);
+    background: var(--danger);
+  }
+}
+
+// "+ Añadir instrumento": the same dashed accent button as "+ Añadir pieza".
+.addButton {
+  width: 100%;
+  color: var(--accent);
+  border-style: dashed;
+  border-color: var(--accent);
+
+  &:hover:not(:disabled) {
+    background: var(--sel-bg);
+  }
+}

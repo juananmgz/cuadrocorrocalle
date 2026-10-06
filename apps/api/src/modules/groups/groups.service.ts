@@ -16,6 +16,7 @@ const toGroup = ({
   gridColor,
   isTrial,
   figureDefaults,
+  instruments,
   createdAt,
 }: GroupRecord): Group => ({
   id,
@@ -24,6 +25,7 @@ const toGroup = ({
   isTrial,
   // Anything unreadable falls back to the built-in defaults.
   figureDefaults: figureDefaultsSchema.safeParse(figureDefaults).data ?? {},
+  instruments,
   createdAt: createdAt.toISOString(),
 });
 
@@ -65,6 +67,15 @@ export function createGroupService(repository: GroupRepository) {
       figureDefaults: FigureDefaults,
     ): Promise<Group | null> {
       const updated = await repository.setFigureDefaults(id, ownerId, figureDefaults);
+      return updated ? toGroup(updated) : null;
+    },
+
+    async setInstruments(
+      ownerId: string,
+      id: string,
+      instruments: string[],
+    ): Promise<Group | null> {
+      const updated = await repository.setInstruments(id, ownerId, instruments);
       return updated ? toGroup(updated) : null;
     },
 

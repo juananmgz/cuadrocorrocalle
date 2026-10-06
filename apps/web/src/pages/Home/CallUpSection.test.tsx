@@ -13,6 +13,7 @@ const person = (id: string, name: string, figure: Person['figure']): Person => (
   mainColor: 'blue',
   membership: 'member',
   roles: ['dance'],
+  instruments: [],
   notes: null,
 });
 

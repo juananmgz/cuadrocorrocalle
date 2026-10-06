@@ -1,5 +1,6 @@
 import type { DragEndEvent, DragMoveEvent, DragStartEvent } from '@dnd-kit/core';
 import {
+  DEFAULT_CROSS_ARMS,
   DEFAULT_FIGURE_WIDTH,
   DEFAULT_SPACE_GAP,
   MAX_FIGURE_WIDTH,
@@ -16,7 +17,7 @@ import {
 import { useEffect, useState } from 'react';
 
 import { useSaveFigureDefaults } from '../../groups/groupsApi';
-import { placeParticipant } from '../../pieces/participants';
+import { defaultRoles, placeParticipant } from '../../pieces/participants';
 import {
   checkFigureDrop,
   type FigureDrop,
@@ -40,12 +41,14 @@ import {
   putFigure,
   removeFigure,
   reorderInSpace,
+  stretchArm,
   takeOutOfSpace,
   type StageContent,
 } from '../../stage/pieceFigures';
 import {
   type DropCheck,
   isOnStage,
+  musicZone,
   isTooClose,
   type StagePoint,
   type StageSize,
@@ -62,6 +65,7 @@ import {
   turnSpot,
 } from '../../stage/freeDance';
 import { mirrorFigure, type MirrorWay } from '../../stage/mirror';
+import { baseOf, playsSeat } from '../../stage/musicSeats';
 import { stageProjection } from '../../stage/projection';
 import {
   areaPoint,
@@ -99,6 +103,7 @@ type Shape = Pick<
   | 'rotation'
   | 'width'
   | 'depth'
+  | 'arms'
   | 'arrangement'
   | 'gap'
   | 'aspect'
@@ -328,6 +333,8 @@ export function useStageEditing({
     figureId: string | null,
     places?: StagePoint[],
     alsoBut: string | null = null,
+    /** Whoever plays may stand in the musicians' zone; everything else keeps out of it. */
+    musician = figureId ? playsIn(figureId) : false,
   ) => {
     if (!stage) return [];
     const joining = places ? joiningAt(figureId, places) : new Set<string>();
@@ -344,7 +351,35 @@ export function useStageEditing({
           !(figureId && figure.spaceId === figureId) &&
           !(figure.kind === 'solo' && takenIn.has(figure.id)),
       )
-      .map((figure) => blockOutline(figure));
+      .map((figure) => blockOutline(figure))
+      .concat(zoneOutline && !musician ? [zoneOutline] : []);
+  };
+
+  // The musicians' zone as a block, kept for them.
+  const zone = stage ? musicZone(stage) : null;
+  const zoneOutline = zone
+    ? [
+        { x: zone.left, y: zone.bottom },
+        { x: zone.right, y: zone.bottom },
+        { x: zone.right, y: zone.top },
+        { x: zone.left, y: zone.top },
+      ]
+    : null;
+  /** Whether someone plays in the piece (or would, added now with their usual role). */
+  const plays = (personId: string) => {
+    const participant = participants.find((item) => item.personId === personId);
+    const person = people.get(personId);
+    const roles =
+      participant?.roles ?? (person && pieceType ? defaultRoles(person, pieceType) : []);
+    return roles.includes('music');
+  };
+  /** Whether a figure is someone who plays, on their own. */
+  const playsIn = (figureId: string) => {
+    const figure = figures.find((item) => item.id === figureId);
+    const member = participants.find((item) => item.figureId === figureId);
+    // A musician's seat belongs in the zone, empty or not.
+    if (figure?.instrument) return true;
+    return figure?.kind === 'solo' && !figure.spaceId && member ? plays(member.personId) : false;
   };
 
   /** The block a figure takes up: its own, or the band or disc of a space. */
@@ -446,11 +481,28 @@ export function useStageEditing({
           ]),
         );
 
-  /** The empty place of another figure at a stage point, if any. */
-  const seatAt = (point: StagePoint, exceptId: string | null) => {
+  /** Whether someone can take a place in a figure: a musician's seat only if they play it. */
+  const fitsSeat = (personId: string | undefined, figure: StageFigure) =>
+    !figure.instrument ||
+    (personId !== undefined &&
+      playsSeat(people.get(personId)?.instruments ?? [], figure.instrument));
+
+  /** The instrument seat at a stage point that someone does not play, if any. */
+  const notPlayedAt = (point: StagePoint, personId: string) => {
+    if (!stage) return null;
+    const item = figureViews.find(
+      ({ figure, places }) =>
+        figure.instrument && !fitsSeat(personId, figure) && slotAt(places, point, stage) >= 0,
+    );
+    return item ? baseOf(item.figure.instrument!) : null;
+  };
+
+  /** The empty place of another figure at a stage point (one `personId` may take), if any. */
+  const seatAt = (point: StagePoint, exceptId: string | null, personId?: string) => {
     if (!stage) return null;
     for (const item of figureViews) {
       if (item.figure.id === exceptId) continue;
+      if (!fitsSeat(personId, item.figure)) continue;
       const emptyPlaces = item.empty.map((slot) => item.places[slot]!);
       const index = slotAt(emptyPlaces, point, stage);
       if (index >= 0)
@@ -467,6 +519,8 @@ export function useStageEditing({
     if (!stage) return null;
     for (const item of figureViews) {
       if (!item.layout || item.figure.id === exceptId) continue;
+      // The cross is a figure of its own: it never goes into a space.
+      if (kind === 'cross') return null;
       // A diagonal row only takes people on their own and diagonal figures.
       if (item.figure.kind === 'row_diagonal' && !DIAGONAL_FIGURES.has(kind)) continue;
       const children = childrenOf(figures, item.figure.id);
@@ -579,7 +633,8 @@ export function useStageEditing({
     const fill = fillAt(centre, move.id, move.shape.kind);
     if (fill) return fillResult(move.shape, move.id, fill);
     // Someone in a solo dropped on an empty place of another figure takes it.
-    const seat = move.id && move.shape.kind === 'solo' ? seatAt(centre, move.id) : null;
+    const seat =
+      move.id && move.shape.kind === 'solo' ? seatAt(centre, move.id, memberIn(move.id)) : null;
     if (seat)
       return {
         ok: true,
@@ -632,7 +687,10 @@ export function useStageEditing({
       return onChange(next);
     }
     // A solo landing on an empty place of another figure: its person joins that one.
-    const seat = move.id && move.shape.kind === 'solo' ? seatAt(result.places[0]!, move.id) : null;
+    const seat =
+      move.id && move.shape.kind === 'solo'
+        ? seatAt(result.places[0]!, move.id, memberIn(move.id))
+        : null;
     if (seat) {
       const solo = move.id;
       return onChange({
@@ -684,10 +742,14 @@ export function useStageEditing({
     solo?: Shape;
     /** Who stood in that place and leaves it to them. */
     replaces?: string;
+    /** The instrument of the seat there, which they do not play. */
+    notPlayed?: string;
   } | null => {
     const point = toStage(pointer);
     if (!point || !stage || !content) return null;
-    const seat = seatAt(point, null);
+    const notPlayed = notPlayedAt(point, personId);
+    if (notPlayed) return { check: { ok: false, reason: 'close' }, seat: null, notPlayed };
+    const seat = seatAt(point, null, personId);
     if (seat)
       return {
         check: { ok: true, point: seat.place },
@@ -704,7 +766,13 @@ export function useStageEditing({
     const others = placed.filter((item) => item.person.id !== personId).map((item) => item.point);
     const shape = newShape('solo');
     if (!shape) return null;
-    const solo = checkFigureDrop(shape, point, stage, others, blocksBut(null));
+    const solo = checkFigureDrop(
+      shape,
+      point,
+      stage,
+      others,
+      blocksBut(null, undefined, null, plays(personId)),
+    );
     return solo.ok
       ? { check: { ok: true, point: solo.places[0]! }, seat: null, solo: solo.figure }
       : { check: { ok: false, reason: solo.reason }, seat: null };
@@ -734,7 +802,8 @@ export function useStageEditing({
   const withoutOwnSolo = (figureList: StageFigure[], personId: string) => {
     const own = participants.find((participant) => participant.personId === personId)?.figureId;
     return figureList.filter(
-      (figure) => !(figure.id === own && figure.kind === 'solo' && !figure.spaceId),
+      (figure) =>
+        !(figure.id === own && figure.kind === 'solo' && !figure.spaceId && !figure.instrument),
     );
   };
 
@@ -769,7 +838,12 @@ export function useStageEditing({
     if (!content) return;
     const figureId = participants.find((item) => item.personId === personId)?.figureId;
     const solo = figures.find(
-      (figure) => figure.id === figureId && figure.kind === 'solo' && !figure.spaceId,
+      (figure) =>
+        figure.id === figureId &&
+        figure.kind === 'solo' &&
+        !figure.spaceId &&
+        // A musician's seat waits for someone else.
+        !figure.instrument,
     );
     if (solo) return onChange(removeFigure(content, solo.id));
     onChange({
@@ -792,35 +866,68 @@ export function useStageEditing({
     const musicians = placed.filter(({ person: other }) =>
       participants.find((item) => item.personId === other.id)?.roles.includes('music'),
     );
+    const seat = playing
+      ? figureViews.find(
+          ({ figure, empty }) => figure.instrument && empty.length && fitsSeat(personId, figure),
+        )
+      : undefined;
+    if (seat)
+      return placePerson(personId, seat.places[seat.empty[0]!]!, {
+        figureId: seat.figure.id,
+        slot: seat.empty[0]!,
+      });
     const step = stage.squareSize / 2;
     const backmost = playing
       ? stage.depth / 2
       : Math.min(stage.depth / 2, ...musicians.map(({ point }) => point.y - stage.squareSize));
     const shape = newShape('solo');
     const others = placed.map(({ point }) => point);
-    const blocks = blocksBut(null);
-    // Rows from the back to the front; in each, from the middle outwards.
+    const blocks = blocksBut(null, undefined, null, Boolean(playing));
+    // Rows from the back to the front; in each, from the middle outwards. Someone who plays
+    // tries their zone first, from its outer edge in.
     const columns = Math.floor(stage.width / 2 / step);
-    for (let y = Math.floor(backmost / step) * step; shape && y > -stage.depth / 2; y -= step) {
-      for (let index = 0; index <= columns * 2; index += 1) {
-        const x = (index % 2 ? 1 : -1) * Math.ceil(index / 2) * step;
-        const result = checkFigureDrop(shape, { x, y }, stage, others, blocks);
-        if (!result.ok || Math.hypot(result.figure.x - x, result.figure.y - y) > step) continue;
-        const figure: StageFigure = { ...result.figure, id: newFigureId() };
-        onChange({
-          figures: [...figures, figure],
-          participants: placeParticipant(participants, person, pieceType, result.places[0]!, {
-            figureId: figure.id,
-            slot: 0,
-          }),
-        });
-        return;
-      }
+    const spots: StagePoint[] = [];
+    if (playing && zone) {
+      const across = zone.right - zone.left;
+      const deep = zone.top - zone.bottom;
+      const lines = stage.musicSide === 'back' ? deep : across;
+      const along = stage.musicSide === 'back' ? across : deep;
+      for (let line = 0; line <= lines / step; line += 1)
+        for (let index = 0; index <= along / step; index += 1) {
+          const offset = (index % 2 ? 1 : -1) * Math.ceil(index / 2) * step;
+          spots.push(
+            stage.musicSide === 'back'
+              ? { x: offset, y: zone.top - line * step }
+              : stage.musicSide === 'left'
+                ? { x: zone.left + line * step, y: offset }
+                : { x: zone.right - line * step, y: offset },
+          );
+        }
+    }
+    for (let y = Math.floor(backmost / step) * step; y > -stage.depth / 2; y -= step)
+      for (let index = 0; index <= columns * 2; index += 1)
+        spots.push({ x: (index % 2 ? 1 : -1) * Math.ceil(index / 2) * step, y });
+    for (const { x, y } of shape ? spots : []) {
+      const result = checkFigureDrop(shape!, { x, y }, stage, others, blocks);
+      if (!result.ok || Math.hypot(result.figure.x - x, result.figure.y - y) > step) continue;
+      const figure: StageFigure = { ...result.figure, id: newFigureId() };
+      onChange({
+        figures: [...figures, figure],
+        participants: placeParticipant(participants, person, pieceType, result.places[0]!, {
+          figureId: figure.id,
+          slot: 0,
+        }),
+      });
+      return;
     }
     // No room: in the piece, waiting for a place.
     onChange({ ...content, participants: joined });
     toast.show({ title: 'No queda sitio libre en el escenario', tone: 'error' });
   };
+
+  /** Who stands in a figure, if anyone. */
+  const memberIn = (figureId: string) =>
+    participants.find((item) => item.figureId === figureId)?.personId;
 
   const memberOf = (personId: string): Participant | undefined =>
     participants.find((item) => item.personId === personId && item.figureId != null);
@@ -1218,6 +1325,14 @@ export function useStageEditing({
     }
     const result = personResult(person.personId, pointer);
     if (!result) return;
+    if (result.notPlayed) {
+      const name = people.get(person.personId)?.name ?? 'Esta persona';
+      return toast.show({
+        title: `${name} no toca ${result.notPlayed.toLocaleLowerCase('es')}`,
+        description: 'Asígnale ese instrumento en Mi grupo para sentarle ahí.',
+        tone: 'error',
+      });
+    }
     if (!result.check.ok) return warn(result.check.reason, 'person');
     if (!result.solo)
       return placePerson(person.personId, result.check.point, result.seat, result.replaces);
@@ -1530,6 +1645,36 @@ export function useStageEditing({
               }
               return apply({ ...row, x, y });
             }
+            if (selected.figure.kind === 'cross') {
+              // A cross: the room between its people, so that the arm being pulled ends where the
+              // pointer is; it grows round its middle person.
+              const { figure } = selected;
+              const arms = figure.arms ?? DEFAULT_CROSS_ARMS;
+              const step = (figure.width - 1) / 2;
+              const spacingFor = (pull: { reach: number; towards: StagePoint }) => {
+                // The pull in the cross's own axes: which arm it drags, and the one opposite.
+                const local = turn(pull.towards, ((360 - figure.rotation) % 360) as FigureRotation);
+                const [arm, opposite] =
+                  Math.abs(local.x) >= Math.abs(local.y)
+                    ? local.x > 0
+                      ? [2, 1]
+                      : [1, 2]
+                    : local.y > 0
+                      ? [3, 0]
+                      : [0, 3];
+                // The handle pulls the side of its box: from the middle person, that is twice the
+                // reach less the box's half (or the reach itself, with Ctrl).
+                const half = ((arms[arm]! + arms[opposite]!) * step) / 2 + 0.5;
+                const along = fixed ? 2 * pull.reach - half : pull.reach;
+                return (along - 0.5) / Math.max(1, arms[arm]!);
+              };
+              const spacing = Math.max(...pulls.map(spacingFor));
+              const width = fitWidth(figure.kind, spacing * 2 + 1, stage);
+              if (!done) return setReshaping({ width });
+              setReshaping(null);
+              if (width !== figure.width) reshape({ width });
+              return;
+            }
             if (selected.figure.kind === 'trio_triangle') {
               // A triangle: its base and its depth stretch on their own (3 × 2, say).
               const { figure } = selected;
@@ -1614,6 +1759,23 @@ export function useStageEditing({
       onGrowRow: growIntoRow,
       onShuffle: shuffle,
       onDuplicate: duplicate,
+      // A cross: one arm a person longer (if there is room) or shorter.
+      onCrossArm: (figureId: string, arm: number, change: 1 | -1) => {
+        if (!content || !stage) return;
+        const next = stretchArm(content, figureId, arm, change, stage);
+        const cross = next.figures.find((figure) => figure.id === figureId);
+        if (!cross || cross === figures.find((figure) => figure.id === figureId)) return;
+        const places = slotPositions(cross, stage);
+        const check = checkFigureDrop(
+          cross,
+          cross,
+          stage,
+          othersFor(figureId, places),
+          blocksBut(figureId),
+        );
+        if (!check.ok) return warn(check.reason === 'off' ? 'full' : check.reason, 'figure');
+        onChange(next);
+      },
       onDelete: (figureId: string) => {
         const figure = figures.find((item) => item.id === figureId);
         if (!content || !figure) return;

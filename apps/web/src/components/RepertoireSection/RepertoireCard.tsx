@@ -17,6 +17,8 @@ import { useRepertoire, useSaveRepertoire } from '../../pieces/repertoireApi';
 import { useApp } from '../AppLayout/appContext';
 import { toggleParticipant } from '../../pieces/participants';
 import { FROM_TABLET, useMediaQuery } from '../../hooks';
+import { useSaveGroupInstruments } from '../../groups/groupsApi';
+import { syncMusicSeats } from '../../stage/musicSeats';
 import { isMisplaced, type StageSize } from '../../stage/placement';
 import { useStageView } from '../GridBackground/stageView';
 import { StageLayer } from '../StageLayer/StageLayer';
@@ -57,6 +59,7 @@ export function RepertoireCard({
 }: RepertoireCardProps) {
   const toast = useToast();
   const { activeGroup } = useApp();
+  const saveInstruments = useSaveGroupInstruments(activeGroup?.id ?? '');
   const { data: saved } = useRepertoire(performanceId);
   const { data: callUp } = useCallUp(performanceId);
   const { data: groupPeople } = usePeople(activeGroup?.id);
@@ -153,15 +156,21 @@ export function RepertoireCard({
     const previous = lastStageKey.current;
     lastStageKey.current = stageKey;
     if (!stage || previous === null || previous === stageKey) return;
-    const affected = pieces.filter((piece) =>
-      piece.participants.some(({ x, y }) => x != null && y != null && isMisplaced({ x, y }, stage)),
-    );
+    // Who, in which piece: «Fuera del escenario. 1. Jota: Ana, Luis».
+    const affected = pieces.flatMap((piece, index) => {
+      const names = piece.participants.flatMap(({ personId, x, y }) =>
+        x != null && y != null && isMisplaced({ x, y }, stage)
+          ? [peopleById.get(personId)?.name ?? 'alguien']
+          : [],
+      );
+      return names.length
+        ? [`${index + 1}. ${piece.title.trim() || 'Sin título'}: ${names.join(', ')}`]
+        : [];
+    });
     if (!affected.length) return;
     toast.show({
-      title: 'Revisa las posiciones',
-      description: `Con las nuevas medidas, alguien ha quedado fuera del escenario o en el borde en: ${affected
-        .map((piece) => `«${piece.title.trim() || 'Sin título'}»`)
-        .join(', ')}.`,
+      title: 'Fuera del escenario',
+      description: `Con las nuevas medidas han quedado fuera o en el borde. ${affected.join('. ')}.`,
       tone: 'warning',
     });
     // Only a change of the stage warns, not every edit of the pieces.
@@ -212,10 +221,36 @@ export function RepertoireCard({
     [],
   );
 
+  /** A piece with its musicians' seats matching its instruments, laid out on the stage. */
+  const withSeats = (draft: PieceDraft) => {
+    if (!stage) return draft;
+    const content = syncMusicSeats(draft, draft.instruments, stage);
+    return { ...draft, ...content };
+  };
   const change = (next: PieceDraft[]) => {
-    setDrafts(next);
+    // A piece whose instruments changed gets its seats again.
+    const before = new Map(pieces.map((piece) => [piece.key, piece.instruments.join('|')]));
+    setDrafts(
+      next.map((draft) =>
+        before.get(draft.key) === draft.instruments.join('|') ? draft : withSeats(draft),
+      ),
+    );
     setPending(true);
   };
+
+  // When the musicians' zone (or the stage) changes, every piece's seats move with it.
+  const seatsKey = stage
+    ? [stage.width, stage.depth, stage.edgeDistance, stage.musicSide, stage.musicDepth].join('×')
+    : null;
+  const [seenSeatsKey, setSeenSeatsKey] = useState(seatsKey);
+  if (seenSeatsKey !== seatsKey) {
+    setSeenSeatsKey(seatsKey);
+    // Only a change of the zone moves the seats, not every edit of the pieces.
+    if (stage && seenSeatsKey !== null && pieces.some((piece) => piece.instruments.length)) {
+      setDrafts(pieces.map((piece) => (piece.instruments.length ? withSeats(piece) : piece)));
+      setPending(true);
+    }
+  }
 
   const status = invalid
     ? 'Sin guardar: falta algún dato en una pieza'
@@ -245,6 +280,11 @@ export function RepertoireCard({
                 people={people}
                 openKey={openKey}
                 onOpenKeyChange={setOpenKey}
+                groupInstruments={activeGroup?.instruments}
+                onAddToGroup={(instruments) =>
+                  activeGroup &&
+                  saveInstruments.mutate([...activeGroup.instruments, ...instruments])
+                }
               />
             )}
             {status && (

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { getPersonColor, type PersonColor } from '../personColors';
 import styles from './PersonChip.module.scss';
 
@@ -7,6 +9,8 @@ interface PersonChipProps {
   highlighted?: boolean;
   /** Dashed outline for a tentative choice, e.g. pending confirmation. */
   secondary?: boolean;
+  /** A small button at the end, inside the chip (e.g. remove). */
+  action?: ReactNode;
 }
 
 function initials(name: string) {
@@ -23,6 +27,7 @@ export function PersonChip({
   color,
   highlighted = false,
   secondary = false,
+  action,
 }: PersonChipProps) {
   const { fill, ink } = getPersonColor(color);
 
@@ -31,11 +36,13 @@ export function PersonChip({
       className={styles.root}
       data-highlighted={highlighted ? '' : undefined}
       data-secondary={secondary ? '' : undefined}
+      data-action={action ? '' : undefined}
     >
       <span className={styles.token} style={{ background: fill, color: ink }} aria-hidden="true">
         {initials(name)}
       </span>
       <span className={styles.name}>{name}</span>
+      {action}
     </span>
   );
 }

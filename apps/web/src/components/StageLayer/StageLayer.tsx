@@ -1,7 +1,9 @@
 import { useDraggable } from '@dnd-kit/core';
 import { Minus, Move, Plus, RotateCw, Shuffle, Trash2 } from 'lucide-react';
 import {
+  DEFAULT_CROSS_ARMS,
   FIGURE_LABELS,
+  MAX_CROSS_ARM,
   isSpace,
   type FigureKind,
   type FigureRotation,
@@ -20,7 +22,7 @@ import {
 import { createPortal } from 'react-dom';
 
 import { isSlanted, slantedBlock, slotOffsets } from '../../stage/figures';
-import { roundedOutline } from '../../stage/outline';
+import { crossArms, crossOutline, roundedOutline } from '../../stage/outline';
 import {
   addSpots,
   childrenOf,
@@ -202,8 +204,11 @@ interface BlockProps {
   hidden: boolean;
   /** A space: drawn lighter, under the figures in its holes. */
   space?: boolean;
-  /** What the open menu works on: marked so it is clear (a figure alone or a whole space). */
-  targeted?: boolean;
+  /**
+   * What the open menu works on, filled so it is clear: the figure itself, a whole space, or a
+   * figure inside a space that is.
+   */
+  targeted?: 'figure' | 'space' | 'inside' | null;
   onSelect?: () => void;
 }
 
@@ -245,7 +250,7 @@ function Block({
       data-figure-block={view.figure.id}
       data-space={space ? '' : undefined}
       data-selected={selected ? '' : undefined}
-      data-targeted={targeted ? '' : undefined}
+      data-targeted={targeted ?? undefined}
       data-hidden={hidden ? '' : undefined}
       data-incomplete={view.empty.length ? '' : undefined}
       data-shape={outline ? '' : undefined}
@@ -320,6 +325,8 @@ const ADD_OUTSIDE = 38;
 const ADD_CLOSE = 20;
 // How far out of the top left corner of a free dance its shuffle button sits, in px.
 const SHUFFLE_OUTSIDE = 38;
+// The arms of a cross, as the buttons name them.
+const ARM_NAMES = ['delante', 'a la izquierda', 'a la derecha', 'detrás'];
 // How the menu names a whole space, and a figure in one.
 const SPACE_WHOLE: Record<SpaceKind, string> = {
   row: 'Fila entera',
@@ -769,6 +776,8 @@ interface StageLayerProps {
   onMirror?: ((figureId: string, way: MirrorWay) => void) | null;
   /** Puts an empty copy of a figure (a space with its figures) on free ground beside it. */
   onDuplicate?: ((figureId: string) => void) | null;
+  /** A cross being edited: one of its arms (front, left, right, back) a person longer or shorter. */
+  onCrossArm?: ((figureId: string, arm: number, change: 1 | -1) => void) | null;
   /** Takes a figure off the stage, with its people (a figure of a space, with its hole). */
   onDelete?: ((figureId: string) => void) | null;
   /** The space being edited: a − beside each hole to take it out, with its figure. */
@@ -808,6 +817,7 @@ export function StageLayer({
   onMirror = null,
   onDuplicate = null,
   onDelete = null,
+  onCrossArm = null,
   onTurnChild = null,
   onGrowRow = null,
   onRemoveHole = null,
@@ -843,19 +853,21 @@ export function StageLayer({
     };
   };
 
-  /** A trio in a triangle is drawn as a triangle round its people, in its block's own px. */
+  /** A trio in a triangle (or a cross) is drawn with its own shape round its people, in its block's px. */
   const shapeOf = (
     item: {
       figure: Pick<StageFigure, 'kind' | 'width'> & {
         angle?: number | null;
         depth?: number | null;
+        arms?: number[] | null;
+        rotation?: FigureRotation;
       };
       places: StagePoint[];
     },
     style: CSSProperties,
   ) => {
     const { figure } = item;
-    if (figure.kind !== 'trio_triangle') return undefined;
+    if (figure.kind !== 'trio_triangle' && figure.kind !== 'cross') return undefined;
     const points =
       figure.angle != null
         ? slotOffsets(figure.kind, figure.width, figure.depth).map((offset) => ({
@@ -866,6 +878,10 @@ export function StageLayer({
             x: point.x - Number(style.left),
             y: point.y - Number(style.top),
           }));
+    if (figure.kind === 'cross') {
+      // Round its middle person (the first), each arm out to its last one.
+      return crossOutline(points[0]!, crossArms({ rotation: 0, ...figure }, square), square / 2);
+    }
     return roundedOutline(points, square / 2);
   };
 
@@ -1191,7 +1207,7 @@ export function StageLayer({
     null,
   );
   useEffect(() => {
-    const margin = Math.max(square, ADD_OUTSIDE + 12);
+    const margin = Math.max(square, ADD_OUTSIDE + 24);
     handleZone.current = editBox
       ? {
           left: editBox.left - margin,
@@ -1330,7 +1346,7 @@ export function StageLayer({
               style={spinning(item.figure.id, spaceStyle(item))}
               readOnly={readOnly}
               selected={item.figure.id === selectedFigureId}
-              targeted={item.figure.id === figureMenu?.figureId}
+              targeted={item.figure.id === figureMenu?.figureId ? 'space' : null}
               hidden={item.figure.id === movingFigureId}
               space
               onSelect={() => onSelectFigure?.(item.figure.id)}
@@ -1368,10 +1384,29 @@ export function StageLayer({
                 outline={shapeOf(item, block)}
                 readOnly={readOnly}
                 selected={open}
-                targeted={item.figure.id === figureMenu?.figureId}
+                targeted={
+                  item.figure.id === figureMenu?.figureId
+                    ? 'figure'
+                    : item.figure.spaceId && item.figure.spaceId === figureMenu?.figureId
+                      ? 'inside'
+                      : null
+                }
                 hidden={moving}
                 onSelect={() => onSelectFigure?.(item.figure.id)}
               />
+              {item.figure.instrument && (
+                // A musician's seat: what is played there, under it.
+                <span
+                  className={styles.seatLabel}
+                  data-hidden={moving ? '' : undefined}
+                  style={{
+                    left: Number(block.left) + Number(block.width) / 2,
+                    top: Number(block.top) + Number(block.height) + 2,
+                  }}
+                >
+                  {item.figure.instrument}
+                </span>
+              )}
             </Fragment>
           );
         })}
@@ -1448,6 +1483,52 @@ export function StageLayer({
           {initials(dragged.name)}
         </span>
       )}
+      {selected?.figure.kind === 'cross' &&
+        onCrossArm &&
+        selected.figure.id !== movingFigureId &&
+        (() => {
+          // At the end of each arm, past its bar: a person more or one less on that arm.
+          const middle = toScreen(selected.places[0]!);
+          const arms = crossArms(selected.figure, square);
+          const counts = selected.figure.arms ?? DEFAULT_CROSS_ARMS;
+          // crossArms goes back, right, front, left; the figure's arms are front, left, right, back.
+          return [3, 2, 0, 1].map((arm, index) => {
+            const { way, length } = arms[index]!;
+            const out = length + square / 2 + ADD_OUTSIDE;
+            return (
+              <div
+                key={`arm-${arm}`}
+                className={styles.holeTools}
+                data-figure-handle=""
+                style={{ left: middle.x + way.x * out, top: middle.y + way.y * out }}
+              >
+                <button
+                  type="button"
+                  className={styles.moveHole}
+                  data-figure-handle=""
+                  aria-label={`Una persona más ${ARM_NAMES[arm]}`}
+                  title="Una persona más en este brazo"
+                  disabled={counts[arm]! >= MAX_CROSS_ARM}
+                  onClick={() => onCrossArm(selected.figure.id, arm, 1)}
+                >
+                  <Plus aria-hidden="true" />
+                </button>
+                {counts[arm]! > 0 && (
+                  <button
+                    type="button"
+                    className={styles.removeHole}
+                    data-figure-handle=""
+                    aria-label={`Una persona menos ${ARM_NAMES[arm]}`}
+                    title="Una persona menos en este brazo"
+                    onClick={() => onCrossArm(selected.figure.id, arm, -1)}
+                  >
+                    <Minus aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            );
+          });
+        })()}
       {selected &&
         !selected.layout &&
         !selected.figure.spaceId &&

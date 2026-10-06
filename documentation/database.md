@@ -27,6 +27,13 @@ Migraciones:
 - `20261006100000_free_dance` (paso 2.4): el baile libre, con el área en casillas (`area_width`, `area_depth`) y el sitio de cada persona en ella (`spots`, JSON `[{ x, y }]` en casillas desde su esquina, sin girar).
 - `20261006110000_space_hole_width` (paso 2.3): ancho de las parejas que esperan los huecos vacíos de una fila o un corro estirados a lo ancho (`hole_width`), para que los huecos y las parejas nuevas salgan como las demás.
 - `20261006120000_figure_depth` (paso 2.4): fondo propio del trío en triángulo, en casillas (`depth`; vacío si es tan hondo como ancho).
+- `20261006130000_cross_arms` (paso 2.5): cuántas personas lleva cada brazo de una cruz (`arms`: delante, izquierda, derecha y detrás; vacío en las demás figuras).
+- `20261006140000_music_zone` (paso 2.7): zona de músicos de cada actuación (`music_side`: back, left o right, vacío sin zona; `music_rows`, filas de 1 m).
+- `20261006150000_music_depth` (paso 2.7): la zona de músicos se mide en metros desde el borde (`music_depth_m`, 1,5 por defecto) en vez de filas, y va atrás por defecto.
+- `20261006170000_music_back` (paso 2.7): las actuaciones que ya existían pasan a tener la zona de músicos atrás.
+- `20261006180000_instruments` (paso 2.7): instrumentos de cada pieza (`instruments`) y el instrumento del sitio de cada músico (`instrument` en sus figuras).
+- `20261006190000_group_instruments` (paso 2.7): instrumentos que toca cada grupo (`instruments`), que se ofrecen en sus piezas.
+- `20261006200000_person_instruments` (paso 2.7): instrumentos que toca cada persona (`instruments`); solo ocupa los sitios de esos instrumentos.
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -88,6 +95,7 @@ erDiagram
     text main_color "blue, red… (20)"
     text membership "member o collaborator"
     text_array roles "dance, music, singing…"
+    text_array instruments "los que toca"
     text notes
   }
   groups ||--o{ performances : "tiene"
@@ -104,6 +112,8 @@ erDiagram
     float stage_depth_m
     float square_m "0,5 por defecto"
     float edge_distance_m "0,25 por defecto y mínimo"
+    text music_side "zona de músicos: back, left o right"
+    float music_depth_m "ancho de la zona desde el borde"
   }
   people ||--o{ call_ups : "convocada en"
   performances ||--o{ call_ups : "convoca"
@@ -142,12 +152,13 @@ erDiagram
   figures {
     text id PK "lo genera la web"
     text piece_id FK
-    text kind "solo, pair, pair_diagonal, trio_line, trio_triangle, square, diamond, row, ring, free"
+    text kind "solo, pair, pair_diagonal, trio_line, trio_triangle, square, diamond, cross, trio_diagonal, row, row_diagonal, ring, free"
     float x_m "centro"
     float y_m "centro"
     int rotation "0, 90, 180, 270"
     float width "casillas, de media en media; en espacios, huecos"
     float depth "trío en triángulo: fondo en casillas"
+    int_array arms "cruz: personas en cada brazo"
     text arrangement "espacios: series o battery"
     float gap_m "espacios: separación entre huecos"
     float hole_width "fila y corro: ancho de sus huecos vacíos"

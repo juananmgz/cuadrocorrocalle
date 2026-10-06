@@ -1,9 +1,29 @@
+import { DEFAULT_MUSIC_DEPTH, type MusicSide } from '@cuadrocorrocalle/shared';
+
 /** Stage measures, in metres. */
 export interface StageSize {
   width: number;
   depth: number;
   squareSize: number;
   edgeDistance: number;
+  /** The musicians' zone: along the back or a side, and how wide from the edge, in metres. */
+  musicSide?: MusicSide | null;
+  musicDepth?: number;
+}
+
+/** The musicians' zone, in metres from the stage centre: a band from its edge in. None without a side. */
+export function musicZone(stage: StageSize) {
+  if (!stage.musicSide) return null;
+  const deep = Math.min(
+    stage.musicDepth ?? DEFAULT_MUSIC_DEPTH,
+    stage.musicSide === 'back' ? stage.depth : stage.width,
+  );
+  const [halfWidth, halfDepth] = [stage.width / 2, stage.depth / 2];
+  if (stage.musicSide === 'back')
+    return { left: -halfWidth, right: halfWidth, bottom: halfDepth - deep, top: halfDepth };
+  return stage.musicSide === 'left'
+    ? { left: -halfWidth, right: -halfWidth + deep, bottom: -halfDepth, top: halfDepth }
+    : { left: halfWidth - deep, right: halfWidth, bottom: -halfDepth, top: halfDepth };
 }
 
 /** A point on the stage, in metres from its centre: x across, y away from the audience. */

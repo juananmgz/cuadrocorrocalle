@@ -7,44 +7,6 @@
   font-size: clamp(2rem, 8vw, 3rem);
 }
 
-.info {
-  display: grid;
-  align-content: start;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-
-  @include mixins.from-desktop {
-    grid-template-columns: 1fr;
-  }
-
-  gap: var(--space-3);
-  margin: 0;
-
-  dt {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--ink-soft);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  dd {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
-    margin: var(--space-1) 0 0;
-    font-weight: 700;
-    overflow-wrap: anywhere;
-  }
-}
-
-.swatch {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  border: var(--border-width) solid var(--token-stroke);
-  border-radius: 50%;
-}
-
 .empty {
   margin: 0;
   color: var(--ink-soft);
@@ -309,7 +271,7 @@
 .fold {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 300ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   &[data-open] {
     grid-template-rows: 1fr;
@@ -328,7 +290,7 @@
 // Turns to point right while the group is folded.
 .chevron {
   display: inline-block;
-  transition: transform 300ms ease;
+  transition: transform var(--duration) ease;
 
   [aria-expanded='false'] > & {
     transform: rotate(-90deg);
@@ -355,17 +317,6 @@
   border-top: var(--border-width) solid var(--line);
 }
 
-// Information beside the members from desktop width: 4 + 8 of 12 columns.
-.layout {
-  display: grid;
-  gap: var(--space-4);
-  align-items: start;
-
-  @include mixins.from-desktop {
-    grid-template-columns: 4fr 8fr;
-  }
-}
-
 // From desktop width the page fits the window: the cards keep a fixed height and only their
 // content scrolls.
 .page {
@@ -375,10 +326,33 @@
   }
 }
 
-.layout {
+// The tabs fill what is left under the title, and the open one all of their height.
+.tabs {
+  // No scroll arrows when the tabs fit.
+  > [role='tablist'] {
+    scrollbar-width: none;
+  }
+
   @include mixins.from-desktop {
+    grid-template-rows: auto minmax(0, 1fr);
+
+    // On a computer each tab keeps a modest width instead of sharing the whole screen.
+    > [role='tablist'] > [role='tab'] {
+      flex: 0 1 260px;
+      min-width: 180px;
+    }
+
     height: 100%;
     min-height: 0;
+
+    > [role='tabpanel'] {
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    > [role='tabpanel']:has(> .panel) {
+      overflow: hidden;
+    }
   }
 }
 
@@ -406,4 +380,30 @@
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+// The name, with what they play (or a warning when a musician has nothing yet).
+.who {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.plays {
+  overflow: hidden;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.incomplete {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--warn);
 }

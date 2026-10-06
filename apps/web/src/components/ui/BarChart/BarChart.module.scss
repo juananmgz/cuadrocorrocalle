@@ -1,0 +1,59 @@
+.root {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  min-width: 0;
+  margin: 0;
+}
+
+.title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  padding: 0;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  list-style: none;
+
+  li {
+    display: inline-flex;
+    gap: var(--space-1);
+    align-items: center;
+  }
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.chart {
+  min-width: 0;
+}
+
+.tooltip {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.875rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius);
+}

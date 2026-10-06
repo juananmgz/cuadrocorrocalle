@@ -1,4 +1,10 @@
-import { FIGURE_SLOTS, type Participant, type StageFigure } from '@cuadrocorrocalle/shared';
+import {
+  DEFAULT_CROSS_ARMS,
+  MAX_CROSS_ARM,
+  type Participant,
+  slotCount,
+  type StageFigure,
+} from '@cuadrocorrocalle/shared';
 
 import { slotAt, slotPositions } from './figures';
 import { childrenOf, placeChildren, snapSpace } from './spaces';
@@ -73,6 +79,7 @@ export function putFigure(
   const emptied = (item: StageFigure) =>
     item.kind === 'solo' &&
     !item.spaceId &&
+    !item.instrument &&
     content.participants.some(
       ({ figureId, personId }) => figureId === item.id && joiner.has(personId),
     );
@@ -104,7 +111,7 @@ export function emptySlots(content: StageContent, figure: StageFigure) {
       participant.figureId === figure.id && participant.slot != null ? [participant.slot] : [],
     ),
   );
-  return Array.from({ length: FIGURE_SLOTS[figure.kind] }, (_, slot) => slot).filter(
+  return Array.from({ length: slotCount(figure) }, (_, slot) => slot).filter(
     (slot) => !taken.has(slot),
   );
 }
@@ -189,4 +196,49 @@ export function takeOutOfSpace(
   });
   const placed = putFigure({ ...content, figures }, loose, slotPositions(loose, stage));
   return space.width > 1 ? relayoutSpace(placed, space.id, stage) : placed;
+}
+
+/**
+ * A cross with one arm (front, left, right or back) a person longer or shorter: the people along
+ * its arms keep their places, and whoever stood at the end of a shortened arm is left without one.
+ */
+export function stretchArm(
+  content: StageContent,
+  crossId: string,
+  arm: number,
+  change: 1 | -1,
+  stage: StageSize,
+): StageContent {
+  const cross = content.figures.find((figure) => figure.id === crossId);
+  if (!cross || cross.kind !== 'cross') return content;
+  const before = cross.arms ?? DEFAULT_CROSS_ARMS;
+  const after = before.map((count, index) =>
+    index === arm ? Math.min(MAX_CROSS_ARM, Math.max(0, count + change)) : count,
+  );
+  // Places in order: the middle, then each arm from the middle out.
+  const placeOf = (counts: number[], which: number, step: number) =>
+    1 + counts.slice(0, which).reduce((total, count) => total + count, 0) + step;
+  const moved = new Map<number, number | null>();
+  before.forEach((count, which) => {
+    for (let step = 0; step < count; step += 1)
+      moved.set(
+        placeOf(before, which, step),
+        step < after[which]! ? placeOf(after, which, step) : null,
+      );
+  });
+  const figure = { ...cross, arms: after };
+  const participants = content.participants.map((participant) => {
+    if (participant.figureId !== crossId || participant.slot == null || participant.slot === 0)
+      return participant;
+    const slot = moved.get(participant.slot);
+    return slot == null ? { ...participant, ...unplaced } : { ...participant, slot };
+  });
+  return putFigure(
+    {
+      figures: content.figures.map((item) => (item.id === crossId ? figure : item)),
+      participants,
+    },
+    figure,
+    slotPositions(figure, stage),
+  );
 }

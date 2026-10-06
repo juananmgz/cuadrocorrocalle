@@ -186,19 +186,26 @@
   background: transparent;
   border: 0;
 
-  &::after {
-    margin-left: auto;
-    font-size: 1rem;
-    content: '▾';
-    transition: transform 200ms;
-  }
-
-  &[aria-expanded='false']::after {
-    transform: rotate(-90deg);
-  }
-
   @include mixins.from-tablet {
     padding: var(--space-3) var(--space-4);
+  }
+}
+
+// Lucide's chevron at the right, turning over when the block opens (as in the tray).
+.chevron {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  color: var(--ink-soft);
+  transition: transform var(--duration) ease;
+
+  &[data-open] {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 }
 
@@ -210,7 +217,7 @@
 .foldBody {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 250ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   &[data-open] {
     grid-template-rows: 1fr;

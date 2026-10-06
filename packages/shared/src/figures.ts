@@ -12,6 +12,8 @@ export const SIMPLE_FIGURE_KINDS = [
   'trio_diagonal',
   'square',
   'diamond',
+  // A fixed choreographic figure (step 2.5): someone in the middle and one at each end of a cross.
+  'cross',
 ] as const;
 // Spaces (step 2.3, OA-04 and OA-27): a row or a ring of holes, each filled with a simple figure,
 // and the free dance (step 2.4, OA-29): an area with people spread about it at random.
@@ -37,6 +39,7 @@ export const FIGURE_LABELS: Record<FigureKind, string> = {
   trio_diagonal: 'Trío en diagonal',
   square: 'Cuadrado',
   diamond: 'Rombo',
+  cross: 'Cruz',
   row: 'Fila',
   row_diagonal: 'Fila diagonal',
   ring: 'Corro',
@@ -53,6 +56,7 @@ export const FIGURE_SLOTS: Record<FigureKind, number> = {
   trio_diagonal: 3,
   square: 4,
   diamond: 4,
+  cross: 5,
   row: 0,
   row_diagonal: 0,
   ring: 0,
@@ -69,6 +73,7 @@ export const DEFAULT_FIGURE_WIDTH: Record<FigureKind, number> = {
   trio_diagonal: 3,
   square: 2,
   diamond: 3,
+  cross: 3,
   row: 4,
   row_diagonal: 4,
   ring: 6,
@@ -81,6 +86,17 @@ export const DEFAULT_SPACE_GAP = 0.5;
 export const MAX_SPACE_GAP = 5;
 // Area of a new free dance, in grid squares.
 export const DEFAULT_FREE_AREA = { width: 6, depth: 4 };
+
+// A cross: how many people go out along each arm, from the middle (front, left, right, back).
+export const CROSS_ARMS = ['front', 'left', 'right', 'back'] as const;
+export const DEFAULT_CROSS_ARMS = [1, 1, 1, 1];
+export const MAX_CROSS_ARM = 10;
+
+/** How many people a figure holds: a cross, one in the middle and those along its arms. */
+export const slotCount = (figure: Pick<StageFigure, 'kind' | 'arms'>) =>
+  figure.kind === 'cross'
+    ? 1 + (figure.arms ?? DEFAULT_CROSS_ARMS).reduce((total, count) => total + count, 0)
+    : FIGURE_SLOTS[figure.kind];
 
 /**
  * A spot of a free dance: where its figure stands, in squares from the corner of its area, and
@@ -128,6 +144,10 @@ export const stageFigureSchema = z.object({
     .max(MAX_STAGE_DEPTH / 2),
   rotation: rotationSchema,
   width: widthSchema,
+  /** A musician's seat (a solo in the musicians' zone): the instrument played there. */
+  instrument: z.string().trim().min(1).max(40).nullable().optional(),
+  /** Crosses: how many people go along each arm (front, left, right, back). */
+  arms: z.array(z.number().int().min(0).max(MAX_CROSS_ARM)).length(4).nullable().optional(),
   /** Trios in a triangle: how deep they are, in squares, when not as deep as wide. */
   depth: widthSchema.nullable().optional(),
   /** Spaces: how their figures stand. */
