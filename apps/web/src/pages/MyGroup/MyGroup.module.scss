@@ -271,7 +271,7 @@
 .fold {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 300ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   &[data-open] {
     grid-template-rows: 1fr;
@@ -290,7 +290,7 @@
 // Turns to point right while the group is folded.
 .chevron {
   display: inline-block;
-  transition: transform 300ms ease;
+  transition: transform var(--duration) ease;
 
   [aria-expanded='false'] > & {
     transform: rotate(-90deg);

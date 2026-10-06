@@ -217,7 +217,7 @@
 .foldBody {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 250ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   &[data-open] {
     grid-template-rows: 1fr;

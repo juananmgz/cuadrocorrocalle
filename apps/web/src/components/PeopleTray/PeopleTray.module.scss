@@ -168,7 +168,7 @@
   height: 20px;
   margin-left: auto;
   color: var(--ink-soft);
-  transition: transform 200ms ease;
+  transition: transform var(--duration) ease;
 
   &[data-open] {
     transform: rotate(180deg);
@@ -183,7 +183,7 @@
 .accordion {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 250ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   &[data-open] {
     grid-template-rows: 1fr;
@@ -409,7 +409,7 @@
   border-radius: var(--radius);
 
   svg {
-    transition: transform 200ms ease;
+    transition: transform var(--duration) ease;
   }
 
   &[aria-expanded='true'] svg {
@@ -436,7 +436,7 @@
 .spaceFold {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 250ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   .space[data-open] & {
     grid-template-rows: 1fr;
@@ -559,7 +559,7 @@
 
 .previewTurn {
   display: grid;
-  transition: transform 250ms ease;
+  transition: transform var(--duration) ease;
 
   @media (prefers-reduced-motion: reduce) {
     transition: none;

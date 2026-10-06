@@ -7,6 +7,7 @@
   background: var(--surface);
   border: var(--border-width) solid var(--line);
   border-radius: 999px;
+  transition: var(--state-transition);
 
   &[data-highlighted] {
     background: var(--sel-bg);

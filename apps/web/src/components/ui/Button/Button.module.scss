@@ -12,7 +12,9 @@
   background: var(--surface);
   border: var(--border-width) solid var(--ink);
   border-radius: var(--radius);
-  transition: transform 80ms ease-out;
+  transition:
+    var(--state-transition),
+    transform 80ms ease-out;
 
   &:active:not(:disabled) {
     transform: translateY(1px);

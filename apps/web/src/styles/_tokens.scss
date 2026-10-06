@@ -80,6 +80,13 @@ $cta-colors: (
 }
 
 @mixin tiza-base {
+  // Every change of state (hover, selected, open, danger…) eases over this time.
+  --duration: 0.2s;
+  --state-transition:
+    color var(--duration) ease, background-color var(--duration) ease,
+    border-color var(--duration) ease, outline-color var(--duration) ease,
+    box-shadow var(--duration) ease, opacity var(--duration) ease;
+
   --font-heading: 'Barlow Condensed', system-ui, sans-serif;
   --font-body: 'Atkinson Hyperlegible Next Variable', system-ui, sans-serif;
   --font-mono: 'Atkinson Hyperlegible Mono Variable', ui-monospace, monospace;
