@@ -124,6 +124,12 @@
     outline-offset: 3px;
   }
 
+  // What the open menu works on.
+  &[data-targeted] {
+    outline: 3px dashed var(--accent);
+    outline-offset: 4px;
+  }
+
   &[data-hidden] {
     opacity: 0.25;
   }
@@ -303,6 +309,67 @@
   padding: var(--space-1);
   pointer-events: auto;
   transform: translateX(-50%);
+}
+
+// A figure's menu, opened by a right click where it was clicked.
+.figureMenu {
+  @include mixins.popover;
+
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  min-width: 200px;
+  padding: var(--space-1);
+  pointer-events: auto;
+}
+
+.figureMenuTitle {
+  margin: 0;
+  padding: var(--space-1) var(--space-3) var(--space-1);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.shortcut {
+  margin-left: auto;
+  padding-left: var(--space-3);
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.figureMenuItem {
+  @include mixins.option;
+
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--sel-bg);
+    outline: none;
+  }
+
+  &[data-danger] {
+    color: var(--danger);
+
+    &:hover,
+    &:focus-visible {
+      color: var(--on-danger);
+      background: var(--danger);
+    }
+  }
+}
+
+.figureMenuSeparator {
+  width: 100%;
+  height: 0;
+  margin: var(--space-1) 0;
+  border: 0;
+  border-top: var(--border-width) solid var(--line);
 }
 
 // Frame over the edited block, turned with slanted ones, holding its handles.

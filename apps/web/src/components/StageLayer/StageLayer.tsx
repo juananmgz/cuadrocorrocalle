@@ -5,6 +5,7 @@ import {
   isSpace,
   type FigureKind,
   type FigureRotation,
+  type SpaceKind,
   type StageFigure,
 } from '@cuadrocorrocalle/shared';
 import {
@@ -37,6 +38,7 @@ import {
   type StageSize,
   squaresUnder,
 } from '../../stage/placement';
+import type { MirrorWay } from '../../stage/mirror';
 import { stageProjection } from '../../stage/projection';
 import type { StageView } from '../GridBackground/stageView';
 import type { TrayPerson } from '../PeopleTray/PeopleTray';
@@ -200,11 +202,23 @@ interface BlockProps {
   hidden: boolean;
   /** A space: drawn lighter, under the figures in its holes. */
   space?: boolean;
+  /** What the open menu works on: marked so it is clear (a figure alone or a whole space). */
+  targeted?: boolean;
   onSelect?: () => void;
 }
 
 /** The block of a figure: dragged as a whole; hovering it (or a right click) shows its handles. */
-function Block({ view, style, outline, readOnly, selected, hidden, space, onSelect }: BlockProps) {
+function Block({
+  view,
+  style,
+  outline,
+  readOnly,
+  selected,
+  hidden,
+  space,
+  targeted,
+  onSelect,
+}: BlockProps) {
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `figure:${view.figure.id}`,
     disabled: readOnly,
@@ -231,6 +245,7 @@ function Block({ view, style, outline, readOnly, selected, hidden, space, onSele
       data-figure-block={view.figure.id}
       data-space={space ? '' : undefined}
       data-selected={selected ? '' : undefined}
+      data-targeted={targeted ? '' : undefined}
       data-hidden={hidden ? '' : undefined}
       data-incomplete={view.empty.length ? '' : undefined}
       data-shape={outline ? '' : undefined}
@@ -305,6 +320,24 @@ const ADD_OUTSIDE = 38;
 const ADD_CLOSE = 20;
 // How far out of the top left corner of a free dance its shuffle button sits, in px.
 const SHUFFLE_OUTSIDE = 38;
+// How the menu names a whole space, and a figure in one.
+const SPACE_WHOLE: Record<SpaceKind, string> = {
+  row: 'Fila entera',
+  row_diagonal: 'Fila diagonal entera',
+  ring: 'Corro entero',
+  free: 'Baile libre entero',
+};
+const SPACE_OF: Record<SpaceKind, string> = {
+  row: 'de la fila',
+  row_diagonal: 'de la fila diagonal',
+  ring: 'del corro',
+  free: 'del baile libre',
+};
+// What a figure can be flipped by, from its menu.
+const MIRRORS: { way: MirrorWay; label: string }[] = [
+  { way: 'horizontal', label: 'Voltear horizontalmente' },
+  { way: 'vertical', label: 'Voltear verticalmente' },
+];
 // Simple figures that can grow into a row from their sides (slanted ones and solos do not).
 const GROWS_INTO_ROW = new Set<FigureKind>([
   'pair',
@@ -732,6 +765,12 @@ interface StageLayerProps {
   onTurnChild?: ((figureId: string) => void) | null;
   /** The free dance being edited: draws its people's spots again. */
   onShuffle?: ((spaceId: string) => void) | null;
+  /** Mirrors a figure where it stands, left to right or front to back. */
+  onMirror?: ((figureId: string, way: MirrorWay) => void) | null;
+  /** Puts an empty copy of a figure (a space with its figures) on free ground beside it. */
+  onDuplicate?: ((figureId: string) => void) | null;
+  /** Takes a figure off the stage, with its people (a figure of a space, with its hole). */
+  onDelete?: ((figureId: string) => void) | null;
   /** The space being edited: a − beside each hole to take it out, with its figure. */
   onRemoveHole?: ((spaceId: string, hole: number) => void) | null;
   /** The space being edited: a move handle beside each figure to carry it (a click) or drag it. */
@@ -766,6 +805,9 @@ export function StageLayer({
   editHandles = null,
   onAddHole = null,
   onShuffle = null,
+  onMirror = null,
+  onDuplicate = null,
+  onDelete = null,
   onTurnChild = null,
   onGrowRow = null,
   onRemoveHole = null,
@@ -1199,6 +1241,55 @@ export function StageLayer({
     };
   }, [readOnly, selectedFigureId, onSelectFigure]);
 
+  /** The name of what a menu works on: "Fila entera", "Pareja de la fila" or just "Pareja". */
+  const menuTitle = (figureId: string) => {
+    const figure = figures.find((item) => item.figure.id === figureId)?.figure;
+    if (!figure) return 'Figura';
+    if (isSpace(figure.kind)) return SPACE_WHOLE[figure.kind];
+    const space = figures.find((item) => item.figure.id === figure.spaceId)?.figure;
+    return space && isSpace(space.kind)
+      ? `${FIGURE_LABELS[figure.kind]} ${SPACE_OF[space.kind]}`
+      : FIGURE_LABELS[figure.kind];
+  };
+
+  // A right click on a figure (or on the stage, for the one being edited) opens its menu there;
+  // on touch screens a long press does the same.
+  const [figureMenu, setFigureMenu] = useState<{ figureId: string; x: number; y: number } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (readOnly || !onMirror) return;
+    const open = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('[data-figure-menu]')) return;
+      const id =
+        target?.closest<HTMLElement>('[data-figure-block]')?.dataset.figureBlock ??
+        target?.closest<HTMLElement>('[data-figure-member]')?.dataset.figureMember ??
+        (selectedFigureId && event.clientX >= view.left ? selectedFigureId : null);
+      if (!id) return;
+      event.preventDefault();
+      setFigureMenu({ figureId: id, x: event.clientX, y: event.clientY });
+    };
+    window.addEventListener('contextmenu', open);
+    return () => window.removeEventListener('contextmenu', open);
+  }, [readOnly, onMirror, selectedFigureId, view.left]);
+  useEffect(() => {
+    if (!figureMenu) return;
+    const close = (event: Event) => {
+      if (event instanceof KeyboardEvent && event.key !== 'Escape') return;
+      if (event.target instanceof Element && event.target.closest('[data-figure-menu]')) return;
+      setFigureMenu(null);
+    };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', close);
+    window.addEventListener('wheel', close);
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('keydown', close);
+      window.removeEventListener('wheel', close);
+    };
+  }, [figureMenu]);
+
   // A long press or right click (touch has no hover) keeps them until a press elsewhere.
   useEffect(() => {
     if (!selectedFigureId) return;
@@ -1239,6 +1330,7 @@ export function StageLayer({
               style={spinning(item.figure.id, spaceStyle(item))}
               readOnly={readOnly}
               selected={item.figure.id === selectedFigureId}
+              targeted={item.figure.id === figureMenu?.figureId}
               hidden={item.figure.id === movingFigureId}
               space
               onSelect={() => onSelectFigure?.(item.figure.id)}
@@ -1276,6 +1368,7 @@ export function StageLayer({
                 outline={shapeOf(item, block)}
                 readOnly={readOnly}
                 selected={open}
+                targeted={item.figure.id === figureMenu?.figureId}
                 hidden={moving}
                 onSelect={() => onSelectFigure?.(item.figure.id)}
               />
@@ -1507,6 +1600,63 @@ export function StageLayer({
       {bottomTools && (
         <div className={styles.bottomTools} style={{ left: view.originX }}>
           {bottomTools}
+        </div>
+      )}
+      {figureMenu && onMirror && (
+        <div
+          className={styles.figureMenu}
+          data-figure-menu=""
+          role="menu"
+          aria-label={menuTitle(figureMenu.figureId)}
+          style={{ left: figureMenu.x, top: figureMenu.y }}
+        >
+          {/* What it works on: the figure alone (also inside a space) or the whole space. */}
+          <p className={styles.figureMenuTitle}>{menuTitle(figureMenu.figureId)}</p>
+          {MIRRORS.map(({ way, label }) => (
+            <button
+              key={way}
+              type="button"
+              role="menuitem"
+              className={styles.figureMenuItem}
+              onClick={() => {
+                onMirror(figureMenu.figureId, way);
+                setFigureMenu(null);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+          {onDuplicate && (
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.figureMenuItem}
+              onClick={() => {
+                onDuplicate(figureMenu.figureId);
+                setFigureMenu(null);
+              }}
+            >
+              Duplicar <kbd className={styles.shortcut}>Ctrl+C, Ctrl+V</kbd>
+            </button>
+          )}
+          {onDelete && (
+            <>
+              {/* Apart and in red, at the end: it takes the figure and its people away. */}
+              <hr className={styles.figureMenuSeparator} />
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.figureMenuItem}
+                data-danger=""
+                onClick={() => {
+                  onDelete(figureMenu.figureId);
+                  setFigureMenu(null);
+                }}
+              >
+                Eliminar
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>,
