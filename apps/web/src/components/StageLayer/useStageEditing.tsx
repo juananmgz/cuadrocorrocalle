@@ -61,6 +61,7 @@ import {
   stretchSpots,
   turnSpot,
 } from '../../stage/freeDance';
+import { mirrorFigure, type MirrorWay } from '../../stage/mirror';
 import { stageProjection } from '../../stage/projection';
 import {
   areaPoint,
@@ -125,6 +126,19 @@ const DIAGONAL_OF: Partial<Record<FigureKind, FigureKind>> = {
   pair: 'pair_diagonal',
   trio_line: 'trio_diagonal',
 };
+
+// Where a copy is tried: each way round a figure, a square further each time, up to this far.
+const COPY_WAYS = [
+  [1, 0],
+  [0, -1],
+  [-1, 0],
+  [0, 1],
+  [1, -1],
+  [-1, -1],
+  [1, 1],
+  [-1, 1],
+] as const;
+const MAX_COPY_DISTANCE = 40;
 
 /** A simple figure dropped on a space fills one of its holes, or all the empty ones. */
 interface Fill {
@@ -195,6 +209,8 @@ export function useStageEditing({
   // Figure in edit mode (handles shown) and its reshape while a handle is held.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reshaping, setReshaping] = useState<Reshape | null>(null);
+  // Figure copied with Ctrl+C, pasted beside itself with Ctrl+V.
+  const [copied, setCopied] = useState<string | null>(null);
   // Pointer while dragging, to light up and use the trash strip at the bottom.
   const [dragPointer, setDragPointer] = useState<StagePoint | null>(null);
   // The trash takes everything below "PÚBLICO" (drawn 0.6 squares under the stage, 12 to 20 px tall).
@@ -666,6 +682,8 @@ export function useStageEditing({
     check: DropCheck;
     seat: { figureId: string; slot: number } | null;
     solo?: Shape;
+    /** Who stood in that place and leaves it to them. */
+    replaces?: string;
   } | null => {
     const point = toStage(pointer);
     if (!point || !stage || !content) return null;
@@ -674,6 +692,14 @@ export function useStageEditing({
       return {
         check: { ok: true, point: seat.place },
         seat: { figureId: seat.figureId, slot: seat.slot },
+      };
+    // Someone else's place in a figure: they take it, and the other one is left without one.
+    const taken = occupiedAt(point, personId);
+    if (taken)
+      return {
+        check: { ok: true, point: taken.place },
+        seat: { figureId: taken.figureId, slot: taken.slot },
+        replaces: taken.personId,
       };
     const others = placed.filter((item) => item.person.id !== personId).map((item) => item.point);
     const shape = newShape('solo');
@@ -684,17 +710,55 @@ export function useStageEditing({
       : { check: { ok: false, reason: solo.reason }, seat: null };
   };
 
+  /** The place of a figure someone (other than `personId`) stands in at a stage point, if any. */
+  const occupiedAt = (point: StagePoint, personId: string) => {
+    if (!stage) return null;
+    for (const item of figureViews) {
+      const slot = slotAt(item.places, point, stage);
+      if (slot < 0 || item.empty.includes(slot)) continue;
+      const occupant = participants.find(
+        (participant) => participant.figureId === item.figure.id && participant.slot === slot,
+      );
+      if (occupant && occupant.personId !== personId)
+        return {
+          figureId: item.figure.id,
+          slot,
+          place: item.places[slot]!,
+          personId: occupant.personId,
+        };
+    }
+    return null;
+  };
+
+  /** The solo someone stood in on their own, gone once they leave it for another place. */
+  const withoutOwnSolo = (figureList: StageFigure[], personId: string) => {
+    const own = participants.find((participant) => participant.personId === personId)?.figureId;
+    return figureList.filter(
+      (figure) => !(figure.id === own && figure.kind === 'solo' && !figure.spaceId),
+    );
+  };
+
   const placePerson = (
     personId: string,
     point: StagePoint | null,
     seat: { figureId: string; slot: number } | null = null,
+    replaces: string | null = null,
   ) => {
     const person = people.get(personId);
     if (!content || !person || !pieceType) return;
+    // Whoever stood there stays in the piece, waiting for a place.
+    const freed = participants.map((participant) =>
+      participant.personId === replaces
+        ? { ...participant, x: null, y: null, figureId: null, slot: null }
+        : participant,
+    );
     onChange({
-      ...content,
-      participants: placeParticipant(participants, person, pieceType, point, seat),
+      figures: withoutOwnSolo(figures, personId),
+      participants: placeParticipant(freed, person, pieceType, point, seat),
     });
+    const left = replaces ? people.get(replaces) : null;
+    if (left)
+      toast.show({ title: `${left.name} se queda sin posición en esta pieza`, tone: 'info' });
   };
 
   /**
@@ -961,6 +1025,71 @@ export function useStageEditing({
     moveSpot({ spaceId: space.id, hole: child.hole, spot });
   };
 
+  /**
+   * Puts an empty copy of a figure on the nearest free ground beside it: a space with copies of
+   * its figures, a figure of a space on its own. The copy is left with its handles.
+   */
+  const duplicate = (figureId: string) => {
+    const original = figures.find((figure) => figure.id === figureId);
+    if (!content || !stage || !original) return;
+    const id = newFigureId();
+    const copy: StageFigure = {
+      ...original,
+      id,
+      spaceId: null,
+      hole: null,
+      angle: original.spaceId ? null : original.angle,
+    };
+    const inside = isSpace(original.kind)
+      ? [...childrenOf(figures, original.id).values()].map((child) => ({
+          ...child,
+          id: newFigureId(),
+          spaceId: id,
+        }))
+      : [];
+    const holes = new Map(inside.map((child) => [child.hole!, child]));
+    const copiedIds = new Set([
+      original.id,
+      ...[...childrenOf(figures, original.id).values()].map((child) => child.id),
+    ]);
+    const peopleLeft = participants.some(
+      (participant) => participant.figureId && copiedIds.has(participant.figureId),
+    );
+    const done = () => {
+      setSelectedId(id);
+      if (peopleLeft)
+        toast.show({
+          title: 'La copia sale sin personas: cada persona ya tiene su posición',
+          tone: 'info',
+        });
+    };
+    const others = placed.map(({ point }) => point);
+    // Ever further away, every way round, until there is room.
+    for (let distance = 1; distance <= MAX_COPY_DISTANCE; distance += 1) {
+      for (const [dx, dy] of COPY_WAYS) {
+        const centre = {
+          x: original.x + dx * distance * stage.squareSize,
+          y: original.y + dy * distance * stage.squareSize,
+        };
+        if (isSpace(copy.kind)) {
+          const check = spaceResult(copy, null, centre, holes);
+          if (!check.ok) continue;
+          const space: StageFigure = { ...copy, ...check.figure, id };
+          let next: StageContent = { ...content, figures: [...figures, space, ...inside] };
+          for (const child of placeChildren(space, next.figures, stage))
+            next = putFigure(next, child, slotPositions(child, stage));
+          done();
+          return onChange(next);
+        }
+        const check = checkFigureDrop(copy, centre, stage, others, blocksBut(null));
+        if (!check.ok) continue;
+        done();
+        return onChange(putFigure(content, { ...check.figure, id }, check.places));
+      }
+    }
+    toast.show({ title: 'No queda sitio libre para la copia', tone: 'error' });
+  };
+
   /** Draws the spots of a free dance again, its people going with them, if it still fits. */
   const shuffle = (spaceId: string) => {
     const space = figures.find((figure) => figure.id === spaceId);
@@ -1090,13 +1219,14 @@ export function useStageEditing({
     const result = personResult(person.personId, pointer);
     if (!result) return;
     if (!result.check.ok) return warn(result.check.reason, 'person');
-    if (!result.solo) return placePerson(person.personId, result.check.point, result.seat);
+    if (!result.solo)
+      return placePerson(person.personId, result.check.point, result.seat, result.replaces);
     // On free ground: a solo figure with them in it.
     const personData = people.get(person.personId);
     if (!content || !personData || !pieceType) return;
     const figure: StageFigure = { ...result.solo, id: newFigureId() };
     onChange({
-      figures: [...figures, figure],
+      figures: [...withoutOwnSolo(figures, person.personId), figure],
       participants: placeParticipant(participants, personData, pieceType, result.check.point, {
         figureId: figure.id,
         slot: 0,
@@ -1191,6 +1321,17 @@ export function useStageEditing({
       } else if (event.key === 'Escape') {
         setCarried(null);
         setSelectedId(null);
+      } else if ((event.ctrlKey || event.metaKey) && (event.key === 'c' || event.key === 'C')) {
+        // Unless some text is selected, which copies as usual.
+        if (selectedId && !window.getSelection()?.toString()) {
+          event.preventDefault();
+          setCopied(selectedId);
+        }
+      } else if ((event.ctrlKey || event.metaKey) && (event.key === 'v' || event.key === 'V')) {
+        if (copied && figures.some((figure) => figure.id === copied)) {
+          event.preventDefault();
+          duplicate(copied);
+        }
       }
     };
     window.addEventListener('keydown', onKey);
@@ -1472,6 +1613,19 @@ export function useStageEditing({
       onTurnChild: turnInFreeDance,
       onGrowRow: growIntoRow,
       onShuffle: shuffle,
+      onDuplicate: duplicate,
+      onDelete: (figureId: string) => {
+        const figure = figures.find((item) => item.id === figureId);
+        if (!content || !figure) return;
+        const space = figure.spaceId ? figures.find((item) => item.id === figure.spaceId) : null;
+        setSelectedId(null);
+        if (space && figure.hole != null && space.width > 1)
+          return removeHole(space.id, figure.hole);
+        onChange(removeFigure(content, space && space.width <= 1 ? space.id : figureId));
+      },
+      onMirror: (figureId: string, way: MirrorWay) => {
+        if (content && stage) onChange(mirrorFigure(content, figureId, stage, way));
+      },
       // Clicking the move handle carries the figure until the next click.
       onCarryChild: (figureId: string) => {
         const figure = figures.find((item) => item.id === figureId);
