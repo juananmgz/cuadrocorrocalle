@@ -21,6 +21,7 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0038](https://github.com/juananmgz/cuadrocorrocalle/pull/38) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/38/commits) | ✨ Place simple figures on the stage (paso 2.2)           |
 | [CCC-0039](https://github.com/juananmgz/cuadrocorrocalle/pull/39) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/39/commits) | ✨ Rows and rings of holes filled with figures (paso 2.3) |
 | [CCC-0040](https://github.com/juananmgz/cuadrocorrocalle/pull/40) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/40/commits) | ✨ Free dance and spaces of any figure (paso 2.4)         |
+| [CCC-0041](https://github.com/juananmgz/cuadrocorrocalle/pull/41) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/41/commits) | ✨ Diagonal trios and rows, and a tidier tray (paso 2.4)  |
 
 ## v0.2.1 (en curso)
 

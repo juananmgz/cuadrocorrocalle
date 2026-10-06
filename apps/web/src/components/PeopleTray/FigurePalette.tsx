@@ -1,4 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
+import { ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 import {
   DEFAULT_FIGURE_WIDTH,
   FIGURE_LABELS,
@@ -225,11 +227,9 @@ interface FigurePaletteProps {
   onConfigure: (kind: FigureKind, anchor: DOMRect) => void;
 }
 
-// The palette in columns by how many people each figure holds. No solo: dropping someone on the
-// stage already makes one.
-const KINDS = SIMPLE_FIGURE_KINDS.filter((kind) => kind !== 'solo');
-const ROWS = [...new Set(KINDS.map((kind) => FIGURE_SLOTS[kind]))].map((count) =>
-  KINDS.filter((kind) => FIGURE_SLOTS[kind] === count),
+// The palette, from fewer people to more. No solo: dropping someone on the stage already makes one.
+const KINDS = SIMPLE_FIGURE_KINDS.filter((kind) => kind !== 'solo').sort(
+  (a, b) => FIGURE_SLOTS[a] - FIGURE_SLOTS[b],
 );
 
 /** The simple figures (step 2.2), drawn as they come out on the stage, all at one scale. */
@@ -241,32 +241,20 @@ export function FigurePalette({
   onConfigure,
 }: FigurePaletteProps) {
   return (
-    <div className={styles.figureColumns}>
-      {ROWS.map((kinds) => {
-        const count = FIGURE_SLOTS[kinds[0]!];
-        return (
-          <div key={count} className={styles.figureColumn}>
-            <span className={styles.figureCount} aria-hidden="true">
-              {count}
-            </span>
-            <ul className={styles.figures} aria-label={`${count} personas`}>
-              {kinds.map((kind) => (
-                <li key={kind}>
-                  <PaletteItem
-                    kind={kind}
-                    {...appearance(kind)}
-                    enabled={enabled}
-                    picked={picked === kind}
-                    onPick={() => onPick(kind)}
-                    onConfigure={(anchor) => onConfigure(kind, anchor)}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      })}
-    </div>
+    <ul className={styles.figures} aria-label="Figuras">
+      {KINDS.map((kind) => (
+        <li key={kind}>
+          <PaletteItem
+            kind={kind}
+            {...appearance(kind)}
+            enabled={enabled}
+            picked={picked === kind}
+            onPick={() => onPick(kind)}
+            onConfigure={(anchor) => onConfigure(kind, anchor)}
+          />
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -281,89 +269,148 @@ const clampNumber = (value: string, min: number, max: number, fallback: number) 
   return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
 };
 
+/** How a space comes out, in a few words: "Pareja × 4 · En batería". */
+function spaceSummary(kind: SpaceKind, { figure, holes, arrangement }: SpaceSetup) {
+  const names: Partial<Record<SpaceFigure, string>> =
+    kind === 'row_diagonal' ? DIAGONAL_FIGURES : SPACE_FIGURES;
+  const how =
+    kind === 'free' ? 'Posición aleatoria' : arrangement === 'series' ? 'En serie' : 'En batería';
+  return `${names[figure] ?? SPACE_FIGURES[figure]} × ${holes} · ${how}`;
+}
+
+interface SpaceItemProps {
+  kind: SpaceKind;
+  setup: SpaceSetup;
+  enabled: boolean;
+  picked: boolean;
+  onPick: () => void;
+  onSetup: (changes: Partial<SpaceSetup>) => void;
+}
+
 /**
- * The spaces (step 2.3): a row and a ring of holes to fill with simple figures, and the free dance
- * (step 2.4), with people spread at random. Each is a line with its name over its drawing (pick or
- * drag it) and how it comes out: holes (people, in a free dance) and whether its figures stand in
- * series or in battery.
+ * One space: a line with its drawing, its name and how it comes out, picked or dragged to the
+ * stage as a whole (like a piece of the repertoire); "Editar" unfolds how it comes out.
+ */
+function SpaceItem({ kind, setup, enabled, picked, onPick, onSetup }: SpaceItemProps) {
+  const [open, setOpen] = useState(false);
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: `palette:${kind}`,
+    disabled: !enabled,
+  });
+  const { figure, holes, arrangement } = setup;
+  const fieldsId = `space-${kind}-setup`;
+  return (
+    <li className={styles.space} data-open={open ? '' : undefined}>
+      <div className={styles.spaceHead}>
+        <button
+          ref={setNodeRef}
+          type="button"
+          className={styles.spaceMain}
+          disabled={!enabled}
+          title={`${FIGURE_LABELS[kind]}: pulsa o arrastra al escenario`}
+          {...attributes}
+          aria-pressed={picked}
+          {...listeners}
+          onClick={onPick}
+        >
+          <span className={styles.spaceTile} aria-hidden="true">
+            <SpaceIcon kind={kind} />
+          </span>
+          <span className={styles.spaceText}>
+            <span className={styles.spaceName}>{FIGURE_LABELS[kind]}</span>
+            <span className={styles.spaceSummary}>{spaceSummary(kind, setup)}</span>
+          </span>
+        </button>
+        <button
+          type="button"
+          className={styles.spaceEdit}
+          aria-expanded={open}
+          aria-controls={fieldsId}
+          aria-label={`Editar cómo sale ${FIGURE_LABELS[kind].toLowerCase()}`}
+          title="Editar"
+          onClick={() => setOpen(!open)}
+        >
+          <ChevronDown size={16} aria-hidden="true" />
+        </button>
+      </div>
+      {/* How it comes out, folded away until "Editar". */}
+      <div className={styles.spaceFold} id={fieldsId} inert={!open}>
+        <div className={styles.spaceSetup}>
+          <div className={styles.spaceFields}>
+            <label className={styles.spaceField}>
+              <span className={styles.srOnly}>Figura</span>
+              <select
+                value={figure}
+                onChange={(event) => onSetup({ figure: event.target.value as SpaceFigure })}
+              >
+                {Object.entries(kind === 'row_diagonal' ? DIAGONAL_FIGURES : SPACE_FIGURES).map(
+                  ([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+            <label className={styles.spaceField}>
+              <span className={styles.srOnly}>Cuántas</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={MAX_FIGURE_WIDTH}
+                value={holes}
+                onChange={(event) =>
+                  onSetup({
+                    holes: Math.round(clampNumber(event.target.value, 1, MAX_FIGURE_WIDTH, holes)),
+                  })
+                }
+              />
+            </label>
+          </div>
+          <div className={styles.segmented} role="group" aria-label="Disposición">
+            {kind === 'free' ? (
+              // The only way a free dance stands; shown so it reads like the others.
+              <button type="button" aria-pressed>
+                Posición aleatoria
+              </button>
+            ) : (
+              ARRANGEMENTS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={arrangement === option}
+                  onClick={() => onSetup({ arrangement: option })}
+                >
+                  {option === 'series' ? 'En serie' : 'En batería'}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/**
+ * The spaces: rows (straight and diagonal) and rings of holes to fill with simple figures (step
+ * 2.3), and the free dance (step 2.4). One line each, picked or dragged as a whole.
  */
 export function SpacePalette({ enabled, picked, onPick, setup, onSetup }: SpacePaletteProps) {
   return (
     <ul className={styles.spaces} aria-label="Espacios">
-      {SPACE_KINDS.map((kind) => {
-        const { figure, holes, arrangement } = setup[kind];
-        return (
-          <li key={kind} className={styles.space}>
-            <span className={styles.spaceName}>{FIGURE_LABELS[kind]}</span>
-            <PaletteItem
-              kind={kind}
-              rotation={0}
-              width={holes}
-              enabled={enabled}
-              picked={picked === kind}
-              onPick={() => onPick(kind)}
-              onConfigure={() => {}}
-            />
-            <div className={styles.spaceSetup}>
-              <div className={styles.spaceFields}>
-                <label className={styles.spaceField}>
-                  <span className={styles.srOnly}>Figura</span>
-                  <select
-                    value={figure}
-                    onChange={(event) =>
-                      onSetup(kind, { figure: event.target.value as SpaceFigure })
-                    }
-                  >
-                    {Object.entries(kind === 'row_diagonal' ? DIAGONAL_FIGURES : SPACE_FIGURES).map(
-                      ([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </label>
-                <label className={styles.spaceField}>
-                  <span className={styles.srOnly}>Cuántas</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={MAX_FIGURE_WIDTH}
-                    value={holes}
-                    onChange={(event) =>
-                      onSetup(kind, {
-                        holes: Math.round(
-                          clampNumber(event.target.value, 1, MAX_FIGURE_WIDTH, holes),
-                        ),
-                      })
-                    }
-                  />
-                </label>
-              </div>
-              <div className={styles.segmented} role="group" aria-label="Disposición">
-                {kind === 'free' ? (
-                  // The only way a free dance stands; shown so it reads like the others.
-                  <button type="button" aria-pressed>
-                    Posición aleatoria
-                  </button>
-                ) : (
-                  ARRANGEMENTS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      aria-pressed={arrangement === option}
-                      onClick={() => onSetup(kind, { arrangement: option })}
-                    >
-                      {option === 'series' ? 'En serie' : 'En batería'}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          </li>
-        );
-      })}
+      {SPACE_KINDS.map((kind) => (
+        <SpaceItem
+          key={kind}
+          kind={kind}
+          setup={setup[kind]}
+          enabled={enabled}
+          picked={picked === kind}
+          onPick={() => onPick(kind)}
+          onSetup={(changes) => onSetup(kind, changes)}
+        />
+      ))}
     </ul>
   );
 }
