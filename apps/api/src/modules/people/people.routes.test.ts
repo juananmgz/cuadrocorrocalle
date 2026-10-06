@@ -113,6 +113,17 @@ test('adds, edits and removes a person', async () => {
     expect.objectContaining({ figure: 'girl', mainColor: 'mustard', notes: 'Toca la gaita' }),
   );
 
+  // Playing something brings its role: music for an instrument, singing for "Canto".
+  const playing = await app.inject({
+    method: 'PATCH',
+    url: `${peoplePath(groupId)}/${person.id}`,
+    headers: { cookie },
+    payload: { instruments: ['Gaita', 'Canto'] },
+  });
+  expect(playing.json()).toEqual(
+    expect.objectContaining({ instruments: ['Gaita', 'Canto'], roles: ['music', 'singing'] }),
+  );
+
   const removed = await app.inject({
     method: 'DELETE',
     url: `${peoplePath(groupId)}/${person.id}`,

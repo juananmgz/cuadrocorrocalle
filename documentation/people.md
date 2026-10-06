@@ -22,9 +22,9 @@ Paso 1.7 (caso OA-01). Pantalla «Mi grupo» (`/grupo`): información del grupo 
 | Método | Ruta                                          | Qué hace                                                                                                                                                        |
 | ------ | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/api/cuentas/grupos/:groupId/personas`       | Personas del grupo, ordenadas por nombre                                                                                                                        |
-| POST   | `/api/cuentas/grupos/:groupId/personas`       | Añade una persona `{ name, figure?, membership?, roles?, mainColor?, notes? }`                                                                                  |
+| POST   | `/api/cuentas/grupos/:groupId/personas`       | Añade una persona `{ name, figure?, membership?, roles?, instruments?, mainColor?, notes? }`                                                                    |
 | POST   | `/api/cuentas/grupos/:groupId/personas/lista` | Añade una lista `{ names: (nombre o { name, figure?, roles? })[], membership?, replace? }`; con `replace` borra antes a todos y pide `password` o `confirmName` |
-| PATCH  | `/api/cuentas/grupos/:groupId/personas/:id`   | Cambia sus datos                                                                                                                                                |
+| PATCH  | `/api/cuentas/grupos/:groupId/personas/:id`   | Cambia sus datos; con `instruments`, añade los roles que piden                                                                                                  |
 | DELETE | `/api/cuentas/grupos/:groupId/personas/:id`   | La borra                                                                                                                                                        |
 | DELETE | `/api/cuentas/grupos/:groupId/personas`       | Borra a todos con `{ password }` o `{ confirmName }`                                                                                                            |
 

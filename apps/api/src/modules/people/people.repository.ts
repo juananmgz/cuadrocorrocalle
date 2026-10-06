@@ -10,6 +10,7 @@ export interface PersonRecord {
   mainColor: PersonColorId;
   membership: Membership;
   roles: PersonRole[];
+  instruments: string[];
   notes: string | null;
 }
 
@@ -43,6 +44,7 @@ const toRecord = ({
   mainColor,
   membership,
   roles,
+  instruments,
   notes,
 }: PersonRow): PersonRecord => ({
   id,
@@ -52,6 +54,7 @@ const toRecord = ({
   mainColor: mainColor as PersonColorId,
   membership: membership as Membership,
   roles: roles as PersonRole[],
+  instruments,
   notes,
 });
 

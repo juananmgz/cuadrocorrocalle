@@ -30,6 +30,10 @@ Migraciones:
 - `20261006130000_cross_arms` (paso 2.5): cuántas personas lleva cada brazo de una cruz (`arms`: delante, izquierda, derecha y detrás; vacío en las demás figuras).
 - `20261006140000_music_zone` (paso 2.7): zona de músicos de cada actuación (`music_side`: back, left o right, vacío sin zona; `music_rows`, filas de 1 m).
 - `20261006150000_music_depth` (paso 2.7): la zona de músicos se mide en metros desde el borde (`music_depth_m`, 1,5 por defecto) en vez de filas, y va atrás por defecto.
+- `20261006170000_music_back` (paso 2.7): las actuaciones que ya existían pasan a tener la zona de músicos atrás.
+- `20261006180000_instruments` (paso 2.7): instrumentos de cada pieza (`instruments`) y el instrumento del sitio de cada músico (`instrument` en sus figuras).
+- `20261006190000_group_instruments` (paso 2.7): instrumentos que toca cada grupo (`instruments`), que se ofrecen en sus piezas.
+- `20261006200000_person_instruments` (paso 2.7): instrumentos que toca cada persona (`instruments`); solo ocupa los sitios de esos instrumentos.
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -91,6 +95,7 @@ erDiagram
     text main_color "blue, red… (20)"
     text membership "member o collaborator"
     text_array roles "dance, music, singing…"
+    text_array instruments "los que toca"
     text notes
   }
   groups ||--o{ performances : "tiene"

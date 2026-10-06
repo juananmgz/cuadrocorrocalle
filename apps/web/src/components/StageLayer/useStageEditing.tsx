@@ -65,6 +65,7 @@ import {
   turnSpot,
 } from '../../stage/freeDance';
 import { mirrorFigure, type MirrorWay } from '../../stage/mirror';
+import { baseOf, playsSeat } from '../../stage/musicSeats';
 import { stageProjection } from '../../stage/projection';
 import {
   areaPoint,
@@ -376,9 +377,9 @@ export function useStageEditing({
   const playsIn = (figureId: string) => {
     const figure = figures.find((item) => item.id === figureId);
     const member = participants.find((item) => item.figureId === figureId);
-    return figure?.kind === 'solo' && !figure.spaceId && member ? plays(member.personId) : false;
     // A musician's seat belongs in the zone, empty or not.
     if (figure?.instrument) return true;
+    return figure?.kind === 'solo' && !figure.spaceId && member ? plays(member.personId) : false;
   };
 
   /** The block a figure takes up: its own, or the band or disc of a space. */
@@ -480,11 +481,28 @@ export function useStageEditing({
           ]),
         );
 
-  /** The empty place of another figure at a stage point, if any. */
-  const seatAt = (point: StagePoint, exceptId: string | null) => {
+  /** Whether someone can take a place in a figure: a musician's seat only if they play it. */
+  const fitsSeat = (personId: string | undefined, figure: StageFigure) =>
+    !figure.instrument ||
+    (personId !== undefined &&
+      playsSeat(people.get(personId)?.instruments ?? [], figure.instrument));
+
+  /** The instrument seat at a stage point that someone does not play, if any. */
+  const notPlayedAt = (point: StagePoint, personId: string) => {
+    if (!stage) return null;
+    const item = figureViews.find(
+      ({ figure, places }) =>
+        figure.instrument && !fitsSeat(personId, figure) && slotAt(places, point, stage) >= 0,
+    );
+    return item ? baseOf(item.figure.instrument!) : null;
+  };
+
+  /** The empty place of another figure at a stage point (one `personId` may take), if any. */
+  const seatAt = (point: StagePoint, exceptId: string | null, personId?: string) => {
     if (!stage) return null;
     for (const item of figureViews) {
       if (item.figure.id === exceptId) continue;
+      if (!fitsSeat(personId, item.figure)) continue;
       const emptyPlaces = item.empty.map((slot) => item.places[slot]!);
       const index = slotAt(emptyPlaces, point, stage);
       if (index >= 0)
@@ -615,7 +633,8 @@ export function useStageEditing({
     const fill = fillAt(centre, move.id, move.shape.kind);
     if (fill) return fillResult(move.shape, move.id, fill);
     // Someone in a solo dropped on an empty place of another figure takes it.
-    const seat = move.id && move.shape.kind === 'solo' ? seatAt(centre, move.id) : null;
+    const seat =
+      move.id && move.shape.kind === 'solo' ? seatAt(centre, move.id, memberIn(move.id)) : null;
     if (seat)
       return {
         ok: true,
@@ -668,7 +687,10 @@ export function useStageEditing({
       return onChange(next);
     }
     // A solo landing on an empty place of another figure: its person joins that one.
-    const seat = move.id && move.shape.kind === 'solo' ? seatAt(result.places[0]!, move.id) : null;
+    const seat =
+      move.id && move.shape.kind === 'solo'
+        ? seatAt(result.places[0]!, move.id, memberIn(move.id))
+        : null;
     if (seat) {
       const solo = move.id;
       return onChange({
@@ -720,10 +742,14 @@ export function useStageEditing({
     solo?: Shape;
     /** Who stood in that place and leaves it to them. */
     replaces?: string;
+    /** The instrument of the seat there, which they do not play. */
+    notPlayed?: string;
   } | null => {
     const point = toStage(pointer);
     if (!point || !stage || !content) return null;
-    const seat = seatAt(point, null);
+    const notPlayed = notPlayedAt(point, personId);
+    if (notPlayed) return { check: { ok: false, reason: 'close' }, seat: null, notPlayed };
+    const seat = seatAt(point, null, personId);
     if (seat)
       return {
         check: { ok: true, point: seat.place },
@@ -840,6 +866,16 @@ export function useStageEditing({
     const musicians = placed.filter(({ person: other }) =>
       participants.find((item) => item.personId === other.id)?.roles.includes('music'),
     );
+    const seat = playing
+      ? figureViews.find(
+          ({ figure, empty }) => figure.instrument && empty.length && fitsSeat(personId, figure),
+        )
+      : undefined;
+    if (seat)
+      return placePerson(personId, seat.places[seat.empty[0]!]!, {
+        figureId: seat.figure.id,
+        slot: seat.empty[0]!,
+      });
     const step = stage.squareSize / 2;
     const backmost = playing
       ? stage.depth / 2
@@ -888,6 +924,10 @@ export function useStageEditing({
     onChange({ ...content, participants: joined });
     toast.show({ title: 'No queda sitio libre en el escenario', tone: 'error' });
   };
+
+  /** Who stands in a figure, if anyone. */
+  const memberIn = (figureId: string) =>
+    participants.find((item) => item.figureId === figureId)?.personId;
 
   const memberOf = (personId: string): Participant | undefined =>
     participants.find((item) => item.personId === personId && item.figureId != null);
@@ -1285,6 +1325,14 @@ export function useStageEditing({
     }
     const result = personResult(person.personId, pointer);
     if (!result) return;
+    if (result.notPlayed) {
+      const name = people.get(person.personId)?.name ?? 'Esta persona';
+      return toast.show({
+        title: `${name} no toca ${result.notPlayed.toLocaleLowerCase('es')}`,
+        description: 'Asígnale ese instrumento en Mi grupo para sentarle ahí.',
+        tone: 'error',
+      });
+    }
     if (!result.check.ok) return warn(result.check.reason, 'person');
     if (!result.solo)
       return placePerson(person.personId, result.check.point, result.seat, result.replaces);

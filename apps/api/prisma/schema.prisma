@@ -121,6 +121,8 @@ model Person {
   membership String   @default("member")
   // "dance", "music", "singing"… (more may come).
   roles      String[] @default([])
+  // Instruments they play (step 2.7), from the group's list.
+  instruments String[] @default([])
   notes      String?
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -190,10 +192,10 @@ model Piece {
   optional        Boolean         @default(false)
   // Encore ("bis"): kept ready in case the audience asks for more; not counted in the summary.
   encore          Boolean         @default(false)
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
   // Instruments the piece needs (step 2.7), each with a seat in the musicians' zone.
   instruments     String[]        @default([])
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
   participations  Participation[]
   figures         Figure[]
 
@@ -239,10 +241,10 @@ model Figure {
   y              Float           @map("y_m")
   rotation       Int             @default(0)
   width          Float
-  // Crosses (step 2.5): people along each arm (front, left, right, back); empty for others.
-  arms           Int[]           @default([])
   // Musicians' seats (step 2.7): the instrument played in this solo.
   instrument     String?
+  // Crosses (step 2.5): people along each arm (front, left, right, back); empty for others.
+  arms           Int[]           @default([])
   // Trios in a triangle (step 2.4): their depth in squares, when not as deep as wide.
   depth          Float?
   // Spaces: "series" or "battery", and the room between holes in metres.

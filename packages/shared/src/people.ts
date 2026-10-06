@@ -53,12 +53,30 @@ const rolesSchema = z.array(roleSchema).max(PERSON_ROLES.length);
 
 const nameSchema = z.string().trim().min(1, 'Escribe el nombre').max(80, 'Máximo 80 caracteres');
 
+// The instruments someone plays (step 2.7), from the group's list; playing one makes them a musician.
+const instrumentsSchema = z.array(z.string().trim().min(1).max(40)).max(20);
+
+/** Whether an instrument is singing ("Canto", "Coro"…): it gives the singing role, not music. */
+export const isSinging = (instrument: string) => /^(canto|coro|voz)\b/i.test(instrument.trim());
+
+/** The roles someone needs for their instruments, added to theirs. */
+export function rolesForInstruments(roles: PersonRole[], instruments: string[]): PersonRole[] {
+  const needed = new Set(roles);
+  for (const instrument of instruments) needed.add(isSinging(instrument) ? 'singing' : 'music');
+  return PERSON_ROLES.filter((role) => needed.has(role));
+}
+
+/** Someone who plays but has not been given what: their record is incomplete. */
+export const missingInstruments = (person: { roles: PersonRole[]; instruments: string[] }) =>
+  person.roles.includes('music') && !person.instruments.some((name) => !isSinging(name));
+
 export const createPersonSchema = z.object({
   name: nameSchema,
   figure: figureSchema.nullable().optional(),
   mainColor: personColorSchema.optional(),
   membership: membershipSchema.optional(),
   roles: rolesSchema.optional(),
+  instruments: instrumentsSchema.optional(),
   notes: z.string().trim().max(500, 'Máximo 500 caracteres').nullable().optional(),
 });
 export type CreatePersonInput = z.infer<typeof createPersonSchema>;
@@ -94,6 +112,7 @@ export const personSchema = z.object({
   mainColor: personColorSchema,
   membership: membershipSchema,
   roles: rolesSchema,
+  instruments: z.array(z.string()),
   notes: z.string().nullable(),
 });
 export type Person = z.infer<typeof personSchema>;
