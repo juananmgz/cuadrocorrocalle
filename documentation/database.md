@@ -29,6 +29,7 @@ Migraciones:
 - `20261006120000_figure_depth` (paso 2.4): fondo propio del trío en triángulo, en casillas (`depth`; vacío si es tan hondo como ancho).
 - `20261006130000_cross_arms` (paso 2.5): cuántas personas lleva cada brazo de una cruz (`arms`: delante, izquierda, derecha y detrás; vacío en las demás figuras).
 - `20261006140000_music_zone` (paso 2.7): zona de músicos de cada actuación (`music_side`: back, left o right, vacío sin zona; `music_rows`, filas de 1 m).
+- `20261006150000_music_depth` (paso 2.7): la zona de músicos se mide en metros desde el borde (`music_depth_m`, 1,5 por defecto) en vez de filas, y va atrás por defecto.
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -107,7 +108,7 @@ erDiagram
     float square_m "0,5 por defecto"
     float edge_distance_m "0,25 por defecto y mínimo"
     text music_side "zona de músicos: back, left o right"
-    int music_rows "filas de la zona, de 1 m"
+    float music_depth_m "ancho de la zona desde el borde"
   }
   people ||--o{ call_ups : "convocada en"
   performances ||--o{ call_ups : "convoca"

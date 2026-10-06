@@ -1,4 +1,4 @@
-import { MUSIC_ROW_DEPTH, type MusicSide } from '@cuadrocorrocalle/shared';
+import { DEFAULT_MUSIC_DEPTH, type MusicSide } from '@cuadrocorrocalle/shared';
 
 /** Stage measures, in metres. */
 export interface StageSize {
@@ -6,18 +6,18 @@ export interface StageSize {
   depth: number;
   squareSize: number;
   edgeDistance: number;
-  /** The musicians' zone: along the back or a side, and how many rows (a metre each) deep. */
+  /** The musicians' zone: along the back or a side, and how wide from the edge, in metres. */
   musicSide?: MusicSide | null;
-  musicRows?: number;
+  musicDepth?: number;
 }
 
-/**
- * The musicians' zone, in metres from the stage centre: from its edge (strip included) as many
- * metres in as it has rows. None without a side.
- */
+/** The musicians' zone, in metres from the stage centre: a band from its edge in. None without a side. */
 export function musicZone(stage: StageSize) {
   if (!stage.musicSide) return null;
-  const deep = stage.edgeDistance + (stage.musicRows ?? 1) * MUSIC_ROW_DEPTH;
+  const deep = Math.min(
+    stage.musicDepth ?? DEFAULT_MUSIC_DEPTH,
+    stage.musicSide === 'back' ? stage.depth : stage.width,
+  );
   const [halfWidth, halfDepth] = [stage.width / 2, stage.depth / 2];
   if (stage.musicSide === 'back')
     return { left: -halfWidth, right: halfWidth, bottom: halfDepth - deep, top: halfDepth };

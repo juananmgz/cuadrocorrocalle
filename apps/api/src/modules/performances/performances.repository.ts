@@ -14,7 +14,7 @@ export interface PerformanceRecord {
   squareSize: number;
   edgeDistance: number;
   musicSide: string | null;
-  musicRows: number;
+  musicDepth: number;
   createdAt: Date;
 }
 
@@ -49,7 +49,7 @@ const FIELDS = {
   squareSize: true,
   edgeDistance: true,
   musicSide: true,
-  musicRows: true,
+  musicDepth: true,
   createdAt: true,
 } as const;
 

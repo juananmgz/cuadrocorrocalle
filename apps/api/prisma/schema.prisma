@@ -146,9 +146,10 @@ model Performance {
   squareSize   Float     @default(0.5) @map("square_m")
   // Safety distance kept clear inside the stage edge, in metres.
   edgeDistance Float     @default(0.25) @map("edge_distance_m")
-  // Musicians' zone (step 2.7): "back", "left" or "right" (none when null), and its rows.
-  musicSide    String?   @map("music_side")
-  musicRows    Int       @default(1) @map("music_rows")
+  // Musicians' zone (step 2.7): "back", "left" or "right" (none when null), and how wide it is in
+  // metres from the stage edge.
+  musicSide    String?   @default("back") @map("music_side")
+  musicDepth   Float     @default(1.5) @map("music_depth_m")
   notes        String?
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")

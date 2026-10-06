@@ -6,8 +6,10 @@ import {
   MIN_EDGE_DISTANCE,
   MIN_STAGE_DEPTH,
   MIN_STAGE_WIDTH,
-  MAX_MUSIC_ROWS,
-  MUSIC_ROW_DEPTH,
+  DEFAULT_MUSIC_DEPTH,
+  DEFAULT_MUSIC_SIDE,
+  MAX_MUSIC_DEPTH,
+  MIN_MUSIC_DEPTH,
   type CallUpEntry,
   type MusicSide,
   type Performance,
@@ -48,9 +50,9 @@ interface StageValues {
   depth: string;
   squareSize: string;
   edgeDistance: string;
-  /** Where the musicians play ('' without a zone) and how many rows. */
+  /** Where the musicians play ('' without a zone) and how wide their band is, in metres. */
   musicSide: MusicSide | '';
-  musicRows: string;
+  musicDepth: string;
 }
 
 const MUSIC_SIDE_OPTIONS = [
@@ -60,9 +62,12 @@ const MUSIC_SIDE_OPTIONS = [
   { value: 'right', label: 'A la derecha' },
 ];
 
-/** The rows of the musicians' zone, kept within their limits. */
-const musicRowsOf = (value: string) =>
-  Math.min(MAX_MUSIC_ROWS, Math.max(1, Math.round(toNumber(value) ?? 1)));
+/** How wide the musicians' zone is, in half metres within its limits. */
+const musicDepthOf = (value: string) =>
+  Math.min(
+    MAX_MUSIC_DEPTH,
+    Math.max(MIN_MUSIC_DEPTH, Math.round((toNumber(value) ?? DEFAULT_MUSIC_DEPTH) * 2) / 2),
+  );
 
 type Step = 'data' | 'stage' | 'callUp';
 
@@ -107,7 +112,7 @@ function toStageSize({
   squareSize,
   edgeDistance,
   musicSide,
-  musicRows,
+  musicDepth,
 }: StageValues): StageSize | null {
   const w = toNumber(width);
   const d = toNumber(depth);
@@ -118,7 +123,7 @@ function toStageSize({
         squareSize: toNumber(squareSize) ?? DEFAULT_SQUARE_SIZE,
         edgeDistance: edgeOf(edgeDistance),
         musicSide: musicSide || null,
-        musicRows: musicRowsOf(musicRows),
+        musicDepth: musicDepthOf(musicDepth),
       }
     : null;
 }
@@ -134,7 +139,7 @@ function toStage(values: StageValues): GridStage | null {
         music: size.musicSide
           ? {
               side: size.musicSide,
-              deep: (size.edgeDistance + (size.musicRows ?? 1) * MUSIC_ROW_DEPTH) / size.squareSize,
+              deep: (size.musicDepth ?? DEFAULT_MUSIC_DEPTH) / size.squareSize,
             }
           : null,
       }
@@ -277,8 +282,9 @@ export function CreatePerformanceCard({
     depth: String(performance?.stageDepth ?? (performance ? '' : 8)),
     squareSize: formatNumber(String(performance?.squareSize ?? DEFAULT_SQUARE_SIZE)),
     edgeDistance: formatNumber(String(performance?.edgeDistance ?? MIN_EDGE_DISTANCE)),
-    musicSide: performance?.musicSide ?? '',
-    musicRows: String(performance?.musicRows ?? 1),
+    // A new performance keeps the back for its musicians.
+    musicSide: performance ? (performance.musicSide ?? '') : DEFAULT_MUSIC_SIDE,
+    musicDepth: formatNumber(String(performance?.musicDepth ?? DEFAULT_MUSIC_DEPTH)),
   }));
   // Values shown on the grid: they only change when a field loses focus, so typing "9" over "10"
   // does not flash a 1 m stage.
@@ -331,7 +337,7 @@ export function CreatePerformanceCard({
       edgeDistance: formatNumber(
         limit(stage.edgeDistance, MIN_EDGE_DISTANCE, MAX_EDGE_DISTANCE, String(MIN_EDGE_DISTANCE)),
       ),
-      musicRows: String(musicRowsOf(stage.musicRows)),
+      musicDepth: formatNumber(String(musicDepthOf(stage.musicDepth))),
     };
     setStage(next);
     // Incomplete measures keep the previous preview.
@@ -371,7 +377,7 @@ export function CreatePerformanceCard({
       squareSize: toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE,
       edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(stage.edgeDistance)),
       musicSide: stage.musicSide || null,
-      musicRows: musicRowsOf(stage.musicRows),
+      musicDepth: musicDepthOf(stage.musicDepth),
     };
     try {
       const saved = performance
@@ -422,7 +428,7 @@ export function CreatePerformanceCard({
     squareSize: toNumber(settled.squareSize) ?? DEFAULT_SQUARE_SIZE,
     edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(settled.edgeDistance)),
     musicSide: settled.musicSide || null,
-    musicRows: musicRowsOf(settled.musicRows),
+    musicDepth: musicDepthOf(settled.musicDepth),
   };
   const valuesKey = JSON.stringify(liveValues);
   const callUpKeyValue = JSON.stringify(callUp.entries);
@@ -630,12 +636,12 @@ export function CreatePerformanceCard({
             />
             {stage.musicSide && (
               <TextField
-                label="Filas"
-                inputMode="numeric"
+                label="Espacio para músicos (m)"
+                inputMode="decimal"
                 autoComplete="off"
-                value={stage.musicRows}
-                onChange={update('musicRows', (value) => cleanInteger(value, 1))}
-                hint={`De 1 a ${MAX_MUSIC_ROWS}, de 1 m cada una`}
+                value={stage.musicDepth}
+                onChange={update('musicDepth', cleanDecimal)}
+                hint="De 0,5 a 6 m, desde el borde"
               />
             )}
           </div>

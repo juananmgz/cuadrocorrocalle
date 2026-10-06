@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import {
   type CallUpEntry,
   type CreatePerformanceInput,
+  DEFAULT_MUSIC_DEPTH,
+  DEFAULT_MUSIC_SIDE,
   DEFAULT_SQUARE_SIZE,
   type MusicSide,
   MIN_EDGE_DISTANCE,
@@ -49,7 +51,7 @@ function toChanges(input: UpdatePerformanceInput): PerformanceChanges {
     squareSize: input.squareSize,
     edgeDistance: input.edgeDistance,
     musicSide: input.musicSide,
-    musicRows: input.musicRows,
+    musicDepth: input.musicDepth,
   };
   return Object.fromEntries(
     Object.entries(changes).filter(([, value]) => value !== undefined),
@@ -115,8 +117,8 @@ export function createPerformanceService(
         stageDepth: null,
         squareSize: DEFAULT_SQUARE_SIZE,
         edgeDistance: MIN_EDGE_DISTANCE,
-        musicSide: null,
-        musicRows: 1,
+        musicSide: DEFAULT_MUSIC_SIDE,
+        musicDepth: DEFAULT_MUSIC_DEPTH,
         ...toChanges(input),
         title: input.title,
         groupId: input.groupId,
@@ -148,7 +150,7 @@ export function createPerformanceService(
       }
 
       const { groupId, place, date, minMinutes, maxMinutes, notes } = performance;
-      const { stageWidth, stageDepth, squareSize, edgeDistance, musicSide, musicRows } =
+      const { stageWidth, stageDepth, squareSize, edgeDistance, musicSide, musicDepth } =
         performance;
       const copy = await repository.create({
         groupId,
@@ -162,7 +164,7 @@ export function createPerformanceService(
         squareSize,
         edgeDistance,
         musicSide,
-        musicRows,
+        musicDepth,
         title: `Copia de ${performance.title}`.slice(0, 120),
       });
       await callUps.replace(copy.id, await callUps.list(performance.id));
