@@ -122,3 +122,19 @@ export function parseNameList(text: string): string[] {
       return true;
     });
 }
+
+/**
+ * A name from a call-up list, telling whether it is still to be confirmed: it ends in question
+ * marks, however written ("Ana ?", "Ana??", "Ana ¿?", "¿Ana?").
+ */
+export function readDoubt(name: string): { name: string; doubtful: boolean } {
+  const marks = /\s*[¿?]+\s*$/.exec(name);
+  if (!marks) return { name, doubtful: false };
+  return {
+    name: name
+      .slice(0, marks.index)
+      .replace(/^\s*¿+\s*/, '')
+      .trim(),
+    doubtful: true,
+  };
+}

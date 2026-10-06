@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react';
 import { type Performance, PIECE_TYPE_LABELS } from '@cuadrocorrocalle/shared';
 import { type ReactNode, useEffect, useId, useMemo, useState } from 'react';
 
@@ -57,6 +58,11 @@ function Foldable({ title, count, children }: FoldableProps) {
         >
           {title}
           {count !== undefined && <span className={styles.foldCount}>({count})</span>}
+          <ChevronDown
+            className={styles.chevron}
+            data-open={open ? '' : undefined}
+            aria-hidden="true"
+          />
         </button>
       </h2>
       <div id={id} className={styles.foldBody} data-open={open ? '' : undefined} inert={!open}>

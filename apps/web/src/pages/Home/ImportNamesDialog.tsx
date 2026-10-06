@@ -1,4 +1,4 @@
-import { parseNameList } from '@cuadrocorrocalle/shared';
+import { parseNameList, readDoubt } from '@cuadrocorrocalle/shared';
 import { type ChangeEvent, useState } from 'react';
 
 import { Button } from '../../components/ui/Button/Button';
@@ -10,9 +10,19 @@ import styles from './CallUpSection.module.scss';
 interface ImportNamesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Receives the names read from the file or the pasted text. */
-  onImport: (names: string[]) => void;
+  /** Receives the names read from the file or the pasted text, and which are still to be confirmed. */
+  onImport: (names: ImportedName[]) => void;
 }
+
+/** A name of the list; ending in "?" means still to be confirmed. */
+export interface ImportedName {
+  name: string;
+  doubtful: boolean;
+}
+
+/** The names of a list, each with whether it ends in question marks. */
+const readList = (names: string[]): ImportedName[] =>
+  names.map(readDoubt).filter((entry) => entry.name);
 
 /** CSV files keep the first column; plain text keeps every line. */
 async function readNames(file: File) {
@@ -31,7 +41,7 @@ export function ImportNamesDialog({ open, onOpenChange, onImport }: ImportNamesD
   const [text, setText] = useState('');
   const [error, setError] = useState('');
 
-  const finish = (names: string[]) => {
+  const finish = (names: ImportedName[]) => {
     if (!names.length) return setError('No hay nombres');
     onImport(names);
     setText('');
@@ -42,7 +52,7 @@ export function ImportNamesDialog({ open, onOpenChange, onImport }: ImportNamesD
   const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (file) finish(await readNames(file));
+    if (file) finish(readList(await readNames(file)));
   };
 
   return (
@@ -50,21 +60,11 @@ export function ImportNamesDialog({ open, onOpenChange, onImport }: ImportNamesD
       open={open}
       onOpenChange={onOpenChange}
       title="Importar convocatoria"
-      description="Quien aparezca en la lista quedará marcado como que viene. Revísalo después: puede haber nombres mal escritos."
+      description="Quien aparezca en la lista quedará marcado como que viene, y como por confirmar si su nombre acaba en «?». Revísalo después: puede haber nombres mal escritos."
     >
       <Tabs
         label="De dónde importar"
         items={[
-          {
-            value: 'file',
-            label: 'Subir archivo',
-            content: (
-              <label className={styles.file}>
-                <span>Fichero .txt o .csv (en un CSV se usa la primera columna)</span>
-                <input type="file" accept=".txt,.csv,text/plain,text/csv" onChange={importFile} />
-              </label>
-            ),
-          },
           {
             value: 'paste',
             label: 'Pegar texto',
@@ -72,7 +72,7 @@ export function ImportNamesDialog({ open, onOpenChange, onImport }: ImportNamesD
               <div className={styles.tab}>
                 <TextArea
                   label="Lista de nombres"
-                  hint="Uno por línea o separados por comas"
+                  hint="Uno por línea o separados por comas; con «?» al final, por confirmar"
                   rows={6}
                   value={text}
                   onChange={(event) => setText(event.target.value)}
@@ -81,13 +81,23 @@ export function ImportNamesDialog({ open, onOpenChange, onImport }: ImportNamesD
                   <Button onClick={() => onOpenChange(false)}>Cancelar</Button>
                   <Button
                     variant="primary"
-                    onClick={() => finish(parseNameList(text))}
+                    onClick={() => finish(readList(parseNameList(text)))}
                     disabled={!text.trim()}
                   >
                     Marcar en la convocatoria
                   </Button>
                 </div>
               </div>
+            ),
+          },
+          {
+            value: 'file',
+            label: 'Subir archivo',
+            content: (
+              <label className={styles.file}>
+                <span>Fichero .txt o .csv (en un CSV se usa la primera columna)</span>
+                <input type="file" accept=".txt,.csv,text/plain,text/csv" onChange={importFile} />
+              </label>
             ),
           },
         ]}

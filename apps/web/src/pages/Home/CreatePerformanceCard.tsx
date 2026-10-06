@@ -14,7 +14,7 @@ import {
   type MusicSide,
   type Performance,
 } from '@cuadrocorrocalle/shared';
-import { Pencil } from 'lucide-react';
+import { ChevronDown, Pencil } from 'lucide-react';
 import {
   type FormEvent,
   type InputEvent,
@@ -225,23 +225,31 @@ function StepPanel({
       onClick={open ? undefined : onOpen}
     >
       <Heartbeat beat={attention} />
-      <h2 id={`${id}-title`} className={styles.title}>
-        <button
-          type="button"
-          className={styles.header}
-          aria-expanded={open}
-          aria-controls={`${id}-body`}
-          onClick={(event) => {
-            // Avoid a second toggle from the section's own click.
-            event.stopPropagation();
-            onOpen();
-          }}
-        >
-          {title}
-          {required && <RequiredMark />}
-        </button>
-      </h2>
-      {!open && summary && <p className={styles.summary}>{summary}</p>}
+      {/* Title and, while closed, its summary: the chevron sits halfway down both. */}
+      <div className={styles.head}>
+        <h2 id={`${id}-title`} className={styles.title}>
+          <button
+            type="button"
+            className={styles.header}
+            aria-expanded={open}
+            aria-controls={`${id}-body`}
+            onClick={(event) => {
+              // Avoid a second toggle from the section's own click.
+              event.stopPropagation();
+              onOpen();
+            }}
+          >
+            {title}
+            {required && <RequiredMark />}
+            <ChevronDown
+              className={styles.chevron}
+              data-open={open ? '' : undefined}
+              aria-hidden="true"
+            />
+          </button>
+        </h2>
+        {!open && summary && <p className={styles.summary}>{summary}</p>}
+      </div>
       {/* Closed blocks stay mounted so their fields keep what was typed. */}
       <div
         id={`${id}-body`}
@@ -474,6 +482,7 @@ export function CreatePerformanceCard({
   }, [valuesKey, callUpKeyValue, missing.length, callUp.pending]);
 
   const calledCount = callUp.entries.filter((entry) => entry.status === 'yes').length;
+  const maybeCount = callUp.entries.filter((entry) => entry.status === 'maybe').length;
   const dataSummary =
     [
       info.place?.trim(),
@@ -489,7 +498,13 @@ export function CreatePerformanceCard({
   const callUpSummary = callUp.pending
     ? 'Faltan personas por crear'
     : callUp.entries.length
-      ? `${calledCount} ${calledCount === 1 ? 'viene' : 'vienen'} de ${callUp.entries.length} convocados`
+      ? // «9 confirmados», or «7 confirmados, 2 por confirmar».
+        [
+          `${calledCount} ${calledCount === 1 ? 'confirmado' : 'confirmados'}`,
+          maybeCount ? `${maybeCount} por confirmar` : null,
+        ]
+          .filter(Boolean)
+          .join(', ')
       : 'Sin convocatoria todavía';
 
   // Big editable title, like a document name; it goes back to the default if left empty. With a
