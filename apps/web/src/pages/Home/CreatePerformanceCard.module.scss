@@ -191,6 +191,11 @@
   color: var(--ink-soft);
 }
 
+  // Fields lined up by their top, so a hint under one does not stretch the other.
+  &[data-top] {
+    align-items: start;
+  }
+
 // Link-style secondary action.
 .change {
   min-height: 32px;

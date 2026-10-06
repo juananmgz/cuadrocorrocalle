@@ -103,7 +103,9 @@ const toNumber = (value: string) => {
   return value.trim() && Number.isFinite(number) && number > 0 ? number : null;
 };
 
-const edgeOf = (value: string) => Math.max(MIN_EDGE_DISTANCE, toNumber(value) ?? 0);
+// The edge goes in quarters of a metre: 0,25, 0,5, 0,75…
+const edgeOf = (value: string) =>
+  Math.max(MIN_EDGE_DISTANCE, Math.round((toNumber(value) ?? 0) * 4) / 4);
 
 /** Stage in metres, or null until both measures are valid. */
 function toStageSize({
@@ -335,7 +337,16 @@ export function CreatePerformanceCard({
       width: limit(stage.width, MIN_STAGE_WIDTH, MAX_STAGE_WIDTH, ''),
       depth: limit(stage.depth, MIN_STAGE_DEPTH, MAX_STAGE_DEPTH, ''),
       edgeDistance: formatNumber(
-        limit(stage.edgeDistance, MIN_EDGE_DISTANCE, MAX_EDGE_DISTANCE, String(MIN_EDGE_DISTANCE)),
+        String(
+          edgeOf(
+            limit(
+              stage.edgeDistance,
+              MIN_EDGE_DISTANCE,
+              MAX_EDGE_DISTANCE,
+              String(MIN_EDGE_DISTANCE),
+            ),
+          ),
+        ),
       ),
       musicDepth: formatNumber(String(musicDepthOf(stage.musicDepth))),
     };
@@ -616,11 +627,11 @@ export function CreatePerformanceCard({
               autoComplete="off"
               value={stage.edgeDistance}
               onChange={update('edgeDistance', cleanDecimal)}
-              hint="De 0,25 a 2 m"
+              hint="De 0,25 a 2 m, de 0,25 en 0,25"
             />
           </div>
           {/* Where the musicians play, kept for them in every piece. */}
-          <div className={styles.pair}>
+          <div className={styles.pair} data-top="">
             <Select
               label="Zona de músicos"
               options={MUSIC_SIDE_OPTIONS}

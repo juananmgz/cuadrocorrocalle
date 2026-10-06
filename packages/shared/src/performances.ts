@@ -61,6 +61,7 @@ const baseSchema = z.object({
     .number()
     .min(MIN_EDGE_DISTANCE, 'Mínimo 0,25 m')
     .max(MAX_EDGE_DISTANCE, 'Máximo 2 m')
+    .refine((value) => Number.isInteger(value * 4), 'El borde va de 0,25 en 0,25 m')
     .optional(),
   /** Where the musicians play; none without a zone. */
   musicSide: musicSideSchema.nullable().optional(),
