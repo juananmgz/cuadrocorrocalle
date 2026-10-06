@@ -9,12 +9,13 @@ export const SIMPLE_FIGURE_KINDS = [
   'pair_diagonal',
   'trio_line',
   'trio_triangle',
+  'trio_diagonal',
   'square',
   'diamond',
 ] as const;
 // Spaces (step 2.3, OA-04 and OA-27): a row or a ring of holes, each filled with a simple figure,
 // and the free dance (step 2.4, OA-29): an area with people spread about it at random.
-export const SPACE_KINDS = ['row', 'ring', 'free'] as const;
+export const SPACE_KINDS = ['row', 'row_diagonal', 'ring', 'free'] as const;
 export const FIGURE_KINDS = [...SIMPLE_FIGURE_KINDS, ...SPACE_KINDS] as const;
 export const figureKindSchema = z.enum(FIGURE_KINDS);
 export type FigureKind = z.infer<typeof figureKindSchema>;
@@ -33,9 +34,11 @@ export const FIGURE_LABELS: Record<FigureKind, string> = {
   pair_diagonal: 'Pareja en diagonal',
   trio_line: 'Trío en fila',
   trio_triangle: 'Trío en triángulo',
+  trio_diagonal: 'Trío en diagonal',
   square: 'Cuadrado',
   diamond: 'Rombo',
   row: 'Fila',
+  row_diagonal: 'Fila diagonal',
   ring: 'Corro',
   free: 'Baile libre',
 };
@@ -47,9 +50,11 @@ export const FIGURE_SLOTS: Record<FigureKind, number> = {
   pair_diagonal: 2,
   trio_line: 3,
   trio_triangle: 3,
+  trio_diagonal: 3,
   square: 4,
   diamond: 4,
   row: 0,
+  row_diagonal: 0,
   ring: 0,
   free: 0,
 };
@@ -61,9 +66,11 @@ export const DEFAULT_FIGURE_WIDTH: Record<FigureKind, number> = {
   pair_diagonal: 2,
   trio_line: 3,
   trio_triangle: 2,
+  trio_diagonal: 3,
   square: 2,
   diamond: 3,
   row: 4,
+  row_diagonal: 4,
   ring: 6,
   free: 4,
 };

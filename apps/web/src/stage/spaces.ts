@@ -6,7 +6,7 @@ import {
   type StageFigure,
 } from '@cuadrocorrocalle/shared';
 
-import { nextRotation, type Outline, slotOffsets, turn } from './figures';
+import { nextRotation, type Outline, slotOffsets, slotPositions, turn } from './figures';
 import { areaOf } from './freeDance';
 import type { StagePoint, StageSize } from './placement';
 
@@ -19,7 +19,27 @@ const EMPTY_SPOT = { kind: 'solo' as FigureKind, width: 1 };
 export const emptyHoleOf = (space: Pick<StageFigure, 'kind' | 'holeWidth'>) =>
   space.kind === 'free'
     ? EMPTY_SPOT
-    : { ...EMPTY_HOLE, width: space.holeWidth ?? EMPTY_HOLE.width };
+    : {
+        // A diagonal row waits for diagonal pairs.
+        kind: (space.kind === 'row_diagonal' ? 'pair_diagonal' : EMPTY_HOLE.kind) as FigureKind,
+        width: space.holeWidth ?? EMPTY_HOLE.width,
+      };
+
+/**
+ * Which way a row runs on the stage and which way is across it: square to the grid or, for a
+ * diagonal row, on the diagonal (unit vectors).
+ */
+export function rowAxes(space: Pick<StageFigure, 'kind' | 'rotation'>) {
+  if (space.kind !== 'row_diagonal')
+    return {
+      axis: turn({ x: 1, y: 0 }, space.rotation),
+      across: turn({ x: 0, y: 1 }, space.rotation),
+    };
+  return {
+    axis: turn({ x: Math.SQRT1_2, y: Math.SQRT1_2 }, space.rotation),
+    across: turn({ x: -Math.SQRT1_2, y: Math.SQRT1_2 }, space.rotation),
+  };
+}
 // Smallest ring radius, in squares, so a few holes still make a ring.
 const MIN_RING_RADIUS = 1.5;
 // Points of the outline of a ring.
@@ -81,11 +101,29 @@ type Space = Pick<
   | 'spots'
 >;
 
-/** Room between holes, in squares; a row keeps it to half squares so it stays on the grid. */
+/**
+ * Room between holes, in squares; a row keeps it to half squares so it stays on the grid, and a
+ * diagonal row to half a square's diagonal.
+ */
 export const gapSquares = (space: Pick<StageFigure, 'gap' | 'kind'>, stage: StageSize) => {
   const squares = (space.gap ?? DEFAULT_SPACE_GAP) / stage.squareSize;
-  return space.kind === 'ring' ? squares : Math.round(squares * 2) / 2;
+  if (space.kind === 'ring') return squares;
+  if (space.kind === 'row_diagonal') return Math.round(squares / Math.SQRT1_2) * Math.SQRT1_2;
+  return Math.round(squares * 2) / 2;
 };
+
+/**
+ * What a figure in a diagonal row takes up along it and across it, in squares: a diagonal
+ * figure lies on the diagonal, and the room from one to the next is a whole number of half
+ * diagonal steps, so the people of every figure land on the grid.
+ */
+function diagonalSize(child: Shape, battery: boolean) {
+  const span = extentOf(child).x - 1;
+  const long = span * Math.SQRT2 + 1;
+  return battery
+    ? { along: Math.SQRT2, across: long }
+    : { along: (span + 1) * Math.SQRT2, across: 1 };
+}
 
 // Points used to measure along an oval.
 const OVAL_STEPS = 720;
@@ -154,7 +192,9 @@ export function layoutSpace(
   }
   const battery = space.arrangement === 'battery';
   const sizes = Array.from({ length: space.width }, (_, hole) => {
-    const extent = extentOf(children.get(hole) ?? emptyHoleOf(space));
+    const child = children.get(hole) ?? emptyHoleOf(space);
+    if (space.kind === 'row_diagonal') return diagonalSize(child, battery);
+    const extent = extentOf(child);
     return battery ? { along: extent.y, across: extent.x } : { along: extent.x, across: extent.y };
   });
   const gap = gapSquares(space, stage);
@@ -197,7 +237,7 @@ export function layoutSpace(
     return { holes, length, thickness, radius, radiusY };
   }
 
-  const axis = turn({ x: 1, y: 0 }, space.rotation);
+  const { axis } = rowAxes(space);
   const rotation = battery ? nextRotation(space.rotation) : space.rotation;
   let walked = -length / 2;
   const holes = sizes.map((size, hole) => {
@@ -275,9 +315,20 @@ export function snapSpace<T extends Space>(
       x: round(snapTo(space.x, stage.width)),
       y: round(snapTo(space.y, stage.depth)),
     };
+  if (space.kind === 'row_diagonal') {
+    // A diagonal row: the first person of its first figure on the grid; the rest follow.
+    const [place] = layoutSpace(space, children, stage).holes;
+    const child = children.get(0) ?? emptyHoleOf(space);
+    const [first] = place ? slotPositions({ ...child, ...place }, stage) : [];
+    if (!first) return space;
+    return {
+      ...space,
+      x: round(space.x + snapTo(first.x, stage.width) - first.x),
+      y: round(space.y + snapTo(first.y, stage.depth) - first.y),
+    };
+  }
   const { length, thickness } = layoutSpace(space, children, stage);
-  const axis = turn({ x: 1, y: 0 }, space.rotation);
-  const across = turn({ x: 0, y: 1 }, space.rotation);
+  const { axis, across } = rowAxes(space);
   // A corner of the row: its first end, on its lower side.
   const corner = {
     x: space.x - ((axis.x * length + across.x * thickness) / 2) * stage.squareSize,
@@ -307,8 +358,7 @@ export function spaceOutline(space: Space, layout: SpaceLayout, stage: StageSize
       return { x: space.x + offset.x, y: space.y + offset.y };
     });
   }
-  const axis = turn({ x: 1, y: 0 }, space.rotation);
-  const across = turn({ x: 0, y: 1 }, space.rotation);
+  const { axis, across } = rowAxes(space);
   const half = { along: (layout.length / 2) * square, across: (layout.thickness / 2) * square };
   return [
     [-1, -1],
@@ -366,7 +416,7 @@ export function addSpots(
 ) {
   const square = stage.squareSize;
   if (space.kind === 'ring') return [{ at: space.width, x: space.x, y: space.y }];
-  const axis = turn({ x: 1, y: 0 }, space.rotation);
+  const { axis } = rowAxes(space);
   const reach = (layout.length / 2 + outside) * square;
   // A free dance draws its new spot at random: one + past its side is enough.
   if (space.kind === 'free')
@@ -384,7 +434,7 @@ export function addSpots(
 export function removeSpots(space: Space, layout: SpaceLayout, stage: StageSize) {
   const square = stage.squareSize;
   const out = (space.kind === 'free' ? 0.9 : layout.thickness / 2 + 0.6) * square;
-  const across = turn({ x: 0, y: 1 }, space.rotation);
+  const { across } = rowAxes(space);
   return layout.holes.map((place) => {
     if (space.kind === 'ring') {
       const theta = place.theta ?? 0;

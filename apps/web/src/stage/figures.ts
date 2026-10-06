@@ -29,17 +29,21 @@ export const WIDTH_STEP: Record<FigureKind, number> = {
   pair_diagonal: 0.5,
   trio_line: 1,
   trio_triangle: 1,
+  trio_diagonal: 1,
   square: 0.5,
   diamond: 1,
   // Spaces grow a hole at a time.
   row: 1,
+  row_diagonal: 1,
   ring: 1,
   free: 1,
 };
 
 /** Distance between neighbours along each axis, in squares, for its width. */
 const spacing = (kind: FigureKind, width: number) =>
-  kind === 'trio_line' || kind === 'diamond' ? (width - 1) / 2 : width - 1;
+  kind === 'trio_line' || kind === 'trio_diagonal' || kind === 'diamond'
+    ? (width - 1) / 2
+    : width - 1;
 
 /**
  * Places of a figure, in squares from its centre, before turning: x across, y to the back. A
@@ -82,9 +86,16 @@ export function slotOffsets(kind: FigureKind, width: number, depth?: number | nu
         { x: -d / 2, y: -d / 2 },
         { x: d / 2, y: d / 2 },
       ];
+    case 'trio_diagonal':
+      return [
+        { x: -d, y: -d },
+        { x: 0, y: 0 },
+        { x: d, y: d },
+      ];
     // A square standing on a corner: front, sides and back.
     // Spaces hold figures, not people.
     case 'row':
+    case 'row_diagonal':
     case 'ring':
     case 'free':
       return [];
@@ -200,7 +211,8 @@ export function snapFigure<T extends Pick<StageFigure, 'kind' | 'x' | 'y' | 'rot
 }
 
 /** Figures drawn on a slant: their block follows the diagonal instead of the grid. */
-export const isSlanted = (kind: FigureKind) => kind === 'pair_diagonal' || kind === 'diamond';
+export const isSlanted = (kind: FigureKind) =>
+  kind === 'pair_diagonal' || kind === 'trio_diagonal' || kind === 'diamond';
 
 /**
  * Block of a slanted figure on a screen-like plane (y down): a rectangle turned 45° clockwise,
@@ -249,14 +261,15 @@ function hull(points: StagePoint[]): Outline {
  * for upright figures, along the slant for slanted ones.
  */
 export function reachOf(kind: FigureKind, width: number) {
-  if (kind === 'pair_diagonal') return ((width - 1) / 2) * Math.SQRT2 + 0.5;
+  if (kind === 'pair_diagonal' || kind === 'trio_diagonal')
+    return ((width - 1) / 2) * Math.SQRT2 + 0.5;
   if (kind === 'diamond') return (width - 1) / 2 / Math.SQRT2 + 0.5;
   return width / 2;
 }
 
 /** The width that puts those sides at `reach` squares from its centre. */
 export function widthForReach(kind: FigureKind, reach: number) {
-  if (kind === 'pair_diagonal') return (reach - 0.5) * Math.SQRT2 + 1;
+  if (kind === 'pair_diagonal' || kind === 'trio_diagonal') return (reach - 0.5) * Math.SQRT2 + 1;
   if (kind === 'diamond') return 2 * (reach - 0.5) * Math.SQRT2 + 1;
   return reach * 2;
 }

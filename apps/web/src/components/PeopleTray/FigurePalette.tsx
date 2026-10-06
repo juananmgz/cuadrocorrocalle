@@ -16,7 +16,7 @@ import {
 import { isSlanted, slantedBlock, slotOffsets, turn } from '../../stage/figures';
 import { roundedOutline } from '../../stage/outline';
 import styles from './PeopleTray.module.scss';
-import { SPACE_FIGURES, type SpaceFigure, type SpaceSetup } from './spaceSetup';
+import { DIAGONAL_FIGURES, SPACE_FIGURES, type SpaceFigure, type SpaceSetup } from './spaceSetup';
 
 export type { SpaceSetup };
 
@@ -125,7 +125,7 @@ const FREE_DOTS = [
 /** A drawing of a space: a band of empty holes, a ring of them, or people scattered on an area. */
 export function SpaceIcon({ kind }: { kind: SpaceKind }) {
   const holes =
-    kind === 'row'
+    kind === 'row' || kind === 'row_diagonal'
       ? [-1.2, -0.4, 0.4, 1.2].map((x) => ({ x, y: 0 }))
       : kind === 'free'
         ? FREE_DOTS
@@ -135,16 +135,26 @@ export function SpaceIcon({ kind }: { kind: SpaceKind }) {
           });
   return (
     <svg viewBox="-2 -2 4 4" aria-hidden="true">
-      {kind === 'row' ? (
-        <rect x={-1.7} y={-0.5} width={3.4} height={1} rx={0.25} className={styles.figureBlock} />
-      ) : kind === 'free' ? (
-        <rect x={-1.7} y={-1.4} width={3.4} height={2.8} rx={0.25} className={styles.figureBlock} />
-      ) : (
-        <circle r={1.7} className={styles.figureBlock} />
-      )}
-      {holes.map((hole, index) => (
-        <circle key={index} cx={hole.x} cy={hole.y} r={0.3} className={styles.figureHole} />
-      ))}
+      {/* A diagonal row is the row, on the diagonal. */}
+      <g transform={kind === 'row_diagonal' ? 'rotate(-45)' : undefined}>
+        {kind === 'row' || kind === 'row_diagonal' ? (
+          <rect x={-1.7} y={-0.5} width={3.4} height={1} rx={0.25} className={styles.figureBlock} />
+        ) : kind === 'free' ? (
+          <rect
+            x={-1.7}
+            y={-1.4}
+            width={3.4}
+            height={2.8}
+            rx={0.25}
+            className={styles.figureBlock}
+          />
+        ) : (
+          <circle r={1.7} className={styles.figureBlock} />
+        )}
+        {holes.map((hole, index) => (
+          <circle key={index} cx={hole.x} cy={hole.y} r={0.3} className={styles.figureHole} />
+        ))}
+      </g>
     </svg>
   );
 }
@@ -304,11 +314,13 @@ export function SpacePalette({ enabled, picked, onPick, setup, onSetup }: SpaceP
                       onSetup(kind, { figure: event.target.value as SpaceFigure })
                     }
                   >
-                    {Object.entries(SPACE_FIGURES).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
+                    {Object.entries(kind === 'row_diagonal' ? DIAGONAL_FIGURES : SPACE_FIGURES).map(
+                      ([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ),
+                    )}
                   </select>
                 </label>
                 <label className={styles.spaceField}>

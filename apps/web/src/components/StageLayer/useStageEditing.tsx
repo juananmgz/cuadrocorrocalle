@@ -23,6 +23,7 @@ import {
   figureDefault,
   fitsOnStage,
   fitWidth,
+  isSlanted,
   newFigureId,
   nextRotation,
   outlineOf,
@@ -72,6 +73,7 @@ import {
   nearestHole,
   layoutSpace,
   placeChildren,
+  rowAxes,
   snapSpace,
   spotSizes,
   spaceOutline,
@@ -115,6 +117,14 @@ interface FigureMove {
 
 /** A change of shape from the handles; a row may also widen the figures in its holes. */
 type Reshape = Partial<Shape> & { childWidth?: number };
+
+// What a diagonal row holds, and the diagonal figure for each choice of the tray.
+const DIAGONAL_FIGURES = new Set<FigureKind>(['solo', 'pair_diagonal', 'trio_diagonal']);
+const DIAGONAL_OF: Partial<Record<FigureKind, FigureKind>> = {
+  solo: 'solo',
+  pair: 'pair_diagonal',
+  trio_line: 'trio_diagonal',
+};
 
 /** A simple figure dropped on a space fills one of its holes, or all the empty ones. */
 interface Fill {
@@ -210,6 +220,11 @@ export function useStageEditing({
   // How new spaces come out, set in the tray.
   const [spaceSetup, setSpaceSetup] = useState<Record<SpaceKind, SpaceSetup>>({
     row: { holes: DEFAULT_FIGURE_WIDTH.row, arrangement: 'battery', figure: 'pair' },
+    row_diagonal: {
+      holes: DEFAULT_FIGURE_WIDTH.row_diagonal,
+      arrangement: 'battery',
+      figure: 'pair',
+    },
     ring: { holes: DEFAULT_FIGURE_WIDTH.ring, arrangement: 'battery', figure: 'pair' },
     free: { holes: DEFAULT_FIGURE_WIDTH.free, arrangement: 'battery', figure: 'pair' },
   });
@@ -391,12 +406,18 @@ export function useStageEditing({
           : { kind, x: 0, y: 0, ...figureDefault(kind, figureDefaults, stage) };
 
   /** The figure a new space of that kind comes full of, as the group places it (turned square). */
-  const setupFigure = (kind: SpaceKind) => ({
-    kind: spaceSetup[kind].figure,
-    width: stage
-      ? figureDefault(spaceSetup[kind].figure, figureDefaults, stage).width
-      : DEFAULT_FIGURE_WIDTH[spaceSetup[kind].figure],
-  });
+  const setupFigure = (kind: SpaceKind) => {
+    // A diagonal row holds the diagonal ones.
+    const chosen = spaceSetup[kind].figure;
+    const figure: FigureKind =
+      kind === 'row_diagonal' ? (DIAGONAL_OF[chosen] ?? 'pair_diagonal') : chosen;
+    return {
+      kind: figure,
+      width: stage
+        ? figureDefault(figure, figureDefaults, stage).width
+        : DEFAULT_FIGURE_WIDTH[figure],
+    };
+  };
 
   /** The figures in a space: its own, or for a new one, the figure chosen in the tray in every hole. */
   const childrenFor = (kind: FigureKind, id: string | null, holes: number) =>
@@ -426,10 +447,12 @@ export function useStageEditing({
    * The space a simple figure dropped at a point goes into: the empty hole under it or, anywhere
    * else on the space, all its empty holes (OA-27).
    */
-  const fillAt = (point: StagePoint, exceptId: string | null): Fill | null => {
+  const fillAt = (point: StagePoint, exceptId: string | null, kind: FigureKind): Fill | null => {
     if (!stage) return null;
     for (const item of figureViews) {
       if (!item.layout || item.figure.id === exceptId) continue;
+      // A diagonal row only takes people on their own and diagonal figures.
+      if (item.figure.kind === 'row_diagonal' && !DIAGONAL_FIGURES.has(kind)) continue;
       const children = childrenOf(figures, item.figure.id);
       const empty = item.layout.holes.map(({ hole }) => hole).filter((hole) => !children.has(hole));
       if (!empty.length) continue;
@@ -537,7 +560,7 @@ export function useStageEditing({
         shift: { to: null },
       };
     }
-    const fill = fillAt(centre, move.id);
+    const fill = fillAt(centre, move.id, move.shape.kind);
     if (fill) return fillResult(move.shape, move.id, fill);
     // Someone in a solo dropped on an empty place of another figure takes it.
     const seat = move.id && move.shape.kind === 'solo' ? seatAt(centre, move.id) : null;
@@ -848,24 +871,26 @@ export function useStageEditing({
   const growIntoRow = (figureId: string, towards: StagePoint) => {
     const figure = figures.find((item) => item.id === figureId);
     if (!content || !stage || !figure || figure.spaceId || isSpace(figure.kind)) return;
-    const long = turn({ x: 1, y: 0 }, figure.rotation);
+    // A diagonal figure makes a diagonal row, along its own diagonal.
+    const kind = isSlanted(figure.kind) ? 'row_diagonal' : 'row';
+    const long = rowAxes({ kind, rotation: figure.rotation }).axis;
     const lengthwise = Math.abs(towards.x * long.x + towards.y * long.y) > 0.5;
     // In battery a row turns its figures a quarter, so it lies a quarter back from this one.
     const rotation = lengthwise
       ? figure.rotation
       : (((figure.rotation + 270) % 360) as FigureRotation);
-    const axis = turn({ x: 1, y: 0 }, rotation);
+    const { axis } = rowAxes({ kind, rotation });
     const after = towards.x * axis.x + towards.y * axis.y > 0;
     const own = after ? 0 : 1;
     const shape: Shape = {
-      kind: 'row',
+      kind,
       x: 0,
       y: 0,
       rotation,
       width: 2,
       arrangement: lengthwise ? 'series' : 'battery',
       gap: DEFAULT_SPACE_GAP,
-      holeWidth: figure.kind === 'pair' ? figure.width : null,
+      holeWidth: figure.kind === 'pair' || figure.kind === 'pair_diagonal' ? figure.width : null,
     };
     const children = new Map([
       [0, figure],
@@ -1260,7 +1285,9 @@ export function useStageEditing({
           resize:
             selected.figure.kind === 'solo'
               ? 'none'
-              : ['pair', 'pair_diagonal', 'trio_line'].includes(selected.figure.kind)
+              : ['pair', 'pair_diagonal', 'trio_line', 'trio_diagonal'].includes(
+                    selected.figure.kind,
+                  )
                 ? 'width'
                 : 'both',
           onResize: ({ reach, towards, fixed, uniform, also }, done) => {
@@ -1332,7 +1359,8 @@ export function useStageEditing({
               // A row: along it, the room between holes; across it, the width of its figures
               // (how far apart the people of each pair stand).
               const { figure } = selected;
-              const axis = turn({ x: 1, y: 0 }, figure.rotation);
+              const { axis } = rowAxes(figure);
+              const holeKind = emptyHoleOf(figure).kind;
               let row: Reshape = {};
               let layout = selected.layout;
               let { x, y } = figure;
@@ -1346,8 +1374,8 @@ export function useStageEditing({
                   row = { ...row, gap: gapForReach(figure, layout, pull.reach, stage) };
                 else {
                   // Its empty holes (and the pairs added later) widen alike.
-                  const childWidth = pull.reach * 2;
-                  row = { ...row, childWidth, holeWidth: fitWidth('pair', childWidth, stage) };
+                  const childWidth = widthForReach(holeKind, pull.reach);
+                  row = { ...row, childWidth, holeWidth: fitWidth(holeKind, childWidth, stage) };
                 }
                 layout = layoutSpace(
                   { ...figure, ...row },

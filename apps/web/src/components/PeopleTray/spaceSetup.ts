@@ -9,6 +9,12 @@ export const SPACE_FIGURES = {
   square: 'Cuadrado',
 } as const satisfies Partial<Record<FigureKind, string>>;
 export type SpaceFigure = keyof typeof SPACE_FIGURES;
+/** What a diagonal row can come full of: its diagonal figures, named plainly. */
+export const DIAGONAL_FIGURES = {
+  solo: 'Persona',
+  pair: 'Pareja',
+  trio_line: 'Trío',
+} as const satisfies Partial<Record<SpaceFigure, string>>;
 
 /**
  * How a new space comes out: which figure it is full of and how many, and how they stand (the
