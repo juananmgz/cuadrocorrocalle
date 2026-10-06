@@ -27,6 +27,7 @@ Migraciones:
 - `20261006100000_free_dance` (paso 2.4): el baile libre, con el área en casillas (`area_width`, `area_depth`) y el sitio de cada persona en ella (`spots`, JSON `[{ x, y }]` en casillas desde su esquina, sin girar).
 - `20261006110000_space_hole_width` (paso 2.3): ancho de las parejas que esperan los huecos vacíos de una fila o un corro estirados a lo ancho (`hole_width`), para que los huecos y las parejas nuevas salgan como las demás.
 - `20261006120000_figure_depth` (paso 2.4): fondo propio del trío en triángulo, en casillas (`depth`; vacío si es tan hondo como ancho).
+- `20261006130000_cross_arms` (paso 2.5): cuántas personas lleva cada brazo de una cruz (`arms`: delante, izquierda, derecha y detrás; vacío en las demás figuras).
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -142,12 +143,13 @@ erDiagram
   figures {
     text id PK "lo genera la web"
     text piece_id FK
-    text kind "solo, pair, pair_diagonal, trio_line, trio_triangle, square, diamond, row, ring, free"
+    text kind "solo, pair, pair_diagonal, trio_line, trio_triangle, square, diamond, cross, trio_diagonal, row, row_diagonal, ring, free"
     float x_m "centro"
     float y_m "centro"
     int rotation "0, 90, 180, 270"
     float width "casillas, de media en media; en espacios, huecos"
     float depth "trío en triángulo: fondo en casillas"
+    int_array arms "cruz: personas en cada brazo"
     text arrangement "espacios: series o battery"
     float gap_m "espacios: separación entre huecos"
     float hole_width "fila y corro: ancho de sus huecos vacíos"

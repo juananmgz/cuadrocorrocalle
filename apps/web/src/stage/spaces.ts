@@ -45,11 +45,14 @@ const MIN_RING_RADIUS = 1.5;
 // Points of the outline of a ring.
 const RING_STEPS = 32;
 
-type Shape = Pick<StageFigure, 'kind' | 'width'> & { depth?: number | null };
+type Shape = Pick<StageFigure, 'kind' | 'width'> & {
+  depth?: number | null;
+  arms?: number[] | null;
+};
 
 /** What a figure takes up in squares, along its own width (x) and across it (y). */
-export function extentOf({ kind, width, depth }: Shape) {
-  const offsets = slotOffsets(kind, width, depth);
+export function extentOf({ kind, width, depth, arms }: Shape) {
+  const offsets = slotOffsets(kind, width, depth, arms);
   const xs = offsets.map((offset) => offset.x);
   const ys = offsets.map((offset) => offset.y);
   return {

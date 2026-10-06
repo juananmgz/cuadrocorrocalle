@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { FIGURE_SLOTS, isSpace, stageFigureSchema } from './figures';
+import { isSpace, slotCount, stageFigureSchema } from './figures';
 import { roleSchema } from './people';
 import { MAX_STAGE_DEPTH, MAX_STAGE_WIDTH, PERFORMANCES_PATH } from './performances';
 
@@ -85,7 +85,7 @@ export const pieceInputSchema = z
       if (figureId == null || slot == null) continue;
       const figure = figures.get(figureId);
       const key = `${figureId}:${slot}`;
-      if (!figure || slot >= FIGURE_SLOTS[figure.kind] || taken.has(key))
+      if (!figure || slot >= slotCount(figure) || taken.has(key))
         context.addIssue({
           code: 'custom',
           message: 'Hueco de figura no válido',

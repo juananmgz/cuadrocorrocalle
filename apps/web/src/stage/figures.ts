@@ -1,4 +1,5 @@
 import {
+  DEFAULT_CROSS_ARMS,
   DEFAULT_FIGURE_WIDTH,
   type FigureDefaults,
   type FigureKind,
@@ -40,6 +41,14 @@ export const WIDTH_STEP: Record<FigureKind, number> = {
   free: 1,
 };
 
+// Which way each arm of a cross goes, unturned: front, left, right, back.
+export const CROSS_WAYS: StagePoint[] = [
+  { x: 0, y: -1 },
+  { x: -1, y: 0 },
+  { x: 1, y: 0 },
+  { x: 0, y: 1 },
+];
+
 /** Distance between neighbours along each axis, in squares, for its width. */
 const spacing = (kind: FigureKind, width: number) =>
   kind === 'trio_line' || kind === 'trio_diagonal' || kind === 'diamond' || kind === 'cross'
@@ -50,7 +59,12 @@ const spacing = (kind: FigureKind, width: number) =>
  * Places of a figure, in squares from its centre, before turning: x across, y to the back. A
  * trio in a triangle may be deeper or shallower than it is wide (`depth`).
  */
-export function slotOffsets(kind: FigureKind, width: number, depth?: number | null): StagePoint[] {
+export function slotOffsets(
+  kind: FigureKind,
+  width: number,
+  depth?: number | null,
+  arms?: number[] | null,
+): StagePoint[] {
   const d = spacing(kind, width);
   switch (kind) {
     case 'solo':
@@ -107,14 +121,17 @@ export function slotOffsets(kind: FigureKind, width: number, depth?: number | nu
         { x: d, y: 0 },
         { x: 0, y: d },
       ];
-    // Front, sides and back round someone in the middle.
+    // Someone in the middle, then the people along each arm, from the middle out: front (towards
+    // the audience), left, right and back. Each arm may be as long as it likes.
     case 'cross':
       return [
-        { x: 0, y: -d },
-        { x: -d, y: 0 },
         { x: 0, y: 0 },
-        { x: d, y: 0 },
-        { x: 0, y: d },
+        ...CROSS_WAYS.flatMap((way, arm) =>
+          Array.from({ length: (arms ?? DEFAULT_CROSS_ARMS)[arm] ?? 0 }, (_, step) => ({
+            x: way.x * d * (step + 1),
+            y: way.y * d * (step + 1),
+          })),
+        ),
       ];
   }
 }
@@ -148,10 +165,11 @@ export function slotPositions(
   figure: Pick<StageFigure, 'kind' | 'x' | 'y' | 'rotation' | 'width'> & {
     angle?: number | null;
     depth?: number | null;
+    arms?: number[] | null;
   },
   stage: StageSize,
 ): StagePoint[] {
-  return slotOffsets(figure.kind, figure.width, figure.depth).map((offset) => {
+  return slotOffsets(figure.kind, figure.width, figure.depth, figure.arms).map((offset) => {
     // A free angle (figures in a ring) wins over the quarter turns.
     const turned =
       figure.angle != null ? turnBy(offset, figure.angle) : turn(offset, figure.rotation);
