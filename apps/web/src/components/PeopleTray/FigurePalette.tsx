@@ -16,7 +16,7 @@ import {
 } from '@cuadrocorrocalle/shared';
 
 import { isSlanted, slantedBlock, slotOffsets, turn } from '../../stage/figures';
-import { roundedOutline } from '../../stage/outline';
+import { crossOutline, roundedOutline } from '../../stage/outline';
 import styles from './PeopleTray.module.scss';
 import { DIAGONAL_FIGURES, SPACE_FIGURES, type SpaceFigure, type SpaceSetup } from './spaceSetup';
 
@@ -78,7 +78,12 @@ export function FigureIcon({
       style={reach ? undefined : { width: view.width * scale, height: view.height * scale }}
       aria-hidden="true"
     >
-      {kind === 'trio_triangle' ? (
+      {kind === 'cross' ? (
+        <path
+          d={crossOutline({ x: 0, y: 0 }, { x: dots[0]!.x, y: -dots[0]!.y }, 0.5)}
+          className={styles.figureBlock}
+        />
+      ) : kind === 'trio_triangle' ? (
         // A triangle round its people, like on the stage.
         <path
           d={roundedOutline(

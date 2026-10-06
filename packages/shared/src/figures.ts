@@ -12,6 +12,8 @@ export const SIMPLE_FIGURE_KINDS = [
   'trio_diagonal',
   'square',
   'diamond',
+  // A fixed choreographic figure (step 2.5): someone in the middle and one at each end of a cross.
+  'cross',
 ] as const;
 // Spaces (step 2.3, OA-04 and OA-27): a row or a ring of holes, each filled with a simple figure,
 // and the free dance (step 2.4, OA-29): an area with people spread about it at random.
@@ -37,6 +39,7 @@ export const FIGURE_LABELS: Record<FigureKind, string> = {
   trio_diagonal: 'Trío en diagonal',
   square: 'Cuadrado',
   diamond: 'Rombo',
+  cross: 'Cruz',
   row: 'Fila',
   row_diagonal: 'Fila diagonal',
   ring: 'Corro',
@@ -53,6 +56,7 @@ export const FIGURE_SLOTS: Record<FigureKind, number> = {
   trio_diagonal: 3,
   square: 4,
   diamond: 4,
+  cross: 5,
   row: 0,
   row_diagonal: 0,
   ring: 0,
@@ -69,6 +73,7 @@ export const DEFAULT_FIGURE_WIDTH: Record<FigureKind, number> = {
   trio_diagonal: 3,
   square: 2,
   diamond: 3,
+  cross: 3,
   row: 4,
   row_diagonal: 4,
   ring: 6,

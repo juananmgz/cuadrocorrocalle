@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 
 import { slotOffsets } from './figures';
-import { roundedOutline } from './outline';
+import { crossOutline, roundedOutline } from './outline';
 
 test('a trio in a triangle can be shallower than it is wide', () => {
   const offsets = slotOffsets('trio_triangle', 3, 2);
@@ -21,4 +21,16 @@ test('draws a triangle round its people, with round corners', () => {
   expect(path.startsWith('M ')).toBe(true);
   expect(path.match(/ A /g)).toHaveLength(3);
   expect(path.endsWith('Z')).toBe(true);
+});
+
+test('a cross has someone in the middle and one at each end, drawn as a plus', () => {
+  expect(slotOffsets('cross', 3)).toEqual([
+    { x: 0, y: -1 },
+    { x: -1, y: 0 },
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+  ]);
+  const path = crossOutline({ x: 0, y: 0 }, { x: 0, y: -10 }, 5);
+  expect(path.match(/ A /g)).toHaveLength(4);
 });

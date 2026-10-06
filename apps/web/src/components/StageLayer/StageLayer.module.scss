@@ -124,10 +124,20 @@
     outline-offset: 3px;
   }
 
-  // What the open menu works on.
-  &[data-targeted] {
-    outline: 3px dashed var(--accent);
-    outline-offset: 4px;
+  // What the open menu works on: a figure filled in yellow (with a blue ring when it is the
+  // figure alone), a whole space filled in blue with every figure in it in yellow.
+  &[data-targeted='figure'],
+  &[data-targeted='inside'] {
+    background: color-mix(in srgb, var(--warn) 45%, transparent);
+
+    .blockShape path {
+      fill: color-mix(in srgb, var(--warn) 45%, transparent);
+    }
+  }
+
+  &[data-targeted='figure'] {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
   }
 
   &[data-hidden] {
@@ -145,7 +155,8 @@
 }
 
 // A block with its own shape (a triangle): the button only holds the drawing.
-.block[data-shape] {
+.block[data-shape],
+.block[data-shape][data-targeted] {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
@@ -177,6 +188,11 @@
   background: color-mix(in srgb, var(--accent) 6%, transparent);
   border-style: dashed;
   box-shadow: none;
+
+  &[data-targeted='space'] {
+    background: color-mix(in srgb, var(--accent) 35%, transparent);
+    border-style: solid;
+  }
 }
 
 // + to add a hole to the space being edited: past the ends of a row, between holes of a ring;
