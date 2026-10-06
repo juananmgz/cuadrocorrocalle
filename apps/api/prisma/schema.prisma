@@ -231,6 +231,8 @@ model Figure {
   y              Float           @map("y_m")
   rotation       Int             @default(0)
   width          Float
+  // Crosses (step 2.5): people along each arm (front, left, right, back); empty for others.
+  arms           Int[]           @default([])
   // Trios in a triangle (step 2.4): their depth in squares, when not as deep as wide.
   depth          Float?
   // Spaces: "series" or "battery", and the room between holes in metres.

@@ -40,6 +40,7 @@ import {
   putFigure,
   removeFigure,
   reorderInSpace,
+  stretchArm,
   takeOutOfSpace,
   type StageContent,
 } from '../../stage/pieceFigures';
@@ -99,6 +100,7 @@ type Shape = Pick<
   | 'rotation'
   | 'width'
   | 'depth'
+  | 'arms'
   | 'arrangement'
   | 'gap'
   | 'aspect'
@@ -1532,6 +1534,18 @@ export function useStageEditing({
               }
               return apply({ ...row, x, y });
             }
+            if (selected.figure.kind === 'cross') {
+              // A cross: the room between its people, as far as its longest arm reaches; it
+              // grows round its middle person.
+              const { figure } = selected;
+              const longest = Math.max(1, ...(figure.arms ?? [1]));
+              const main = also && also.reach > reach ? also.reach : reach;
+              const width = fitWidth(figure.kind, ((main - 0.5) / longest) * 2 + 1, stage);
+              if (!done) return setReshaping({ width });
+              setReshaping(null);
+              if (width !== figure.width) reshape({ width });
+              return;
+            }
             if (selected.figure.kind === 'trio_triangle') {
               // A triangle: its base and its depth stretch on their own (3 × 2, say).
               const { figure } = selected;
@@ -1616,6 +1630,23 @@ export function useStageEditing({
       onGrowRow: growIntoRow,
       onShuffle: shuffle,
       onDuplicate: duplicate,
+      // A cross: one arm a person longer (if there is room) or shorter.
+      onCrossArm: (figureId: string, arm: number, change: 1 | -1) => {
+        if (!content || !stage) return;
+        const next = stretchArm(content, figureId, arm, change, stage);
+        const cross = next.figures.find((figure) => figure.id === figureId);
+        if (!cross || cross === figures.find((figure) => figure.id === figureId)) return;
+        const places = slotPositions(cross, stage);
+        const check = checkFigureDrop(
+          cross,
+          cross,
+          stage,
+          othersFor(figureId, places),
+          blocksBut(figureId),
+        );
+        if (!check.ok) return warn(check.reason === 'off' ? 'full' : check.reason, 'figure');
+        onChange(next);
+      },
       onDelete: (figureId: string) => {
         const figure = figures.find((item) => item.id === figureId);
         if (!content || !figure) return;

@@ -87,6 +87,17 @@ export const MAX_SPACE_GAP = 5;
 // Area of a new free dance, in grid squares.
 export const DEFAULT_FREE_AREA = { width: 6, depth: 4 };
 
+// A cross: how many people go out along each arm, from the middle (front, left, right, back).
+export const CROSS_ARMS = ['front', 'left', 'right', 'back'] as const;
+export const DEFAULT_CROSS_ARMS = [1, 1, 1, 1];
+export const MAX_CROSS_ARM = 10;
+
+/** How many people a figure holds: a cross, one in the middle and those along its arms. */
+export const slotCount = (figure: Pick<StageFigure, 'kind' | 'arms'>) =>
+  figure.kind === 'cross'
+    ? 1 + (figure.arms ?? DEFAULT_CROSS_ARMS).reduce((total, count) => total + count, 0)
+    : FIGURE_SLOTS[figure.kind];
+
 /**
  * A spot of a free dance: where its figure stands, in squares from the corner of its area, and
  * how it is turned there in degrees (before the area itself is turned).
@@ -133,6 +144,8 @@ export const stageFigureSchema = z.object({
     .max(MAX_STAGE_DEPTH / 2),
   rotation: rotationSchema,
   width: widthSchema,
+  /** Crosses: how many people go along each arm (front, left, right, back). */
+  arms: z.array(z.number().int().min(0).max(MAX_CROSS_ARM)).length(4).nullable().optional(),
   /** Trios in a triangle: how deep they are, in squares, when not as deep as wide. */
   depth: widthSchema.nullable().optional(),
   /** Spaces: how their figures stand. */

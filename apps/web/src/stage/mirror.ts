@@ -1,4 +1,4 @@
-import { isSpace, type StageFigure } from '@cuadrocorrocalle/shared';
+import { DEFAULT_CROSS_ARMS, isSpace, type StageFigure } from '@cuadrocorrocalle/shared';
 
 import { isSlanted, slotPositions, turn } from './figures';
 import { areaOf } from './freeDance';
@@ -83,8 +83,29 @@ export function mirrorFigure(
   const axis = mirrorAxis(figure, way);
 
   if (!isSpace(figure.kind)) {
-    const next = moveMembers(content, figure, figure, axis, stage);
-    return putFigure(next, figure, slotPositions(figure, stage));
+    // A cross swaps its arms (left and right, or front and back), so their lengths go too.
+    const arms = figure.arms ?? DEFAULT_CROSS_ARMS;
+    const flipped: StageFigure =
+      figure.kind === 'cross'
+        ? {
+            ...figure,
+            arms:
+              way === 'horizontal'
+                ? [arms[0]!, arms[2]!, arms[1]!, arms[3]!]
+                : [arms[3]!, arms[1]!, arms[2]!, arms[0]!],
+          }
+        : figure;
+    const next = moveMembers(
+      {
+        ...content,
+        figures: content.figures.map((item) => (item.id === figure.id ? flipped : item)),
+      },
+      figure,
+      flipped,
+      axis,
+      stage,
+    );
+    return putFigure(next, flipped, slotPositions(flipped, stage));
   }
 
   // A space: each figure to the hole its mirror image falls on (a free dance flips its spots).
