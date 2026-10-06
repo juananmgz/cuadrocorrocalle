@@ -22,6 +22,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 import type { GridStage } from '../../components/GridBackground/GridBackground';
 import type { StageSize } from '../../stage/placement';
@@ -67,6 +68,8 @@ interface CreatePerformanceCardProps {
   /** Reports whether something required is still missing. */
   onMissingChange?: (missing: boolean) => void;
   handleRef?: Ref<PerformanceFormHandle>;
+  /** Where to draw the title instead of on top of the form, e.g. over the editor's tabs. */
+  titleSlot?: HTMLElement | null;
 }
 
 // Editing saves this long after the last change.
@@ -230,6 +233,7 @@ export function CreatePerformanceCard({
   onStageSizeChange,
   onMissingChange,
   handleRef,
+  titleSlot = null,
 }: CreatePerformanceCardProps) {
   const { create, update: updatePerformance } = usePerformanceMutations();
   const queryClient = useQueryClient();
@@ -428,6 +432,50 @@ export function CreatePerformanceCard({
       ? `${calledCount} ${calledCount === 1 ? 'viene' : 'vienen'} de ${callUp.entries.length} convocados`
       : 'Sin convocatoria todavía';
 
+  // Big editable title, like a document name; it goes back to the default if left empty. With a
+  // slot it is drawn there, over both tabs, but still belongs to this form.
+  const titleField = (
+    <div className={styles.titleField}>
+      <Heartbeat beat={missingTitle ? beat : 0} />
+      {/* The label makes the pencil focus the field too; the hidden copy sizes it to its text. */}
+      <label className={styles.titleRow}>
+        <span className={styles.titleBox}>
+          <span className={styles.titleSizer} aria-hidden="true">
+            {title || ' '}
+          </span>
+          <input
+            ref={titleRef}
+            className={styles.titleInput}
+            aria-label="Título de la actuación"
+            // When creating, the title is the first thing to fill in; focusing selects it.
+            autoFocus={!editing}
+            size={1}
+            aria-invalid={titleError ? true : undefined}
+            aria-describedby={titleError ? 'title-error' : undefined}
+            maxLength={120}
+            autoComplete="off"
+            value={title}
+            onFocus={(event) => event.currentTarget.select()}
+            onChange={(event) => {
+              setTitle(cleanText(event.target.value));
+              setTitleError('');
+            }}
+            onBlur={() => {
+              if (!title.trim()) setTitle(DEFAULT_TITLE);
+            }}
+          />
+        </span>
+        <Pencil className={styles.editIcon} size={20} aria-hidden="true" />
+        <RequiredMark />
+      </label>
+      {titleError && (
+        <p id="title-error" className={styles.error} role="alert">
+          {titleError}
+        </p>
+      )}
+    </div>
+  );
+
   return (
     <form
       ref={formRef}
@@ -441,46 +489,7 @@ export function CreatePerformanceCard({
         if (name) setInfo((current) => ({ ...current, [name]: value }));
       }}
     >
-      {/* Big editable title, like a document name; it goes back to the default if left empty. */}
-      <div className={styles.titleField}>
-        <Heartbeat beat={missingTitle ? beat : 0} />
-        {/* The label makes the pencil focus the field too; the hidden copy sizes it to its text. */}
-        <label className={styles.titleRow}>
-          <span className={styles.titleBox}>
-            <span className={styles.titleSizer} aria-hidden="true">
-              {title || ' '}
-            </span>
-            <input
-              ref={titleRef}
-              className={styles.titleInput}
-              aria-label="Título de la actuación"
-              // When creating, the title is the first thing to fill in; focusing selects it.
-              autoFocus={!editing}
-              size={1}
-              aria-invalid={titleError ? true : undefined}
-              aria-describedby={titleError ? 'title-error' : undefined}
-              maxLength={120}
-              autoComplete="off"
-              value={title}
-              onFocus={(event) => event.currentTarget.select()}
-              onChange={(event) => {
-                setTitle(cleanText(event.target.value));
-                setTitleError('');
-              }}
-              onBlur={() => {
-                if (!title.trim()) setTitle(DEFAULT_TITLE);
-              }}
-            />
-          </span>
-          <Pencil className={styles.editIcon} size={20} aria-hidden="true" />
-          <RequiredMark />
-        </label>
-        {titleError && (
-          <p id="title-error" className={styles.error} role="alert">
-            {titleError}
-          </p>
-        )}
-      </div>
+      {titleSlot ? createPortal(titleField, titleSlot) : titleField}
 
       <StepPanel
         id="data"

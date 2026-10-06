@@ -138,6 +138,33 @@
   }
 }
 
+// A block with its own shape (a triangle): the button only holds the drawing.
+.block[data-shape] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.blockShape {
+  position: absolute;
+  top: calc(-1 * var(--border-width));
+  left: calc(-1 * var(--border-width));
+  width: calc(100% + 2 * var(--border-width));
+  height: calc(100% + 2 * var(--border-width));
+  overflow: visible;
+  pointer-events: none;
+
+  path {
+    fill: color-mix(in srgb, var(--accent) 14%, transparent);
+    stroke: var(--accent);
+    stroke-width: var(--border-width);
+  }
+
+  .block[data-incomplete] & path {
+    stroke: var(--warn);
+  }
+}
+
 // An empty place of a figure, waiting for someone.
 // A space: a lighter dashed band or disc under the figures in its holes.
 .block[data-space] {
@@ -245,6 +272,24 @@
     border-color: var(--danger);
     background: color-mix(in srgb, var(--danger) 12%, transparent);
   }
+
+  // Its own shape (a triangle): the dashed line goes on the drawing.
+  &[data-shape] {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  &[data-shape] path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-dasharray: 6 4;
+    stroke-width: 2px;
+  }
+
+  &[data-shape][data-refused] path {
+    fill: color-mix(in srgb, var(--danger) 12%, transparent);
+    stroke: var(--danger);
+  }
 }
 
 // Tools while placing a figure, at the bottom of the stage area.
@@ -315,8 +360,32 @@
     stroke-linejoin: round;
   }
 
-  &[data-corner='tr'] svg {
+  &[data-corner='tr']:not([data-ball]) svg {
     transform: rotate(90deg);
+  }
+
+  // Stretching wins where the two meet: the corners sit over the turning ball.
+  &:not([data-ball]) {
+    z-index: 3;
+  }
+
+  // The turning ball: a stick out of the corner and a ball at its end, easy to catch all round
+  // but under the corner.
+  &[data-ball] {
+    &::before {
+      inset: -10px;
+      border-radius: 50%;
+    }
+
+    line {
+      stroke: var(--accent);
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
+
+    circle {
+      fill: var(--accent);
+    }
   }
 
   &[data-corner='br'] svg {

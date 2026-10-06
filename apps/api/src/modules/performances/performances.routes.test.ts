@@ -519,6 +519,34 @@ test('lets only people who come or may come take part in a piece', async () => {
     400,
   );
 
+  // A free dance keeps its area and the spot of each of its people.
+  const free = {
+    id: 'figure-free-1',
+    kind: 'free',
+    x: 0,
+    y: 0,
+    rotation: 0,
+    width: 2,
+    areaWidth: 6,
+    areaDepth: 4,
+    spots: [
+      { x: 0.5, y: 0.5 },
+      { x: 2, y: 3.5 },
+    ],
+  };
+  const inFree = {
+    id: 'figure-solo-free',
+    kind: 'solo',
+    x: 0,
+    y: 0,
+    rotation: 0,
+    width: 1,
+    spaceId: free.id,
+    hole: 0,
+  };
+  expect((await withFigure([], [free, inFree])).statusCode).toBe(200);
+  expect((await withFigure([], [{ ...free, spots: [{ x: -1, y: 0 }] }])).statusCode).toBe(400);
+
   // A place needs both coordinates, inside the largest stage.
   expect((await save([{ personId: julia.id, roles: ['dance'], x: 1 }])).statusCode).toBe(400);
   expect((await save([{ personId: julia.id, roles: ['dance'], x: 40, y: 0 }])).statusCode).toBe(

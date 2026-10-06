@@ -159,3 +159,9 @@ test('stretches a ring so its sides land on the half-square grid', () => {
     expect(across * 2).toBeCloseTo(Math.round(across * 2));
   }
 });
+
+test('an empty hole waits for a pair as wide as the row was stretched', () => {
+  const wide = { ...row, arrangement: 'battery' as const, holeWidth: 3 };
+  expect(layoutSpace(wide, new Map(), stage).thickness).toBe(3);
+  expect(layoutSpace({ ...wide, holeWidth: null }, new Map(), stage).thickness).toBe(2);
+});

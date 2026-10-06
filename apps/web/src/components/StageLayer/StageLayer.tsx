@@ -1,5 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
-import { Minus, Move, Plus, Trash2 } from 'lucide-react';
+import { Minus, Move, Plus, RotateCw, Shuffle, Trash2 } from 'lucide-react';
 import {
   FIGURE_LABELS,
   isSpace,
@@ -13,11 +13,13 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
 
-import { isSlanted, slantedBlock } from '../../stage/figures';
+import { isSlanted, slantedBlock, slotOffsets } from '../../stage/figures';
+import { roundedOutline } from '../../stage/outline';
 import {
   addSpots,
   childrenOf,
@@ -83,7 +85,20 @@ export interface FigureGhost {
   /** Where the figure itself would stand: its centre, and a space's whole block. */
   shape?: Pick<
     StageFigure,
-    'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement' | 'gap' | 'aspect'
+    | 'kind'
+    | 'x'
+    | 'y'
+    | 'rotation'
+    | 'width'
+    | 'depth'
+    | 'angle'
+    | 'arrangement'
+    | 'gap'
+    | 'aspect'
+    | 'holeWidth'
+    | 'areaWidth'
+    | 'areaDepth'
+    | 'spots'
   > & { id?: string | null };
   /** A space's holes as they would be, with its figures widened if they are. */
   layout?: SpaceLayout;
@@ -178,6 +193,8 @@ function MoveHandle({ figureId, label, onCarry }: MoveHandleProps) {
 interface BlockProps {
   view: FigureView;
   style: CSSProperties;
+  /** Drawn as this shape (an SVG path in the block's own px) instead of a rounded box. */
+  outline?: string;
   readOnly: boolean;
   selected: boolean;
   hidden: boolean;
@@ -187,7 +204,7 @@ interface BlockProps {
 }
 
 /** The block of a figure: dragged as a whole; hovering it (or a right click) shows its handles. */
-function Block({ view, style, readOnly, selected, hidden, space, onSelect }: BlockProps) {
+function Block({ view, style, outline, readOnly, selected, hidden, space, onSelect }: BlockProps) {
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `figure:${view.figure.id}`,
     disabled: readOnly,
@@ -199,10 +216,13 @@ function Block({ view, style, readOnly, selected, hidden, space, onSelect }: Blo
       className={styles.block}
       data-static=""
       data-space={space ? '' : undefined}
+      data-shape={outline ? '' : undefined}
       style={style}
       role="img"
       aria-label={label}
-    />
+    >
+      {outline && <BlockShape outline={outline} />}
+    </span>
   ) : (
     <button
       ref={setNodeRef}
@@ -213,6 +233,7 @@ function Block({ view, style, readOnly, selected, hidden, space, onSelect }: Blo
       data-selected={selected ? '' : undefined}
       data-hidden={hidden ? '' : undefined}
       data-incomplete={view.empty.length ? '' : undefined}
+      data-shape={outline ? '' : undefined}
       style={style}
       {...attributes}
       aria-label={`${label}: arrástrala; pasa el ratón para girarla o ensancharla`}
@@ -221,9 +242,18 @@ function Block({ view, style, readOnly, selected, hidden, space, onSelect }: Blo
         event.preventDefault();
         onSelect?.();
       }}
-    />
+    >
+      {outline && <BlockShape outline={outline} />}
+    </button>
   );
 }
+
+/** A block drawn with its own shape, e.g. a trio in a triangle. */
+const BlockShape = ({ outline }: { outline: string }) => (
+  <svg className={styles.blockShape} aria-hidden="true">
+    <path d={outline} />
+  </svg>
+);
 
 /** What the handles of the figure being edited do. */
 export interface EditHandles {
@@ -271,6 +301,18 @@ const HANDLES_LINGER = 250;
 
 // How far the + of a row sits past its ends, in px: beyond its stretching bars.
 const ADD_OUTSIDE = 38;
+// On a side with no bar, the + of a figure sits closer: just clear of its block.
+const ADD_CLOSE = 20;
+// How far out of the top left corner of a free dance its shuffle button sits, in px.
+const SHUFFLE_OUTSIDE = 38;
+// Simple figures that can grow into a row from their sides (slanted ones and solos do not).
+const GROWS_INTO_ROW = new Set<FigureKind>(['pair', 'trio_line', 'trio_triangle', 'square']);
+// What the + of each space adds.
+const ADD_LABELS: Partial<Record<FigureKind, string>> = {
+  row: 'un hueco a la fila',
+  ring: 'un hueco al corro',
+  free: 'un sitio al baile libre',
+};
 
 // Opacity of the trash strip while the pointer is still on the stage.
 const TRASH_FAINT = 0.2;
@@ -279,17 +321,22 @@ const TRASH_FAINT = 0.2;
 const HANDLE_GAP = 9;
 const HANDLE_STROKE = 6;
 const CORNER_SIZE = 18;
+// The turning ball, with its stick, off the top right corner, in px.
+const BALL_BOX = 13;
 const BAR_LENGTH = 26;
-// The same corner, square: it stretches instead of turning.
+// A square corner, drawn for the top left and turned for the rest: it stretches both ways.
 const SQUARE_CORNER_PATH = (() => {
   const edge = HANDLE_STROKE / 2;
   return `M ${edge} ${CORNER_SIZE - edge} L ${edge} ${edge} L ${CORNER_SIZE - edge} ${edge}`;
 })();
+// A curved stroke round the corner, for figures with no corner to stretch: it turns them too.
+const CURVE_RADIUS = CORNER_SIZE - HANDLE_STROKE;
 const CORNER_PATH = (() => {
   const edge = HANDLE_STROKE / 2;
-  const radius = CORNER_SIZE - HANDLE_STROKE;
-  return `M ${edge} ${CORNER_SIZE - edge} A ${radius} ${radius} 0 0 1 ${CORNER_SIZE - edge} ${edge}`;
+  return `M ${edge} ${CORNER_SIZE - edge} A ${CURVE_RADIUS} ${CURVE_RADIUS} 0 0 1 ${CORNER_SIZE - edge} ${edge}`;
 })();
+// How far into its box the middle of the curve is, each way, in px (where the ball's stick starts).
+const CURVE_MIDDLE = CORNER_SIZE - HANDLE_STROKE / 2 - CURVE_RADIUS / Math.SQRT2;
 
 // Turning cursor: a white bent double arrow outlined in black (like the system ones), drawn
 // around the top right corner and turned for the others.
@@ -372,19 +419,29 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
   const reach = HANDLE_GAP + HANDLE_STROKE;
   // Only one corner turns it, the top right one, to keep the handles few; the opposite one, drawn
   // the same but square, stretches it both ways at once.
+  // (A trial: the four corners stretch it both ways; a ball off the top right one turns it.)
   const scales = scaling
     ? [
+        { key: 'tl', out: [-1, -1], left: -reach, top: -reach },
+        { key: 'tr', out: [1, -1], left: width + reach - CORNER_SIZE, top: -reach },
+        { key: 'bl', out: [-1, 1], left: -reach, top: height + reach - CORNER_SIZE },
         {
-          key: 'bl',
-          out: [-1, 1],
-          left: -reach,
+          key: 'br',
+          out: [1, 1],
+          left: width + reach - CORNER_SIZE,
           top: height + reach - CORNER_SIZE,
         },
       ]
     : [];
+  // The stick starts right on the tip of the corner's stroke, so the two read as one.
+  // Without a corner to stretch, the old curve stays there and the stick leaves from its middle.
+  const tip = scaling ? HANDLE_STROKE / 2 : CURVE_MIDDLE;
   const corners = [
-    { key: 'tr', left: width + reach - CORNER_SIZE, top: -reach, pivot: [width, 0] },
+    { key: 'tr', left: width + reach - tip, top: -reach + tip - BALL_BOX, pivot: [width, 0] },
   ];
+  const curve = scaling
+    ? null
+    : { key: 'tr', left: width + reach - CORNER_SIZE, top: -reach, pivot: [width, 0] };
 
   // Follows one pointer from press to release, whatever it passes over.
   const follow =
@@ -556,31 +613,74 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
             </svg>
           </span>
         ))}
+      {curve && (
+        <span
+          className={styles.turnHandle}
+          data-figure-handle=""
+          data-corner={curve.key}
+          role="button"
+          aria-label="Arrastra para girar la figura (un clic la gira un cuarto)"
+          style={{
+            left: curve.left,
+            top: curve.top,
+            width: CORNER_SIZE,
+            height: CORNER_SIZE,
+            cursor: turn(curve).cursor,
+          }}
+          onPointerDown={turn(curve).onPointerDown}
+        >
+          {/* A quarter circle with round ends, drawn for the top left and turned. */}
+          <svg viewBox={`0 0 ${CORNER_SIZE} ${CORNER_SIZE}`} aria-hidden="true">
+            <path d={CORNER_PATH} />
+          </svg>
+        </span>
+      )}
       {corners.map((corner) => (
         <span
           key={corner.key}
           className={styles.turnHandle}
           data-figure-handle=""
           data-corner={corner.key}
+          data-ball=""
           role="button"
           aria-label="Arrastra para girar la figura (un clic la gira un cuarto)"
           style={{
             left: corner.left,
             top: corner.top,
-            width: CORNER_SIZE,
-            height: CORNER_SIZE,
+            width: BALL_BOX,
+            height: BALL_BOX,
             cursor: turn(corner).cursor,
           }}
           onPointerDown={turn(corner).onPointerDown}
         >
-          {/* A quarter circle with round ends, drawn for the top left and turned for the rest. */}
-          <svg viewBox={`0 0 ${CORNER_SIZE} ${CORNER_SIZE}`} aria-hidden="true">
-            <path d={CORNER_PATH} />
+          {/* A stick out of the corner with a ball at its end. */}
+          <svg viewBox={`0 0 ${BALL_BOX} ${BALL_BOX}`} aria-hidden="true">
+            <line x1={0} y1={BALL_BOX} x2={BALL_BOX - 6} y2={6} />
+            <circle cx={BALL_BOX - 4.5} cy={4.5} r={4.5} />
           </svg>
         </span>
       ))}
     </div>
   );
+}
+
+/** Where the + of each side of a figure goes on screen, and which way it adds on the stage. */
+function growSpots(
+  box: { left: number; top: number; width: number; height: number },
+  resize: EditHandles['resize'],
+  rotation: FigureRotation,
+) {
+  const across = resize === 'both' || (resize === 'width' && rotation % 180 === 0);
+  const deep = resize === 'both' || (resize === 'width' && rotation % 180 !== 0);
+  const sideways = across ? ADD_OUTSIDE : ADD_CLOSE;
+  const upwards = deep ? ADD_OUTSIDE : ADD_CLOSE;
+  const middle = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  return [
+    { key: 'left', x: box.left - sideways, y: middle.y, towards: { x: -1, y: 0 } },
+    { key: 'right', x: box.left + box.width + sideways, y: middle.y, towards: { x: 1, y: 0 } },
+    { key: 'top', x: middle.x, y: box.top - upwards, towards: { x: 0, y: 1 } },
+    { key: 'bottom', x: middle.x, y: box.top + box.height + upwards, towards: { x: 0, y: -1 } },
+  ];
 }
 
 interface StageLayerProps {
@@ -599,6 +699,12 @@ interface StageLayerProps {
   editHandles?: EditHandles | null;
   /** The space being edited: a + to add a hole at each spot it can take one. */
   onAddHole?: ((spaceId: string, at: number) => void) | null;
+  /** A simple figure being edited: a + on each side makes it a row with a copy there. */
+  onGrowRow?: ((figureId: string, towards: StagePoint) => void) | null;
+  /** A figure of a free dance: turns it another step where it stands. */
+  onTurnChild?: ((figureId: string) => void) | null;
+  /** The free dance being edited: draws its people's spots again. */
+  onShuffle?: ((spaceId: string) => void) | null;
   /** The space being edited: a − beside each hole to take it out, with its figure. */
   onRemoveHole?: ((spaceId: string, hole: number) => void) | null;
   /** The space being edited: a move handle beside each figure to carry it (a click) or drag it. */
@@ -632,6 +738,9 @@ export function StageLayer({
   onSelectFigure,
   editHandles = null,
   onAddHole = null,
+  onShuffle = null,
+  onTurnChild = null,
+  onGrowRow = null,
   onRemoveHole = null,
   onCarryChild = null,
   shifting = false,
@@ -661,7 +770,34 @@ export function StageLayer({
       top,
       width: Math.max(...xs) + pad - left,
       height: Math.max(...ys) + pad - top,
+      borderRadius: pad,
     };
+  };
+
+  /** A trio in a triangle is drawn as a triangle round its people, in its block's own px. */
+  const shapeOf = (
+    item: {
+      figure: Pick<StageFigure, 'kind' | 'width'> & {
+        angle?: number | null;
+        depth?: number | null;
+      };
+      places: StagePoint[];
+    },
+    style: CSSProperties,
+  ) => {
+    const { figure } = item;
+    if (figure.kind !== 'trio_triangle') return undefined;
+    const points =
+      figure.angle != null
+        ? slotOffsets(figure.kind, figure.width, figure.depth).map((offset) => ({
+            x: Number(style.width) / 2 + offset.x * square,
+            y: Number(style.height) / 2 - offset.y * square,
+          }))
+        : item.places.map(toScreen).map((point) => ({
+            x: point.x - Number(style.left),
+            y: point.y - Number(style.top),
+          }));
+    return roundedOutline(points, square / 2);
   };
 
   // The block drawn for a figure: around its places, or on a slant for diagonal figures.
@@ -718,10 +854,13 @@ export function StageLayer({
     return turnedBox(figure, layout.length, layout.thickness, figure.rotation);
   };
 
-  /** The box a space takes up on screen, upright (a row turned a quarter lies the other way). */
+  /**
+   * The box a space takes up on screen, upright (a row or a free dance turned a quarter lies the
+   * other way).
+   */
   const uprightSpace = (item: FigureView): CSSProperties => {
     const style = spaceStyle(item);
-    if (item.figure.kind !== 'row' || item.figure.rotation % 180 === 0) return style;
+    if (item.figure.kind === 'ring' || item.figure.rotation % 180 === 0) return style;
     const [width, height] = [Number(style.height), Number(style.width)];
     const { x, y } = toScreen(item.figure);
     return { left: x - width / 2, top: y - height / 2, width, height };
@@ -846,6 +985,34 @@ export function StageLayer({
       setGhostTurn({ ...ghostTurn, centre: ghostCentre });
     }
   } else if (ghostTurn) setGhostTurn(null);
+  // The block of the preview: a space's own, or round the figure's places (its own shape for
+  // a triangle).
+  const ghostBlockStyle: CSSProperties | undefined = !ghost
+    ? undefined
+    : ghost.shape && isSpace(ghost.kind)
+      ? spaceStyle({
+          figure: { ...ghost.shape, id: ghost.shape.id ?? '' },
+          places: [],
+          empty: [],
+          layout:
+            ghost.layout ??
+            layoutSpace(
+              ghost.shape,
+              childrenOf(
+                figures.map(({ figure }) => figure),
+                ghost.shape.id ?? '',
+              ),
+              stage,
+            ),
+        })
+      : blockStyle(ghost.kind, ghost.places, ghost.shape);
+  const ghostOutline =
+    ghost && ghostBlockStyle && !isSpace(ghost.kind)
+      ? shapeOf(
+          { figure: { width: 1, ...ghost.shape, kind: ghost.kind }, places: ghost.places },
+          ghostBlockStyle,
+        )
+      : undefined;
   const ghostTurnStyle: CSSProperties | undefined =
     ghostTurn && ghostCentre
       ? {
@@ -933,6 +1100,23 @@ export function StageLayer({
     };
   }, [readOnly, figures]);
 
+  // Around the figure being edited, a square beyond its block (and its buttons) still counts as
+  // over it, so the pointer can reach them without the handles going.
+  const handleZone = useRef<{ left: number; top: number; right: number; bottom: number } | null>(
+    null,
+  );
+  useEffect(() => {
+    const margin = Math.max(square, ADD_OUTSIDE + 12);
+    handleZone.current = editBox
+      ? {
+          left: editBox.left - margin,
+          top: editBox.top - margin,
+          right: editBox.left + editBox.width + margin,
+          bottom: editBox.top + editBox.height + margin,
+        }
+      : null;
+  });
+
   // Hovering a figure (its block, people or handles) shows its handles; they go a moment after
   // the pointer leaves, so it can cross the gap to them. Nothing changes while something is held.
   useEffect(() => {
@@ -946,7 +1130,18 @@ export function StageLayer({
         target?.closest<HTMLElement>('[data-figure-block]')?.dataset.figureBlock ??
         target?.closest<HTMLElement>('[data-figure-member]')?.dataset.figureMember ??
         (target?.closest('[data-figure-handle]') ? selectedFigureId : null);
-      if (over) {
+      const zone = handleZone.current;
+      const near =
+        zone &&
+        event.clientX >= zone.left &&
+        event.clientX <= zone.right &&
+        event.clientY >= zone.top &&
+        event.clientY <= zone.bottom;
+      // Another figure under the pointer takes over; empty ground near this one keeps it.
+      if (!over && near && selectedFigureId) {
+        window.clearTimeout(timer);
+        timer = undefined;
+      } else if (over) {
         window.clearTimeout(timer);
         timer = undefined;
         if (over !== selectedFigureId) onSelectFigure?.(over);
@@ -1029,14 +1224,13 @@ export function StageLayer({
           const open = item.figure.id === selectedFigureId;
           const moving =
             item.figure.id === movingFigureId || item.figure.spaceId === movingFigureId;
+          const block = blockStyle(item.figure.kind, item.places, item.figure);
           return (
             <Fragment key={item.figure.id}>
               <Block
                 view={item}
-                style={spinning(
-                  item.figure.id,
-                  blockStyle(item.figure.kind, item.places, item.figure),
-                )}
+                style={spinning(item.figure.id, block)}
+                outline={shapeOf(item, block)}
                 readOnly={readOnly}
                 selected={open}
                 hidden={moving}
@@ -1063,26 +1257,15 @@ export function StageLayer({
             <span
               className={styles.ghostBlock}
               data-refused={ghost.ok ? undefined : ''}
-              style={
-                ghost.shape && isSpace(ghost.kind)
-                  ? spaceStyle({
-                      figure: { ...ghost.shape, id: ghost.shape.id ?? '' },
-                      places: [],
-                      empty: [],
-                      layout:
-                        ghost.layout ??
-                        layoutSpace(
-                          ghost.shape,
-                          childrenOf(
-                            figures.map(({ figure }) => figure),
-                            ghost.shape.id ?? '',
-                          ),
-                          stage,
-                        ),
-                    })
-                  : blockStyle(ghost.kind, ghost.places)
-              }
-            />
+              data-shape={ghostOutline ? '' : undefined}
+              style={ghostBlockStyle}
+            >
+              {ghostOutline && (
+                <svg className={styles.blockShape} aria-hidden="true">
+                  <path d={ghostOutline} />
+                </svg>
+              )}
+            </span>
           )}
           {ghost.places.map((place, index) => (
             <span
@@ -1129,6 +1312,30 @@ export function StageLayer({
           {initials(dragged.name)}
         </span>
       )}
+      {selected &&
+        !selected.layout &&
+        !selected.figure.spaceId &&
+        onGrowRow &&
+        editBox &&
+        editHandles &&
+        GROWS_INTO_ROW.has(selected.figure.kind) &&
+        selected.figure.id !== movingFigureId &&
+        // One on each side, past its bars (closer where there are none): another figure like it
+        // there, in a new row.
+        growSpots(editBox, editHandles.resize, selected.figure.rotation).map((side) => (
+          <button
+            key={`grow-${side.key}`}
+            type="button"
+            className={styles.addHole}
+            data-figure-handle=""
+            aria-label="Añadir otra figura igual a este lado (forma una fila)"
+            title="Añadir otra igual: forma una fila"
+            style={{ left: side.x, top: side.y }}
+            onClick={() => onGrowRow(selected.figure.id, side.towards)}
+          >
+            <Plus aria-hidden="true" />
+          </button>
+        ))}
       {selected?.layout &&
         onAddHole &&
         selected.figure.id !== movingFigureId &&
@@ -1141,8 +1348,8 @@ export function StageLayer({
               type="button"
               className={styles.addHole}
               data-figure-handle=""
-              aria-label={`Añadir un hueco a${selected.figure.kind === 'ring' ? 'l corro' : ' la fila'}`}
-              title="Añadir un hueco"
+              aria-label={`Añadir ${ADD_LABELS[selected.figure.kind] ?? 'un hueco'}`}
+              title={selected.figure.kind === 'free' ? 'Añadir un sitio' : 'Añadir un hueco'}
               style={{ left: x, top: y }}
               onClick={() => onAddHole(selected.figure.id, spot.at)}
             >
@@ -1150,6 +1357,24 @@ export function StageLayer({
             </button>
           );
         })}
+      {selected?.figure.kind === 'free' &&
+        onShuffle &&
+        editBox &&
+        selected.figure.id !== movingFigureId && (
+          // On the free corner, top left: the people drawn again at random.
+          <button
+            type="button"
+            className={styles.addHole}
+            data-figure-handle=""
+            aria-label="Volver a sortear el baile libre"
+            title="Volver a sortear"
+            // Beside the top left corner, which stretches it.
+            style={{ left: editBox.left - SHUFFLE_OUTSIDE, top: editBox.top + 4 }}
+            onClick={() => onShuffle(selected.figure.id)}
+          >
+            <Shuffle aria-hidden="true" />
+          </button>
+        )}
       {selected?.layout &&
         !readOnly &&
         selected.figure.id !== movingFigureId &&
@@ -1176,6 +1401,18 @@ export function StageLayer({
                   label={FIGURE_LABELS[child.figure.kind].toLowerCase()}
                   onCarry={() => onCarryChild(child.figure.id)}
                 />
+              )}
+              {child && onTurnChild && selected.figure.kind === 'free' && (
+                <button
+                  type="button"
+                  className={styles.moveHole}
+                  data-figure-handle=""
+                  aria-label={`Girar ${FIGURE_LABELS[child.figure.kind].toLowerCase()}`}
+                  title="Girar (45°)"
+                  onClick={() => onTurnChild(child.figure.id)}
+                >
+                  <RotateCw aria-hidden="true" />
+                </button>
               )}
               {canRemove && (
                 <button

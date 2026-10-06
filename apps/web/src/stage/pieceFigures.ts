@@ -69,8 +69,10 @@ export function putFigure(
       ? { ...participant, figureId: figure.id, slot, x: place.x, y: place.y }
       : { ...participant, ...unplaced };
   });
+  // (A solo in a space stays in its hole, waiting for someone else.)
   const emptied = (item: StageFigure) =>
     item.kind === 'solo' &&
+    !item.spaceId &&
     content.participants.some(
       ({ figureId, personId }) => figureId === item.id && joiner.has(personId),
     );
@@ -171,7 +173,16 @@ export function takeOutOfSpace(
   const loose = { ...figure, spaceId: null, hole: null, angle: null };
   const figures = content.figures.flatMap((item) => {
     if (item.id === figure.id) return [loose];
-    if (item.id === space.id) return space.width > 1 ? [{ ...item, width: item.width - 1 }] : [];
+    if (item.id === space.id)
+      return space.width > 1
+        ? [
+            {
+              ...item,
+              width: item.width - 1,
+              ...(item.spots ? { spots: item.spots.filter((_, index) => index !== hole) } : {}),
+            },
+          ]
+        : [];
     if (item.spaceId === space.id && item.hole != null && item.hole > hole)
       return [{ ...item, hole: item.hole - 1 }];
     return [item];

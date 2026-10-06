@@ -10,6 +10,7 @@ import {
   type Participant,
   type PieceType,
   type SpaceKind,
+  type Spot,
   type StageFigure,
 } from '@cuadrocorrocalle/shared';
 import { useEffect, useState } from 'react';
@@ -48,17 +49,31 @@ import {
   type StagePoint,
   type StageSize,
 } from '../../stage/placement';
+import {
+  areaOf,
+  drawSpots,
+  fitSpots,
+  newFreeArea,
+  placeSpot,
+  seeded,
+  type SpotSize,
+  stretchSpots,
+  turnSpot,
+} from '../../stage/freeDance';
 import { stageProjection } from '../../stage/projection';
 import {
+  areaPoint,
   childrenOf,
   contains,
-  EMPTY_HOLE,
+  emptyHoleOf,
+  extentOf,
   gapForReach,
   holeAt,
   nearestHole,
   layoutSpace,
   placeChildren,
   snapSpace,
+  spotSizes,
   spaceOutline,
   stretchRing,
 } from '../../stage/spaces';
@@ -75,7 +90,19 @@ const MIN_TRASH = 60;
 
 type Shape = Pick<
   StageFigure,
-  'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement' | 'gap' | 'aspect'
+  | 'kind'
+  | 'x'
+  | 'y'
+  | 'rotation'
+  | 'width'
+  | 'depth'
+  | 'arrangement'
+  | 'gap'
+  | 'aspect'
+  | 'holeWidth'
+  | 'areaWidth'
+  | 'areaDepth'
+  | 'spots'
 >;
 
 /** A figure on the move: new from the palette or an existing one, held at `grab` from its centre. */
@@ -98,7 +125,13 @@ interface Fill {
 interface Shift {
   to: number | null;
 }
-type MoveResult = FigureDrop<Shape> & { fill?: Fill; shift?: Shift };
+/** A figure of a free dance moved to another spot of it. */
+interface Respot {
+  spaceId: string;
+  hole: number;
+  spot: Spot;
+}
+type MoveResult = FigureDrop<Shape> & { fill?: Fill; shift?: Shift; respot?: Respot };
 
 interface StageEditingOptions {
   /** The open piece: what it has on its stage and its type (for default roles). */
@@ -176,8 +209,9 @@ export function useStageEditing({
   const [settings, setSettings] = useState<{ kind: FigureKind; anchor: DOMRect } | null>(null);
   // How new spaces come out, set in the tray.
   const [spaceSetup, setSpaceSetup] = useState<Record<SpaceKind, SpaceSetup>>({
-    row: { holes: DEFAULT_FIGURE_WIDTH.row, arrangement: 'battery' },
-    ring: { holes: DEFAULT_FIGURE_WIDTH.ring, arrangement: 'battery' },
+    row: { holes: DEFAULT_FIGURE_WIDTH.row, arrangement: 'battery', figure: 'pair' },
+    ring: { holes: DEFAULT_FIGURE_WIDTH.ring, arrangement: 'battery', figure: 'pair' },
+    free: { holes: DEFAULT_FIGURE_WIDTH.free, arrangement: 'battery', figure: 'pair' },
   });
 
   const participants = content?.participants ?? [];
@@ -306,7 +340,7 @@ export function useStageEditing({
     const landed = snapSpace({ ...shape, ...centre }, children, stage!);
     const layout = layoutSpace(landed, children, stage!);
     const people = layout.holes.flatMap((place) =>
-      slotPositions({ ...(children.get(place.hole) ?? EMPTY_HOLE), ...place }, stage!),
+      slotPositions({ ...(children.get(place.hole) ?? emptyHoleOf(shape)), ...place }, stage!),
     );
     if (!isOnStage(centre, stage!)) return { ok: false, reason: 'off', places: people };
     if (!fitsOnStage(people, stage!)) return { ok: false, reason: 'full', places: people };
@@ -332,19 +366,49 @@ export function useStageEditing({
   const newShape = (kind: FigureKind): Shape | null =>
     !stage
       ? null
-      : isSpace(kind)
+      : kind === 'free'
         ? {
             kind,
             x: 0,
             y: 0,
             rotation: 0,
-            width: spaceSetup[kind].holes,
-            arrangement: spaceSetup[kind].arrangement,
-            gap: DEFAULT_SPACE_GAP,
+            width: spaceSetup.free.holes,
+            ...newFreeArea(
+              Array<SpotSize>(spaceSetup.free.holes).fill(extentOf(setupFigure('free'))),
+              stage,
+            ),
           }
-        : { kind, x: 0, y: 0, ...figureDefault(kind, figureDefaults, stage) };
+        : isSpace(kind)
+          ? {
+              kind,
+              x: 0,
+              y: 0,
+              rotation: 0,
+              width: spaceSetup[kind].holes,
+              arrangement: spaceSetup[kind].arrangement,
+              gap: DEFAULT_SPACE_GAP,
+            }
+          : { kind, x: 0, y: 0, ...figureDefault(kind, figureDefaults, stage) };
 
-  /** Where a figure held at `pointer` would land. */
+  /** The figure a new space of that kind comes full of, as the group places it (turned square). */
+  const setupFigure = (kind: SpaceKind) => ({
+    kind: spaceSetup[kind].figure,
+    width: stage
+      ? figureDefault(spaceSetup[kind].figure, figureDefaults, stage).width
+      : DEFAULT_FIGURE_WIDTH[spaceSetup[kind].figure],
+  });
+
+  /** The figures in a space: its own, or for a new one, the figure chosen in the tray in every hole. */
+  const childrenFor = (kind: FigureKind, id: string | null, holes: number) =>
+    id || !isSpace(kind)
+      ? childrenOf(figures, id ?? '')
+      : new Map(
+          Array.from({ length: holes }, (_, hole) => [
+            hole,
+            { ...setupFigure(kind), id: '', x: 0, y: 0, rotation: 0 as FigureRotation },
+          ]),
+        );
+
   /** The empty place of another figure at a stage point, if any. */
   const seatAt = (point: StagePoint, exceptId: string | null) => {
     if (!stage) return null;
@@ -385,8 +449,15 @@ export function useStageEditing({
       [...childrenOf(figures, space.id)].map(([hole, child]) => [hole, child as Shape]),
     );
     for (const hole of fill.holes) children.set(hole, shape);
-    const check = spaceResult(space, space.id, space, children, id);
-    const layout = layoutSpace(check.ok ? check.figure : space, children, stage);
+    // In a free dance the figures that grew draw their spots again if they no longer fit.
+    const spots =
+      space.kind === 'free'
+        ? fitSpots(space, spotSizes(space, children), stage, seeded(`${space.id}:${shape.kind}`))
+        : undefined;
+    if (spots === null) return { ok: false, reason: 'full', places: [], fill };
+    const target = spots ? { ...space, spots } : space;
+    const check = spaceResult(target, space.id, target, children, id);
+    const layout = layoutSpace(check.ok ? check.figure : target, children, stage);
     // Show where the new figures' people would stand.
     const places = layout.holes
       .filter(({ hole }) => fill.holes.includes(hole))
@@ -400,10 +471,56 @@ export function useStageEditing({
     const point = toStage(pointer);
     if (!point || !stage) return null;
     const centre = { x: point.x - move.grab.x, y: point.y - move.grab.y };
-    if (isSpace(move.shape.kind)) return spaceResult(move.shape, move.id, centre);
+    if (isSpace(move.shape.kind))
+      return spaceResult(
+        move.shape,
+        move.id,
+        centre,
+        childrenFor(move.shape.kind, move.id, move.shape.width),
+      );
     const inSpace = move.id ? figures.find((figure) => figure.id === move.id)?.spaceId : null;
     const home = inSpace ? figureViews.find((item) => item.figure.id === inSpace) : null;
     if (home?.layout) {
+      const child = figures.find((figure) => figure.id === move.id);
+      if (
+        home.figure.kind === 'free' &&
+        child?.hole != null &&
+        contains(spaceOutline(home.figure, home.layout, stage), centre)
+      ) {
+        // A free dance is a little canvas: the figure stands wherever it is let go, if it fits.
+        const sizes = spotSizes(home.figure, childrenOf(figures, home.figure.id));
+        const spot = placeSpot(
+          home.figure,
+          child.hole,
+          areaPoint(home.figure, centre, stage),
+          sizes,
+          stage,
+        );
+        const spots = (home.figure.spots ?? []).map((item, index) =>
+          index === child.hole && spot ? spot : item,
+        );
+        const place = layoutSpace(
+          { ...home.figure, spots },
+          childrenOf(figures, home.figure.id),
+          stage,
+        ).holes[child.hole]!;
+        const moved = {
+          ...move.shape,
+          x: spot ? place.x : centre.x,
+          y: spot ? place.y : centre.y,
+          rotation: place.rotation,
+          angle: place.angle,
+        };
+        const places = slotPositions(moved, stage);
+        return spot
+          ? {
+              ok: true,
+              figure: moved,
+              places,
+              respot: { spaceId: home.figure.id, hole: child.hole, spot },
+            }
+          : { ok: false, reason: 'close', places };
+      }
       // Inside its space: to the hole nearest the pointer, the others making room.
       if (contains(spaceOutline(home.figure, home.layout, stage), centre)) {
         const to = nearestHole(home.layout, centre);
@@ -444,6 +561,7 @@ export function useStageEditing({
   const landFigure = (move: FigureMove, result: MoveResult | null) => {
     if (!content || !stage || !result) return;
     if (!result.ok) return warn(result.reason, 'figure');
+    if (result.respot) return moveSpot(result.respot);
     if (result.shift && move.id) {
       return onChange(
         result.shift.to != null
@@ -490,10 +608,12 @@ export function useStageEditing({
     const figure: StageFigure = { ...result.figure, id: move.id ?? newFigureId() };
     if (isSpace(figure.kind)) {
       // The space, then the figures in its holes with their people. A new one comes full of
-      // pairs, so there is always a figure to start from.
+      // the figure chosen in the tray (pairs by default), so there is always one to start from.
       const pairs = move.id
         ? []
-        : Array.from({ length: figure.width }, (_, hole) => pairIn(figure.id, hole));
+        : Array.from({ length: figure.width }, (_, hole) =>
+            childIn(figure, hole, isSpace(figure.kind) ? setupFigure(figure.kind) : undefined),
+          );
       let next: StageContent = {
         ...content,
         figures: [...figures.filter((item) => item.id !== figure.id), figure, ...pairs],
@@ -554,11 +674,16 @@ export function useStageEditing({
     });
   };
 
-  /** Takes someone off the stage and out of the piece; a solo figure goes with them. */
+  /**
+   * Takes someone off the stage and out of the piece; a solo figure goes with them, unless it
+   * fills a hole of a space (it waits there for someone else).
+   */
   const removePerson = (personId: string) => {
     if (!content) return;
     const figureId = participants.find((item) => item.personId === personId)?.figureId;
-    const solo = figures.find((figure) => figure.id === figureId && figure.kind === 'solo');
+    const solo = figures.find(
+      (figure) => figure.id === figureId && figure.kind === 'solo' && !figure.spaceId,
+    );
     if (solo) return onChange(removeFigure(content, solo.id));
     onChange({
       ...content,
@@ -613,15 +738,19 @@ export function useStageEditing({
   const memberOf = (personId: string): Participant | undefined =>
     participants.find((item) => item.personId === personId && item.figureId != null);
 
-  /** A pair for a hole of a space (placed when the space is laid out). */
-  const pairIn = (spaceId: string, hole: number, width = EMPTY_HOLE.width): StageFigure => ({
-    ...EMPTY_HOLE,
-    width,
+  /** A figure (a pair unless told otherwise) for a hole of a space, placed when it is laid out. */
+  const childIn = (
+    space: Pick<StageFigure, 'id' | 'kind' | 'holeWidth'>,
+    hole: number,
+    figure: Pick<StageFigure, 'kind' | 'width'> = emptyHoleOf(space),
+  ): StageFigure => ({
+    kind: figure.kind,
+    width: figure.width,
     id: newFigureId(),
     x: 0,
     y: 0,
     rotation: 0,
-    spaceId,
+    spaceId: space.id,
     hole,
   });
 
@@ -635,17 +764,33 @@ export function useStageEditing({
         : figure,
     );
     const grown = { ...space, width: space.width + 1 };
-    // As wide as the pairs already there (the nearest one first), so a stretched row stays even.
-    const pairs = figures.filter((figure) => figure.spaceId === spaceId && figure.kind === 'pair');
-    const nearest = pairs.reduce<StageFigure | null>(
+    // Like the figure nearest to it, so a space of trios gets another trio (and a stretched row
+    // stays even); the space's own empty hole when it has none.
+    const inside = figures.filter((figure) => figure.spaceId === spaceId && figure.hole != null);
+    const nearest = inside.reduce<StageFigure | null>(
       (best, figure) =>
         !best || Math.abs(figure.hole! - at + 0.5) < Math.abs(best.hole! - at + 0.5)
           ? figure
           : best,
       null,
     );
-    const pair = pairIn(spaceId, at, nearest?.width);
-    const check = spaceResult(grown, spaceId, grown, childrenOf([...shifted, pair], spaceId));
+    const pair = childIn(space, at, nearest ?? undefined);
+    const children = childrenOf([...shifted, pair], spaceId);
+    if (space.kind === 'free') {
+      // A new spot drawn at random among the others.
+      const before = space.spots ?? [];
+      const { width, depth } = areaOf(space);
+      const spots = drawSpots(
+        [...before.slice(0, at), null, ...before.slice(at)],
+        spotSizes(grown, children),
+        width,
+        depth,
+        stage,
+      );
+      if (!spots) return warn('full', 'figure');
+      grown.spots = spots;
+    }
+    const check = spaceResult(grown, spaceId, grown, children);
     if (!check.ok) return warn(check.reason === 'off' ? 'full' : check.reason, 'figure');
     let next: StageContent = {
       ...content,
@@ -673,7 +818,11 @@ export function useStageEditing({
       ...left,
       figures: left.figures.map((figure) =>
         figure.id === spaceId
-          ? { ...figure, width: figure.width - 1 }
+          ? {
+              ...figure,
+              width: figure.width - 1,
+              ...(figure.spots ? { spots: figure.spots.filter((_, index) => index !== hole) } : {}),
+            }
           : figure.spaceId === spaceId && figure.hole != null && figure.hole > hole
             ? { ...figure, hole: figure.hole - 1 }
             : figure,
@@ -687,6 +836,130 @@ export function useStageEditing({
       figures: next.figures.map((figure) => (figure.id === spaceId ? snapped : figure)),
     };
     for (const child of placeChildren(snapped, next.figures, stage))
+      next = putFigure(next, child, slotPositions(child, stage));
+    onChange(next);
+  };
+
+  /**
+   * A + beside a simple figure: it becomes a row with a copy of itself on that side, in series
+   * when added along its width and in battery when added across it. The figure and its people
+   * stay where they are.
+   */
+  const growIntoRow = (figureId: string, towards: StagePoint) => {
+    const figure = figures.find((item) => item.id === figureId);
+    if (!content || !stage || !figure || figure.spaceId || isSpace(figure.kind)) return;
+    const long = turn({ x: 1, y: 0 }, figure.rotation);
+    const lengthwise = Math.abs(towards.x * long.x + towards.y * long.y) > 0.5;
+    // In battery a row turns its figures a quarter, so it lies a quarter back from this one.
+    const rotation = lengthwise
+      ? figure.rotation
+      : (((figure.rotation + 270) % 360) as FigureRotation);
+    const axis = turn({ x: 1, y: 0 }, rotation);
+    const after = towards.x * axis.x + towards.y * axis.y > 0;
+    const own = after ? 0 : 1;
+    const shape: Shape = {
+      kind: 'row',
+      x: 0,
+      y: 0,
+      rotation,
+      width: 2,
+      arrangement: lengthwise ? 'series' : 'battery',
+      gap: DEFAULT_SPACE_GAP,
+      holeWidth: figure.kind === 'pair' ? figure.width : null,
+    };
+    const children = new Map([
+      [0, figure],
+      [1, figure],
+    ]);
+    // Centred so that this figure's hole is right where the figure stands.
+    const hole = layoutSpace(shape, children, stage).holes[own]!;
+    const check = spaceResult(
+      shape,
+      null,
+      { x: figure.x - hole.x, y: figure.y - hole.y },
+      children,
+      figure.id,
+    );
+    if (!check.ok) return warn(check.reason === 'off' ? 'full' : check.reason, 'figure');
+    const row: StageFigure = { ...shape, ...check.figure, id: newFigureId() };
+    let next: StageContent = {
+      ...content,
+      figures: [
+        ...figures.map((item) =>
+          item.id === figure.id ? { ...item, spaceId: row.id, hole: own, angle: null } : item,
+        ),
+        row,
+        { ...figure, id: newFigureId(), spaceId: row.id, hole: 1 - own, angle: null },
+      ],
+    };
+    for (const child of placeChildren(row, next.figures, stage))
+      next = putFigure(next, child, slotPositions(child, stage));
+    setSelectedId(row.id);
+    onChange(next);
+  };
+
+  /** A free dance with new spots: its figures (with their people) go to them. */
+  const respace = (space: StageFigure, spots: Spot[]) => {
+    if (!content || !stage) return;
+    const moved = { ...space, spots };
+    let next: StageContent = {
+      ...content,
+      figures: figures.map((figure) => (figure.id === space.id ? moved : figure)),
+    };
+    for (const child of placeChildren(moved, next.figures, stage))
+      next = putFigure(next, child, slotPositions(child, stage));
+    onChange(next);
+  };
+
+  /** One figure of a free dance moved to another spot of it. */
+  const moveSpot = ({ spaceId, hole, spot }: Respot) => {
+    const space = figures.find((figure) => figure.id === spaceId);
+    if (!space?.spots) return;
+    respace(
+      space,
+      space.spots.map((item, index) => (index === hole ? spot : item)),
+    );
+  };
+
+  /** Turns a figure of a free dance another step where it stands, if it still fits there. */
+  const turnInFreeDance = (figureId: string) => {
+    const child = figures.find((figure) => figure.id === figureId);
+    const space = child?.spaceId ? figures.find((figure) => figure.id === child.spaceId) : null;
+    if (!stage || !child || child.hole == null || space?.kind !== 'free') return;
+    const spot = turnSpot(
+      space,
+      child.hole,
+      spotSizes(space, childrenOf(figures, space.id)),
+      stage,
+    );
+    if (!spot) return warn('close', 'figure');
+    moveSpot({ spaceId: space.id, hole: child.hole, spot });
+  };
+
+  /** Draws the spots of a free dance again, its people going with them, if it still fits. */
+  const shuffle = (spaceId: string) => {
+    const space = figures.find((figure) => figure.id === spaceId);
+    if (!content || !stage || space?.kind !== 'free') return;
+    const { width, depth } = areaOf(space);
+    const spots = drawSpots(
+      Array<null>(space.width).fill(null),
+      spotSizes(space, childrenOf(figures, spaceId)),
+      width,
+      depth,
+      stage,
+    );
+    if (!spots) return;
+    const drawn = { ...space, spots };
+    const check = spaceResult(drawn, spaceId, drawn);
+    if (!check.ok) return warn(check.reason === 'off' ? 'full' : check.reason, 'figure');
+    let next: StageContent = {
+      ...content,
+      figures: figures.map((figure) =>
+        figure.id === spaceId ? { ...drawn, ...check.figure, id: spaceId } : figure,
+      ),
+    };
+    const shuffled = next.figures.find((figure) => figure.id === spaceId)!;
+    for (const child of placeChildren(shuffled, next.figures, stage))
       next = putFigure(next, child, slotPositions(child, stage));
     onChange(next);
   };
@@ -948,6 +1221,14 @@ export function useStageEditing({
         turn: { key: held.id ?? 'new', rotation: held.shape.rotation },
         shape:
           held.result.ok && !held.result.fill ? { ...held.result.figure, id: held.id } : undefined,
+        layout:
+          held.result.ok && stage && isSpace(held.shape.kind)
+            ? layoutSpace(
+                held.result.figure,
+                childrenFor(held.shape.kind, held.id, held.shape.width),
+                stage,
+              )
+            : undefined,
       }
     : reshaped && selected
       ? {
@@ -989,6 +1270,36 @@ export function useStageEditing({
               setReshaping(null);
               reshape(changes);
             };
+            if (selected.layout && selected.figure.kind === 'free') {
+              // A free dance: its area grows or shrinks; whoever ends up outside is drawn again
+              // inside (the same way while the handle moves, so the preview holds still).
+              const { figure } = selected;
+              const axis = turn({ x: 1, y: 0 }, figure.rotation);
+              let area = areaOf(figure);
+              let { x, y } = figure;
+              for (const pull of pulls) {
+                const lengthwise =
+                  Math.abs(pull.towards.x * axis.x + pull.towards.y * axis.y) > 0.5;
+                const side = Math.max(1, Math.round(pull.reach * 4) / 2);
+                const before = lengthwise ? area.width : area.depth;
+                area = lengthwise ? { ...area, width: side } : { ...area, depth: side };
+                const shift = fixed ? ((side - before) / 2) * stage.squareSize : 0;
+                x += pull.towards.x * shift;
+                y += pull.towards.y * shift;
+              }
+              // The figures move with the stretch, so the room between them changes too; any
+              // that no longer fit are drawn again.
+              const sizes = spotSizes(figure, childrenOf(figures, figure.id));
+              const stretched = { ...figure, areaWidth: area.width, areaDepth: area.depth };
+              const spots = fitSpots(
+                { ...stretched, spots: stretchSpots(stretched, areaOf(figure), sizes) },
+                sizes,
+                stage,
+                seeded(`${figure.id}:${area.width}:${area.depth}`),
+              );
+              if (!spots) return done ? setReshaping(null) : undefined;
+              return apply({ areaWidth: area.width, areaDepth: area.depth, spots, x, y });
+            }
             if (selected.layout && selected.figure.kind === 'ring') {
               // A ring stretches one way into an oval (or both ways with Shift, or from a corner
               // each way to the pointer); the other side stays put unless Ctrl is held.
@@ -1033,7 +1344,11 @@ export function useStageEditing({
                 const before = lengthwise ? layout.length / 2 : layout.thickness / 2;
                 if (lengthwise)
                   row = { ...row, gap: gapForReach(figure, layout, pull.reach, stage) };
-                else row = { ...row, childWidth: pull.reach * 2 };
+                else {
+                  // Its empty holes (and the pairs added later) widen alike.
+                  const childWidth = pull.reach * 2;
+                  row = { ...row, childWidth, holeWidth: fitWidth('pair', childWidth, stage) };
+                }
                 layout = layoutSpace(
                   { ...figure, ...row },
                   childrenWidened(figure.id, row.childWidth),
@@ -1045,6 +1360,30 @@ export function useStageEditing({
                 y += pull.towards.y * shift;
               }
               return apply({ ...row, x, y });
+            }
+            if (selected.figure.kind === 'trio_triangle') {
+              // A triangle: its base and its depth stretch on their own (3 × 2, say).
+              const { figure } = selected;
+              const axis = turn({ x: 1, y: 0 }, figure.rotation);
+              let { width, x, y } = figure;
+              let depth = figure.depth ?? figure.width;
+              for (const pull of uniform && !also ? [{ reach, towards }] : pulls) {
+                const lengthwise =
+                  Math.abs(pull.towards.x * axis.x + pull.towards.y * axis.y) > 0.5;
+                const size = fitWidth(figure.kind, pull.reach * 2, stage);
+                const before = lengthwise ? width : depth;
+                if (lengthwise || (uniform && !also)) width = size;
+                if (!lengthwise || (uniform && !also)) depth = size;
+                const shift = fixed ? ((size - before) / 2) * stage.squareSize : 0;
+                x += pull.towards.x * shift;
+                y += pull.towards.y * shift;
+              }
+              const changes = { width, depth: depth === width ? null : depth, x, y };
+              if (!done) return setReshaping(changes);
+              setReshaping(null);
+              if (width !== figure.width || depth !== (figure.depth ?? figure.width))
+                reshape(changes);
+              return;
             }
             if (also) {
               // A figure from a corner: as far as the further of the two directions.
@@ -1102,6 +1441,9 @@ export function useStageEditing({
       },
       editHandles,
       onAddHole: addHole,
+      onTurnChild: turnInFreeDance,
+      onGrowRow: growIntoRow,
+      onShuffle: shuffle,
       // Clicking the move handle carries the figure until the next click.
       onCarryChild: (figureId: string) => {
         const figure = figures.find((item) => item.id === figureId);

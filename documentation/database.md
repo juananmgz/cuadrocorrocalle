@@ -23,6 +23,10 @@ Migraciones:
 - `20261005150000_figures` (paso 2.2): figuras de cada pieza, a qué figura y hueco pertenece cada participación y la configuración de figuras de cada grupo (`figure_defaults`).
 - `20261005220000_spaces` (paso 2.3): espacios (fila y corro) como figuras; cada figura simple puede ir en el hueco de un espacio (`space_id`, `hole`), con su disposición (`arrangement`) y un giro libre dentro de un corro (`angle`).
 - `20261005230000_space_gap` (paso 2.3): separación entre los huecos de un espacio, en metros (`gap_m`; 0,5 por defecto).
+- `20261006000000_ring_aspect` (paso 2.3): fondo entre ancho de un corro estirado en óvalo (`aspect`; 1 o vacío, un círculo).
+- `20261006100000_free_dance` (paso 2.4): el baile libre, con el área en casillas (`area_width`, `area_depth`) y el sitio de cada persona en ella (`spots`, JSON `[{ x, y }]` en casillas desde su esquina, sin girar).
+- `20261006110000_space_hole_width` (paso 2.3): ancho de las parejas que esperan los huecos vacíos de una fila o un corro estirados a lo ancho (`hole_width`), para que los huecos y las parejas nuevas salgan como las demás.
+- `20261006120000_figure_depth` (paso 2.4): fondo propio del trío en triángulo, en casillas (`depth`; vacío si es tan hondo como ancho).
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -138,13 +142,19 @@ erDiagram
   figures {
     text id PK "lo genera la web"
     text piece_id FK
-    text kind "solo, pair, pair_diagonal, trio_line, trio_triangle, square, diamond, row, ring"
+    text kind "solo, pair, pair_diagonal, trio_line, trio_triangle, square, diamond, row, ring, free"
     float x_m "centro"
     float y_m "centro"
     int rotation "0, 90, 180, 270"
     float width "casillas, de media en media; en espacios, huecos"
+    float depth "trío en triángulo: fondo en casillas"
     text arrangement "espacios: series o battery"
     float gap_m "espacios: separación entre huecos"
+    float hole_width "fila y corro: ancho de sus huecos vacíos"
+    float aspect "corro: fondo entre ancho"
+    float area_width "baile libre: ancho del área, en casillas"
+    float area_depth "baile libre: fondo del área, en casillas"
+    jsonb spots "baile libre: sitio de cada persona"
     text space_id "figura simple dentro de un espacio"
     int hole "su hueco en el espacio"
     float angle "giro libre en un corro, en grados"

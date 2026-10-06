@@ -225,17 +225,25 @@ model Figure {
   pieceId        String          @map("piece_id")
   piece          Piece           @relation(fields: [pieceId], references: [id], onDelete: Cascade)
   // Simple: "solo", "pair", "pair_diagonal", "trio_line", "trio_triangle", "square" or "diamond".
-  // Spaces (step 2.3): "row" or "ring", whose width is their number of holes.
+  // Spaces (step 2.3): "row" or "ring", whose width is their number of holes; "free" (step 2.4).
   kind           String
   x              Float           @map("x_m")
   y              Float           @map("y_m")
   rotation       Int             @default(0)
   width          Float
+  // Trios in a triangle (step 2.4): their depth in squares, when not as deep as wide.
+  depth          Float?
   // Spaces: "series" or "battery", and the room between holes in metres.
   arrangement    String?
   gap            Float?          @map("gap_m")
+  // Rows and rings: width of the pairs their empty holes wait for, once stretched across.
+  holeWidth      Float?          @map("hole_width")
   // Rings: depth over width (an oval when not 1).
   aspect         Float?
+  // Free dances (step 2.4): the area in squares and its spots ([{ x, y }] from its corner).
+  areaWidth      Float?          @map("area_width")
+  areaDepth      Float?          @map("area_depth")
+  spots          Json?
   // Simple figures in a space: the space and the hole they fill.
   spaceId        String?         @map("space_id")
   hole           Int?

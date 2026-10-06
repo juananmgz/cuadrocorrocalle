@@ -34,14 +34,18 @@ export const WIDTH_STEP: Record<FigureKind, number> = {
   // Spaces grow a hole at a time.
   row: 1,
   ring: 1,
+  free: 1,
 };
 
 /** Distance between neighbours along each axis, in squares, for its width. */
 const spacing = (kind: FigureKind, width: number) =>
   kind === 'trio_line' || kind === 'diamond' ? (width - 1) / 2 : width - 1;
 
-/** Places of a figure, in squares from its centre, before turning: x across, y to the back. */
-export function slotOffsets(kind: FigureKind, width: number): StagePoint[] {
+/**
+ * Places of a figure, in squares from its centre, before turning: x across, y to the back. A
+ * trio in a triangle may be deeper or shallower than it is wide (`depth`).
+ */
+export function slotOffsets(kind: FigureKind, width: number, depth?: number | null): StagePoint[] {
   const d = spacing(kind, width);
   switch (kind) {
     case 'solo':
@@ -58,12 +62,14 @@ export function slotOffsets(kind: FigureKind, width: number): StagePoint[] {
         { x: d, y: 0 },
       ];
     // One in front (towards the audience) of two.
-    case 'trio_triangle':
+    case 'trio_triangle': {
+      const deep = spacing(kind, depth ?? width);
       return [
-        { x: -d / 2, y: d / 2 },
-        { x: d / 2, y: d / 2 },
-        { x: 0, y: -d / 2 },
+        { x: -d / 2, y: deep / 2 },
+        { x: d / 2, y: deep / 2 },
+        { x: 0, y: -deep / 2 },
       ];
+    }
     case 'square':
       return [
         { x: -d / 2, y: -d / 2 },
@@ -80,6 +86,7 @@ export function slotOffsets(kind: FigureKind, width: number): StagePoint[] {
     // Spaces hold figures, not people.
     case 'row':
     case 'ring':
+    case 'free':
       return [];
     case 'diamond':
       return [
@@ -117,10 +124,13 @@ export const nextRotation = (rotation: FigureRotation): FigureRotation =>
 
 /** Where each place of the figure is on the stage, in metres. */
 export function slotPositions(
-  figure: Pick<StageFigure, 'kind' | 'x' | 'y' | 'rotation' | 'width'> & { angle?: number | null },
+  figure: Pick<StageFigure, 'kind' | 'x' | 'y' | 'rotation' | 'width'> & {
+    angle?: number | null;
+    depth?: number | null;
+  },
   stage: StageSize,
 ): StagePoint[] {
-  return slotOffsets(figure.kind, figure.width).map((offset) => {
+  return slotOffsets(figure.kind, figure.width, figure.depth).map((offset) => {
     // A free angle (figures in a ring) wins over the quarter turns.
     const turned =
       figure.angle != null ? turnBy(offset, figure.angle) : turn(offset, figure.rotation);
