@@ -304,7 +304,7 @@ const ADD_OUTSIDE = 38;
 // On a side with no bar, the + of a figure sits closer: just clear of its block.
 const ADD_CLOSE = 20;
 // How far out of the top left corner of a free dance its shuffle button sits, in px.
-const SHUFFLE_OUTSIDE = 14;
+const SHUFFLE_OUTSIDE = 38;
 // Simple figures that can grow into a row from their sides (slanted ones and solos do not).
 const GROWS_INTO_ROW = new Set<FigureKind>(['pair', 'trio_line', 'trio_triangle', 'square']);
 // What the + of each space adds.
@@ -321,17 +321,22 @@ const TRASH_FAINT = 0.2;
 const HANDLE_GAP = 9;
 const HANDLE_STROKE = 6;
 const CORNER_SIZE = 18;
+// The turning ball, with its stick, off the top right corner, in px.
+const BALL_BOX = 13;
 const BAR_LENGTH = 26;
-// The same corner, square: it stretches instead of turning.
+// A square corner, drawn for the top left and turned for the rest: it stretches both ways.
 const SQUARE_CORNER_PATH = (() => {
   const edge = HANDLE_STROKE / 2;
   return `M ${edge} ${CORNER_SIZE - edge} L ${edge} ${edge} L ${CORNER_SIZE - edge} ${edge}`;
 })();
+// A curved stroke round the corner, for figures with no corner to stretch: it turns them too.
+const CURVE_RADIUS = CORNER_SIZE - HANDLE_STROKE;
 const CORNER_PATH = (() => {
   const edge = HANDLE_STROKE / 2;
-  const radius = CORNER_SIZE - HANDLE_STROKE;
-  return `M ${edge} ${CORNER_SIZE - edge} A ${radius} ${radius} 0 0 1 ${CORNER_SIZE - edge} ${edge}`;
+  return `M ${edge} ${CORNER_SIZE - edge} A ${CURVE_RADIUS} ${CURVE_RADIUS} 0 0 1 ${CORNER_SIZE - edge} ${edge}`;
 })();
+// How far into its box the middle of the curve is, each way, in px (where the ball's stick starts).
+const CURVE_MIDDLE = CORNER_SIZE - HANDLE_STROKE / 2 - CURVE_RADIUS / Math.SQRT2;
 
 // Turning cursor: a white bent double arrow outlined in black (like the system ones), drawn
 // around the top right corner and turned for the others.
@@ -414,19 +419,29 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
   const reach = HANDLE_GAP + HANDLE_STROKE;
   // Only one corner turns it, the top right one, to keep the handles few; the opposite one, drawn
   // the same but square, stretches it both ways at once.
+  // (A trial: the four corners stretch it both ways; a ball off the top right one turns it.)
   const scales = scaling
     ? [
+        { key: 'tl', out: [-1, -1], left: -reach, top: -reach },
+        { key: 'tr', out: [1, -1], left: width + reach - CORNER_SIZE, top: -reach },
+        { key: 'bl', out: [-1, 1], left: -reach, top: height + reach - CORNER_SIZE },
         {
-          key: 'bl',
-          out: [-1, 1],
-          left: -reach,
+          key: 'br',
+          out: [1, 1],
+          left: width + reach - CORNER_SIZE,
           top: height + reach - CORNER_SIZE,
         },
       ]
     : [];
+  // The stick starts right on the tip of the corner's stroke, so the two read as one.
+  // Without a corner to stretch, the old curve stays there and the stick leaves from its middle.
+  const tip = scaling ? HANDLE_STROKE / 2 : CURVE_MIDDLE;
   const corners = [
-    { key: 'tr', left: width + reach - CORNER_SIZE, top: -reach, pivot: [width, 0] },
+    { key: 'tr', left: width + reach - tip, top: -reach + tip - BALL_BOX, pivot: [width, 0] },
   ];
+  const curve = scaling
+    ? null
+    : { key: 'tr', left: width + reach - CORNER_SIZE, top: -reach, pivot: [width, 0] };
 
   // Follows one pointer from press to release, whatever it passes over.
   const follow =
@@ -598,26 +613,50 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
             </svg>
           </span>
         ))}
+      {curve && (
+        <span
+          className={styles.turnHandle}
+          data-figure-handle=""
+          data-corner={curve.key}
+          role="button"
+          aria-label="Arrastra para girar la figura (un clic la gira un cuarto)"
+          style={{
+            left: curve.left,
+            top: curve.top,
+            width: CORNER_SIZE,
+            height: CORNER_SIZE,
+            cursor: turn(curve).cursor,
+          }}
+          onPointerDown={turn(curve).onPointerDown}
+        >
+          {/* A quarter circle with round ends, drawn for the top left and turned. */}
+          <svg viewBox={`0 0 ${CORNER_SIZE} ${CORNER_SIZE}`} aria-hidden="true">
+            <path d={CORNER_PATH} />
+          </svg>
+        </span>
+      )}
       {corners.map((corner) => (
         <span
           key={corner.key}
           className={styles.turnHandle}
           data-figure-handle=""
           data-corner={corner.key}
+          data-ball=""
           role="button"
           aria-label="Arrastra para girar la figura (un clic la gira un cuarto)"
           style={{
             left: corner.left,
             top: corner.top,
-            width: CORNER_SIZE,
-            height: CORNER_SIZE,
+            width: BALL_BOX,
+            height: BALL_BOX,
             cursor: turn(corner).cursor,
           }}
           onPointerDown={turn(corner).onPointerDown}
         >
-          {/* A quarter circle with round ends, drawn for the top left and turned for the rest. */}
-          <svg viewBox={`0 0 ${CORNER_SIZE} ${CORNER_SIZE}`} aria-hidden="true">
-            <path d={CORNER_PATH} />
+          {/* A stick out of the corner with a ball at its end. */}
+          <svg viewBox={`0 0 ${BALL_BOX} ${BALL_BOX}`} aria-hidden="true">
+            <line x1={0} y1={BALL_BOX} x2={BALL_BOX - 6} y2={6} />
+            <circle cx={BALL_BOX - 4.5} cy={4.5} r={4.5} />
           </svg>
         </span>
       ))}
@@ -1329,7 +1368,8 @@ export function StageLayer({
             data-figure-handle=""
             aria-label="Volver a sortear el baile libre"
             title="Volver a sortear"
-            style={{ left: editBox.left - SHUFFLE_OUTSIDE, top: editBox.top - SHUFFLE_OUTSIDE }}
+            // Beside the top left corner, which stretches it.
+            style={{ left: editBox.left - SHUFFLE_OUTSIDE, top: editBox.top + 4 }}
             onClick={() => onShuffle(selected.figure.id)}
           >
             <Shuffle aria-hidden="true" />

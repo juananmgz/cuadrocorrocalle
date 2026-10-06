@@ -360,8 +360,32 @@
     stroke-linejoin: round;
   }
 
-  &[data-corner='tr'] svg {
+  &[data-corner='tr']:not([data-ball]) svg {
     transform: rotate(90deg);
+  }
+
+  // Stretching wins where the two meet: the corners sit over the turning ball.
+  &:not([data-ball]) {
+    z-index: 3;
+  }
+
+  // The turning ball: a stick out of the corner and a ball at its end, easy to catch all round
+  // but under the corner.
+  &[data-ball] {
+    &::before {
+      inset: -10px;
+      border-radius: 50%;
+    }
+
+    line {
+      stroke: var(--accent);
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
+
+    circle {
+      fill: var(--accent);
+    }
   }
 
   &[data-corner='br'] svg {
