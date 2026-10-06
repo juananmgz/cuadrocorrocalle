@@ -322,8 +322,23 @@
   gap: var(--space-3);
   align-items: start;
 
+  // Side by side: the tray takes two fifths and the repertoire the rest. Folding the tray
+  // shrinks it to its icons (and the repertoire grows) with a sweep.
   @container (min-width: 500px) {
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-columns: minmax(0, 1fr) auto;
+
+    > [data-tray] {
+      width: calc((100cqw - var(--space-3)) * 0.4);
+      transition: width 250ms ease;
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
+    }
+
+    > [data-tray-collapsed] {
+      width: 46px;
+    }
   }
 }
 
