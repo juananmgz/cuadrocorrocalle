@@ -41,18 +41,25 @@
     flex: none;
   }
 
-  &::after {
-    margin-left: auto;
-    font-size: 0.875rem;
-    content: '▾';
-  }
-
-  &[aria-expanded='true']::after {
-    content: '▴';
-  }
-
   &:hover {
     background: var(--sel-bg);
+  }
+}
+
+// At the right of the header, pointing down when closed and up when open.
+.chevron {
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  color: var(--ink-soft);
+  transition: transform 200ms ease;
+
+  &[data-open] {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 }
 
@@ -192,6 +199,118 @@
   stroke: var(--accent);
   stroke-width: 1.5px;
   vector-effect: non-scaling-stroke;
+}
+
+// An empty hole of a space.
+.figureHole {
+  fill: none;
+  stroke: var(--ink-soft);
+  stroke-width: 1px;
+  stroke-dasharray: 2 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+// Spaces: one line each, its drawing beside how it comes out.
+.spaces {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+// Its name on top; under it, the drawing beside how it comes out.
+.space {
+  --space-tile: 64px;
+
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-2);
+  align-items: start;
+}
+
+// A line and some room between one space and the next.
+.space + .space {
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid var(--line);
+}
+
+.spaceSetup {
+  display: grid;
+  align-content: space-between;
+  min-height: var(--space-tile);
+  flex: 1;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.spaceName {
+  grid-column: 1 / -1;
+  font-weight: 700;
+}
+
+// Its drawing as tall as the two rows of fields beside it, and square.
+.space .figure {
+  width: var(--space-tile);
+  height: var(--space-tile);
+
+  svg {
+    width: 80%;
+    height: 80%;
+  }
+}
+
+.spaceFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+.spaceField {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+
+  input {
+    width: 4.5em;
+    padding: 2px var(--space-1);
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: var(--border-width) solid var(--ctl);
+    border-radius: var(--radius);
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+    }
+  }
+}
+
+// Two options side by side; the chosen one filled.
+.segmented {
+  display: inline-flex;
+  justify-self: start;
+  padding: 2px;
+  border: var(--border-width) solid var(--ctl);
+  border-radius: var(--radius);
+
+  button {
+    padding: 2px var(--space-2);
+    font: inherit;
+    font-size: 0.8125rem;
+    color: var(--ink-soft);
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: calc(var(--radius) - 2px);
+
+    &[aria-pressed='true'] {
+      color: var(--on-accent);
+      background: var(--accent);
+    }
+  }
 }
 
 .figureDot {

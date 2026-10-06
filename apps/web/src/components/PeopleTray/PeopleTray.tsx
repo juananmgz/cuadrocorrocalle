@@ -1,5 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { LayoutGrid, Package, Shapes, Users } from 'lucide-react';
+import { ChevronDown, LayoutGrid, Package, Shapes, Users } from 'lucide-react';
 import type { CallUpStatus, Person } from '@cuadrocorrocalle/shared';
 import { type ReactNode, useState } from 'react';
 
@@ -21,6 +21,8 @@ interface PeopleTrayProps {
   draggable?: boolean;
   /** The figures palette (step 2.2); without it, the block only says what is coming. */
   palette?: ReactNode;
+  /** The spaces palette (step 2.3), like the figures one. */
+  spaces?: ReactNode;
 }
 
 interface SectionProps {
@@ -46,6 +48,12 @@ function Section({ id, icon, title, open, onToggle, children }: SectionProps) {
         >
           {icon}
           <span>{title}</span>
+          {/* Turns over when the block opens or closes. */}
+          <ChevronDown
+            className={styles.chevron}
+            data-open={open ? '' : undefined}
+            aria-hidden="true"
+          />
         </button>
       </h3>
       <div
@@ -116,7 +124,7 @@ function TrayDropZone({ children }: { children: ReactNode }) {
   );
 }
 
-/** Toolbar next to the repertoire: figures, people, and props or equipment later. */
+/** Toolbar next to the repertoire: spaces, figures, people, and props or equipment later. */
 export function PeopleTray({
   people,
   pieceTitle,
@@ -125,10 +133,11 @@ export function PeopleTray({
   onToggle,
   draggable = false,
   palette,
+  spaces,
 }: PeopleTrayProps) {
   const [open, setOpen] = useState({
+    spaces: true,
     figures: true,
-    spaces: false,
     people: true,
     objects: false,
   });
@@ -137,6 +146,17 @@ export function PeopleTray({
 
   return (
     <TrayDropZone>
+      <Section
+        id="spaces"
+        icon={<LayoutGrid size={20} aria-hidden="true" />}
+        title="Espacios"
+        open={open.spaces}
+        onToggle={() => toggle('spaces')}
+      >
+        {spaces ?? (
+          <p className={styles.hint}>Entra en una pieza para colocar espacios en el escenario.</p>
+        )}
+      </Section>
       <Section
         id="figures"
         icon={<Shapes size={20} aria-hidden="true" />}
@@ -147,15 +167,6 @@ export function PeopleTray({
         {palette ?? (
           <p className={styles.hint}>Entra en una pieza para colocar figuras en el escenario.</p>
         )}
-      </Section>
-      <Section
-        id="spaces"
-        icon={<LayoutGrid size={20} aria-hidden="true" />}
-        title="Espacios"
-        open={open.spaces}
-        onToggle={() => toggle('spaces')}
-      >
-        <p className={styles.hint}>Llegarán más adelante: fila, corro, baile libre y cruz.</p>
       </Section>
       <Section
         id="people"

@@ -224,12 +224,23 @@ model Figure {
   id             String          @id
   pieceId        String          @map("piece_id")
   piece          Piece           @relation(fields: [pieceId], references: [id], onDelete: Cascade)
-  // "solo", "pair", "pair_diagonal", "trio_line", "trio_triangle", "square" or "diamond".
+  // Simple: "solo", "pair", "pair_diagonal", "trio_line", "trio_triangle", "square" or "diamond".
+  // Spaces (step 2.3): "row" or "ring", whose width is their number of holes.
   kind           String
   x              Float           @map("x_m")
   y              Float           @map("y_m")
   rotation       Int             @default(0)
   width          Float
+  // Spaces: "series" or "battery", and the room between holes in metres.
+  arrangement    String?
+  gap            Float?          @map("gap_m")
+  // Rings: depth over width (an oval when not 1).
+  aspect         Float?
+  // Simple figures in a space: the space and the hole they fill.
+  spaceId        String?         @map("space_id")
+  hole           Int?
+  // Free turn in degrees, for figures in a ring.
+  angle          Float?
   participations Participation[]
 
   @@index([pieceId])

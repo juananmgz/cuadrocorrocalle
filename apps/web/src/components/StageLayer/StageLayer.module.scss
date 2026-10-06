@@ -8,6 +8,22 @@
   pointer-events: none;
 }
 
+// While a figure of a space is moved inside it, the others glide to make room.
+.root[data-shifting] {
+  .block,
+  .token,
+  .placeholder,
+  .hole {
+    transition:
+      left 200ms ease,
+      top 200ms ease;
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+}
+
 .token,
 .ghost {
   position: absolute;
@@ -123,6 +139,78 @@
 }
 
 // An empty place of a figure, waiting for someone.
+// A space: a lighter dashed band or disc under the figures in its holes.
+.block[data-space] {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-style: dashed;
+  box-shadow: none;
+}
+
+// + to add a hole to the space being edited: past the ends of a row, between holes of a ring;
+// − beside each hole to take it out.
+.addHole {
+  position: absolute;
+  z-index: 2;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+// Beside each hole of the space being edited: a chip, centred on it, to move its figure or take
+// the hole out.
+.holeTools {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  pointer-events: auto;
+  background: var(--surface);
+  border: var(--border-width) solid var(--line);
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+}
+
+.addHole,
+.removeHole,
+.moveHole {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 3px;
+  color: var(--on-accent);
+  cursor: pointer;
+  background: var(--accent);
+  border: 0;
+  border-radius: 50%;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.removeHole {
+  color: var(--on-danger);
+  background: var(--danger);
+}
+
+.moveHole {
+  cursor: grab;
+  touch-action: none;
+}
+
+// An empty hole of a space, waiting for a figure.
+.hole {
+  position: absolute;
+  pointer-events: auto;
+  border: 2px dashed var(--ink-soft);
+
+  &[data-hidden] {
+    opacity: 0.25;
+  }
+}
+
 .placeholder {
   position: absolute;
   pointer-events: none;
@@ -136,6 +224,17 @@
 }
 
 // Where a figure being placed or moved would land.
+// The preview, as one piece, so it can spin round its centre.
+.ghostLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none !important;
+  }
+}
+
 .ghostBlock {
   position: absolute;
   pointer-events: none;
@@ -213,6 +312,7 @@
     stroke: var(--accent);
     stroke-width: 6;
     stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   &[data-corner='tr'] svg {

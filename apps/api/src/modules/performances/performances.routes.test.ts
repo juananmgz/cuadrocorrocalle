@@ -510,6 +510,15 @@ test('lets only people who come or may come take part in a piece', async () => {
     ).statusCode,
   ).toBe(400);
 
+  // Spaces: a simple figure fills a hole the space has, once.
+  const row = { id: 'figure-row-1', kind: 'row', x: 0, y: 0, rotation: 0, width: 4 };
+  const inRow = { ...pair, spaceId: row.id, hole: 1 };
+  expect((await withFigure([], [row, inRow])).statusCode).toBe(200);
+  expect((await withFigure([], [row, { ...inRow, hole: 4 }])).statusCode).toBe(400);
+  expect((await withFigure([], [row, inRow, { ...inRow, id: 'figure-pair-2' }])).statusCode).toBe(
+    400,
+  );
+
   // A place needs both coordinates, inside the largest stage.
   expect((await save([{ personId: julia.id, roles: ['dance'], x: 1 }])).statusCode).toBe(400);
   expect((await save([{ personId: julia.id, roles: ['dance'], x: 40, y: 0 }])).statusCode).toBe(

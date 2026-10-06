@@ -166,7 +166,11 @@ export function createPerformanceService(
           return {
             ...piece,
             id: undefined,
-            figures: piece.figures.map((figure) => ({ ...figure, id: ids.get(figure.id)! })),
+            figures: piece.figures.map((figure) => ({
+              ...figure,
+              id: ids.get(figure.id)!,
+              spaceId: figure.spaceId ? (ids.get(figure.spaceId) ?? null) : null,
+            })),
             participants: piece.participants.map((participant) => ({
               ...participant,
               figureId: participant.figureId ? (ids.get(participant.figureId) ?? null) : null,

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { FIGURE_SLOTS, stageFigureSchema } from './figures';
+import { FIGURE_SLOTS, isSpace, stageFigureSchema } from './figures';
 import { roleSchema } from './people';
 import { MAX_STAGE_DEPTH, MAX_STAGE_WIDTH, PERFORMANCES_PATH } from './performances';
 
@@ -92,6 +92,26 @@ export const pieceInputSchema = z
           path: ['participants'],
         });
       taken.add(key);
+    }
+    const holes = new Set<string>();
+    for (const figure of piece.figures ?? []) {
+      if (figure.spaceId == null && figure.hole == null) continue;
+      const space = figure.spaceId ? figures.get(figure.spaceId) : undefined;
+      const key = `${figure.spaceId}:${figure.hole}`;
+      if (
+        !space ||
+        !isSpace(space.kind) ||
+        isSpace(figure.kind) ||
+        figure.hole == null ||
+        figure.hole >= space.width ||
+        holes.has(key)
+      )
+        context.addIssue({
+          code: 'custom',
+          message: 'Hueco de espacio no válido',
+          path: ['figures'],
+        });
+      holes.add(key);
     }
   });
 export type PieceInput = z.infer<typeof pieceInputSchema>;

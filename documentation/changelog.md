@@ -14,11 +14,12 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 
 ## v0.3.0 (en curso: fase 2)
 
-| PR                                                                | Commit                                                                    | Cambio                                                   |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------- |
-| [CCC-0036](https://github.com/juananmgz/cuadrocorrocalle/pull/36) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/36/commits) | ✨ Place people on the stage by dragging them (paso 2.1) |
-| [CCC-0037](https://github.com/juananmgz/cuadrocorrocalle/pull/37) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/37/commits) | 💄 Open performances on a summary and save edits live    |
-| [CCC-0038](https://github.com/juananmgz/cuadrocorrocalle/pull/38) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/38/commits) | ✨ Place simple figures on the stage (paso 2.2)          |
+| PR                                                                | Commit                                                                    | Cambio                                                    |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------- |
+| [CCC-0036](https://github.com/juananmgz/cuadrocorrocalle/pull/36) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/36/commits) | ✨ Place people on the stage by dragging them (paso 2.1)  |
+| [CCC-0037](https://github.com/juananmgz/cuadrocorrocalle/pull/37) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/37/commits) | 💄 Open performances on a summary and save edits live     |
+| [CCC-0038](https://github.com/juananmgz/cuadrocorrocalle/pull/38) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/38/commits) | ✨ Place simple figures on the stage (paso 2.2)           |
+| [CCC-0039](https://github.com/juananmgz/cuadrocorrocalle/pull/39) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/39/commits) | ✨ Rows and rings of holes filled with figures (paso 2.3) |
 
 ## v0.2.1 (en curso)
 
