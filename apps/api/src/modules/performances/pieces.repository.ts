@@ -28,6 +28,7 @@ const FIELDS = {
   structure: true,
   optional: true,
   encore: true,
+  instruments: true,
   participations: {
     select: { personId: true, roles: true, x: true, y: true, figureId: true, slot: true },
     orderBy: { personId: 'asc' },
@@ -42,6 +43,7 @@ const FIELDS = {
       width: true,
       depth: true,
       arms: true,
+      instrument: true,
       arrangement: true,
       gap: true,
       aspect: true,

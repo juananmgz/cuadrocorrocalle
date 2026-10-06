@@ -327,6 +327,28 @@
   transform: translateX(-50%);
 }
 
+// Under a musician's seat, the instrument played there.
+.seatLabel {
+  position: absolute;
+  max-width: 96px;
+  padding: 0 6px;
+  overflow: hidden;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  background: var(--surface);
+  border: var(--border-width) solid var(--line);
+  border-radius: 999px;
+  transform: translateX(-50%);
+
+  &[data-hidden] {
+    opacity: 0.25;
+  }
+}
+
 // A figure's menu, opened by a right click where it was clicked.
 .figureMenu {
   @include mixins.popover;

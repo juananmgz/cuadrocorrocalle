@@ -377,6 +377,8 @@ export function useStageEditing({
     const figure = figures.find((item) => item.id === figureId);
     const member = participants.find((item) => item.figureId === figureId);
     return figure?.kind === 'solo' && !figure.spaceId && member ? plays(member.personId) : false;
+    // A musician's seat belongs in the zone, empty or not.
+    if (figure?.instrument) return true;
   };
 
   /** The block a figure takes up: its own, or the band or disc of a space. */
@@ -774,7 +776,8 @@ export function useStageEditing({
   const withoutOwnSolo = (figureList: StageFigure[], personId: string) => {
     const own = participants.find((participant) => participant.personId === personId)?.figureId;
     return figureList.filter(
-      (figure) => !(figure.id === own && figure.kind === 'solo' && !figure.spaceId),
+      (figure) =>
+        !(figure.id === own && figure.kind === 'solo' && !figure.spaceId && !figure.instrument),
     );
   };
 
@@ -809,7 +812,12 @@ export function useStageEditing({
     if (!content) return;
     const figureId = participants.find((item) => item.personId === personId)?.figureId;
     const solo = figures.find(
-      (figure) => figure.id === figureId && figure.kind === 'solo' && !figure.spaceId,
+      (figure) =>
+        figure.id === figureId &&
+        figure.kind === 'solo' &&
+        !figure.spaceId &&
+        // A musician's seat waits for someone else.
+        !figure.instrument,
     );
     if (solo) return onChange(removeFigure(content, solo.id));
     onChange({

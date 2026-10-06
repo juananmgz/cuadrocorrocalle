@@ -1394,6 +1394,19 @@ export function StageLayer({
                 hidden={moving}
                 onSelect={() => onSelectFigure?.(item.figure.id)}
               />
+              {item.figure.instrument && (
+                // A musician's seat: what is played there, under it.
+                <span
+                  className={styles.seatLabel}
+                  data-hidden={moving ? '' : undefined}
+                  style={{
+                    left: Number(block.left) + Number(block.width) / 2,
+                    top: Number(block.top) + Number(block.height) + 2,
+                  }}
+                >
+                  {item.figure.instrument}
+                </span>
+              )}
             </Fragment>
           );
         })}

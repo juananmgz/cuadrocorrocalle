@@ -79,6 +79,7 @@ export function putFigure(
   const emptied = (item: StageFigure) =>
     item.kind === 'solo' &&
     !item.spaceId &&
+    !item.instrument &&
     content.participants.some(
       ({ figureId, personId }) => figureId === item.id && joiner.has(personId),
     );

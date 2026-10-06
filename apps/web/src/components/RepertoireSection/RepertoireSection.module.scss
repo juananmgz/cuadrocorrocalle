@@ -516,3 +516,14 @@
 .nameInput + .summary {
   padding-top: 0;
 }
+
+// Instruments of a piece not yet in the group's list, with the button to add them.
+.newInstruments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}

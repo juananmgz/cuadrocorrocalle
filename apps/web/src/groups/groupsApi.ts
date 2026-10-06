@@ -4,6 +4,7 @@ import {
   type DeleteGroupInput,
   type FigureDefaults,
   figureDefaultsPath,
+  groupInstrumentsPath,
   type Group,
   type GroupList,
   type UpdateGroupInput,
@@ -112,6 +113,28 @@ export function useSaveFigureDefaults(groupId: string) {
         await request(
           { method: 'PUT', body: JSON.stringify({ figureDefaults }) },
           figureDefaultsPath(groupId),
+        ),
+      ),
+    onSuccess: (group) => {
+      queryClient.setQueryData<GroupList>(GROUPS_KEY, (list) =>
+        list
+          ? { ...list, groups: list.groups.map((item) => (item.id === group.id ? group : item)) }
+          : list,
+      );
+    },
+  });
+}
+
+/** Stores the instruments the group plays, and shows them at once. */
+export function useSaveGroupInstruments(groupId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (instruments: string[]): Promise<Group> =>
+      groupSchema.parse(
+        await request(
+          { method: 'PUT', body: JSON.stringify({ instruments }) },
+          groupInstrumentsPath(groupId),
         ),
       ),
     onSuccess: (group) => {

@@ -96,6 +96,8 @@ model Group {
   inactiveSince  DateTime?     @map("inactive_since")
   // How each figure comes out when placed: { pair: { rotation, width }, … } (step 2.2).
   figureDefaults Json          @default("{}") @map("figure_defaults")
+  // Instruments the group plays (step 2.7), offered in its pieces.
+  instruments    String[]      @default([])
   people         Person[]
   performances   Performance[]
   createdAt      DateTime      @default(now()) @map("created_at")
@@ -190,6 +192,8 @@ model Piece {
   encore          Boolean         @default(false)
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
+  // Instruments the piece needs (step 2.7), each with a seat in the musicians' zone.
+  instruments     String[]        @default([])
   participations  Participation[]
   figures         Figure[]
 
@@ -237,6 +241,8 @@ model Figure {
   width          Float
   // Crosses (step 2.5): people along each arm (front, left, right, back); empty for others.
   arms           Int[]           @default([])
+  // Musicians' seats (step 2.7): the instrument played in this solo.
+  instrument     String?
   // Trios in a triangle (step 2.4): their depth in squares, when not as deep as wide.
   depth          Float?
   // Spaces: "series" or "battery", and the room between holes in metres.

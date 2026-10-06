@@ -37,12 +37,27 @@ export const groupSchema = z.object({
   isTrial: z.boolean(),
   /** How each figure comes out when placed (step 2.2). */
   figureDefaults: figureDefaultsSchema,
+  /** Instruments the group plays (step 2.7), offered when a piece needs them. */
+  instruments: z.array(z.string()),
   createdAt: z.string(),
 });
 export type Group = z.infer<typeof groupSchema>;
 
 export const figureDefaultsPath = (groupId: string) => `${GROUPS_PATH}/${groupId}/figuras`;
 export const figureDefaultsInputSchema = z.object({ figureDefaults: figureDefaultsSchema });
+
+// The group's instruments: names like "Dulzaina" or "Flauta y tamboril", each once.
+export const MAX_GROUP_INSTRUMENTS = 60;
+export const groupInstrumentsPath = (groupId: string) => `${GROUPS_PATH}/${groupId}/instrumentos`;
+export const groupInstrumentsInputSchema = z.object({
+  instruments: z
+    .array(z.string().trim().min(1).max(40, 'Máximo 40 caracteres'))
+    .max(MAX_GROUP_INSTRUMENTS, `Máximo ${MAX_GROUP_INSTRUMENTS} instrumentos`)
+    .refine(
+      (names) => new Set(names.map((name) => name.toLocaleLowerCase('es'))).size === names.length,
+      'Hay instrumentos repetidos',
+    ),
+});
 
 /**
  * Destructive actions (deleting a group, all its people or replacing them) ask for the password,

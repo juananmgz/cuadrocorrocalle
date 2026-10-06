@@ -25,17 +25,19 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { PIECE_TYPE_LABELS, type PieceType } from '@cuadrocorrocalle/shared';
+import { MAX_INSTRUMENTS, PIECE_TYPE_LABELS, type PieceType } from '@cuadrocorrocalle/shared';
 import { type ReactNode, useMemo, useState } from 'react';
 
 import { formatClock } from '../../pieces/clock';
 import { draftError, emptyDraft, type PieceDraft } from '../../pieces/draft';
+import { STARTER_INSTRUMENTS } from '../../pieces/instruments';
 import { missingPlaces } from '../../stage/pieceFigures';
 import { summarize } from '../../pieces/summary';
 import { cleanText } from '../../performances/sanitize';
 import type { TrayPerson } from '../PeopleTray/PeopleTray';
 import { Button } from '../ui/Button/Button';
 import { Select } from '../ui/Select/Select';
+import { TagField } from '../ui/TagField/TagField';
 import { TextField } from '../ui/TextField/TextField';
 import styles from './RepertoireSection.module.scss';
 
@@ -68,6 +70,9 @@ interface RepertoireSectionProps {
   /** Piece entered (selected), when someone else (e.g. the stage and the tray) needs to know it. */
   openKey?: string | null;
   onOpenKeyChange?: (key: string | null) => void;
+  /** The group's instruments, offered in each piece; a new one can be added to them. */
+  groupInstruments?: string[];
+  onAddToGroup?: (instruments: string[]) => void;
 }
 
 interface PieceRowProps {
@@ -83,6 +88,11 @@ interface PieceRowProps {
   onChange: (draft: PieceDraft) => void;
   onRemove: () => void;
   people?: Map<string, TrayPerson>;
+  /** Instruments offered while typing: the group's (or a starter list) and the other pieces'. */
+  instruments?: string[];
+  /** The group's list; an instrument typed that is not in it can be added to it. */
+  groupInstruments?: string[];
+  onAddToGroup?: (instruments: string[]) => void;
 }
 
 /** One piece: a summary row that can be dragged and entered; its chevron opens its fields. */
@@ -96,6 +106,9 @@ function PieceRow({
   onChange,
   onRemove,
   people,
+  instruments = [],
+  groupInstruments,
+  onAddToGroup,
 }: PieceRowProps) {
   const {
     attributes,
@@ -225,6 +238,36 @@ function PieceRow({
                 error={error && draft.title.trim() ? error : undefined}
               />
             </div>
+            <TagField
+              label="Instrumentos"
+              values={draft.instruments}
+              onChange={(values) => set({ instruments: values })}
+              placeholder="Dulzaina, redoblante, castañuelas, canto…"
+              hint="Cada uno tiene su sitio en la zona de músicos. Añádelo con Enter o una coma; «2 dulzainas» o «Dulzaina x2» añade dos, y − y + cambian cuántos."
+              suggestions={instruments}
+              suggestionsTitle="Ejemplos: elige uno o escribe el tuyo"
+              counted
+              max={MAX_INSTRUMENTS}
+            />
+            {groupInstruments &&
+              onAddToGroup &&
+              (() => {
+                // New here: offer to keep it in the group's list for next time.
+                const known = new Set(groupInstruments.map((name) => name.toLocaleLowerCase('es')));
+                const fresh = [...new Set(draft.instruments)].filter(
+                  (name) => !known.has(name.toLocaleLowerCase('es')),
+                );
+                return fresh.length ? (
+                  <p className={styles.newInstruments}>
+                    {fresh.length === 1
+                      ? `«${fresh[0]}» no está en los instrumentos de Mi grupo.`
+                      : `${fresh.map((name) => `«${name}»`).join(', ')} no están en los instrumentos de Mi grupo.`}{' '}
+                    <Button variant="ghost" onClick={() => onAddToGroup(fresh)}>
+                      Añadir a Mi grupo
+                    </Button>
+                  </p>
+                ) : null;
+              })()}
             <TextField
               label="Estructura (opcional)"
               maxLength={300}
@@ -304,6 +347,8 @@ export function RepertoireSection({
   people,
   openKey: controlledKey,
   onOpenKeyChange,
+  groupInstruments,
+  onAddToGroup,
 }: RepertoireSectionProps) {
   const [ownKey, setOwnKey] = useState<string | null>(null);
   // Pieces showing their fields, apart from the one entered.
@@ -325,6 +370,13 @@ export function RepertoireSection({
     () => (people ? new Map(people.map((person) => [person.id, person])) : undefined),
     [people],
   );
+  // The group's instruments (a starter list until it has its own), and any the pieces use.
+  const instrumentSuggestions = [
+    ...new Set([
+      ...(groupInstruments?.length ? groupInstruments : STARTER_INSTRUMENTS),
+      ...pieces.flatMap((piece) => piece.instruments),
+    ]),
+  ];
   const updatePiece = (next: PieceDraft) =>
     onChange(pieces.map((piece) => (piece.key === next.key ? next : piece)));
   const sensors = useSensors(
@@ -393,6 +445,9 @@ export function RepertoireSection({
       onToggle={() => toggleOpen(draft.key)}
       onChange={updatePiece}
       people={peopleById}
+      instruments={instrumentSuggestions}
+      groupInstruments={groupInstruments}
+      onAddToGroup={onAddToGroup}
       onRemove={() => {
         if (openKey === draft.key) setOpenKey(null);
         onChange(pieces.filter((piece) => piece.key !== draft.key));

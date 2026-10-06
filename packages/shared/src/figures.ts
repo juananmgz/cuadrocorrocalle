@@ -144,6 +144,8 @@ export const stageFigureSchema = z.object({
     .max(MAX_STAGE_DEPTH / 2),
   rotation: rotationSchema,
   width: widthSchema,
+  /** A musician's seat (a solo in the musicians' zone): the instrument played there. */
+  instrument: z.string().trim().min(1).max(40).nullable().optional(),
   /** Crosses: how many people go along each arm (front, left, right, back). */
   arms: z.array(z.number().int().min(0).max(MAX_CROSS_ARM)).length(4).nullable().optional(),
   /** Trios in a triangle: how deep they are, in squares, when not as deep as wide. */

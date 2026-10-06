@@ -21,6 +21,11 @@ export const PIECE_TYPE_LABELS = {
   recorded: 'Voz en off / Música enlatada',
 } as const;
 
+// What a piece needs played (step 2.7): free tags like "Dulzaina", "Redoblante" or "Canto", each
+// as many times as there are of it (two dulzainas: "Dulzaina" twice).
+export const MAX_INSTRUMENTS = 30;
+export const instrumentSchema = z.string().trim().min(1).max(40, 'Máximo 40 caracteres');
+
 /** A coordinate on the stage, in metres from its centre. */
 const coordinate = (max: number) => z.number().min(-max).max(max).nullable().optional();
 
@@ -72,6 +77,8 @@ export const pieceInputSchema = z
     structure: z.string().trim().max(300, 'Máximo 300 caracteres').nullable().optional(),
     optional: z.boolean().optional(),
     encore: z.boolean().optional(),
+    /** Instruments it needs: each gets a seat in the musicians' zone. */
+    instruments: z.array(instrumentSchema).max(MAX_INSTRUMENTS).optional(),
     participants: participantsSchema.optional(),
     figures: z.array(stageFigureSchema).max(100).optional(),
   })
@@ -136,6 +143,7 @@ export const pieceSchema = z.object({
   structure: z.string().nullable(),
   optional: z.boolean(),
   encore: z.boolean(),
+  instruments: z.array(z.string()),
   participants: z.array(participantSchema),
   figures: z.array(stageFigureSchema),
 });

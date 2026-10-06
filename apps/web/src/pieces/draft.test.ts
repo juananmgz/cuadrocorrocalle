@@ -11,6 +11,7 @@ test('turns pieces into drafts and back', () => {
     structure: null,
     optional: true,
     encore: false,
+    instruments: [],
     participants: [],
     figures: [],
   });
@@ -23,6 +24,7 @@ test('turns pieces into drafts and back', () => {
     structure: null,
     optional: true,
     encore: false,
+    instruments: [],
     participants: [],
     figures: [],
   });
