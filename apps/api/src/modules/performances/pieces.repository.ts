@@ -5,6 +5,7 @@ import type {
   Piece,
   PieceType,
   PersonRole,
+  Spot,
 } from '@cuadrocorrocalle/shared';
 
 import type { PrismaClient } from '../../generated/prisma/client';
@@ -39,9 +40,14 @@ const FIELDS = {
       y: true,
       rotation: true,
       width: true,
+      depth: true,
       arrangement: true,
       gap: true,
       aspect: true,
+      holeWidth: true,
+      areaWidth: true,
+      areaDepth: true,
+      spots: true,
       spaceId: true,
       hole: true,
       angle: true,
@@ -64,6 +70,7 @@ export function createPrismaPieceRepository(prisma: PrismaClient): PieceReposito
         kind: figure.kind as FigureKind,
         rotation: figure.rotation as FigureRotation,
         arrangement: figure.arrangement as Arrangement | null,
+        spots: figure.spots as Spot[] | null,
       })),
       participants: participations.map((participation) => ({
         ...participation,
@@ -85,7 +92,13 @@ export function createPrismaPieceRepository(prisma: PrismaClient): PieceReposito
           await tx.participation.deleteMany({ where: { pieceId } });
           // Figures go first, so members can point at them.
           await tx.figure.deleteMany({ where: { pieceId } });
-          await tx.figure.createMany({ data: figures.map((figure) => ({ ...figure, pieceId })) });
+          await tx.figure.createMany({
+            data: figures.map(({ spots, ...figure }) => ({
+              ...figure,
+              pieceId,
+              ...(spots ? { spots } : {}),
+            })),
+          });
           await tx.participation.createMany({
             data: participants.map((participant) => ({ ...participant, pieceId, performanceId })),
           });

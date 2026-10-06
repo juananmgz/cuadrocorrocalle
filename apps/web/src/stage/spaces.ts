@@ -7,22 +7,29 @@ import {
 } from '@cuadrocorrocalle/shared';
 
 import { nextRotation, type Outline, slotOffsets, turn } from './figures';
+import { areaOf } from './freeDance';
 import type { StagePoint, StageSize } from './placement';
 
 const round = (value: number) => Math.round(value * 1000) / 1000 || 0;
 
-// An empty hole is drawn and measured as a pair.
+// An empty hole is drawn and measured as a pair, as wide as the space's own (one person in a
+// free dance).
 export const EMPTY_HOLE = { kind: 'pair' as FigureKind, width: 2 };
+const EMPTY_SPOT = { kind: 'solo' as FigureKind, width: 1 };
+export const emptyHoleOf = (space: Pick<StageFigure, 'kind' | 'holeWidth'>) =>
+  space.kind === 'free'
+    ? EMPTY_SPOT
+    : { ...EMPTY_HOLE, width: space.holeWidth ?? EMPTY_HOLE.width };
 // Smallest ring radius, in squares, so a few holes still make a ring.
 const MIN_RING_RADIUS = 1.5;
 // Points of the outline of a ring.
 const RING_STEPS = 32;
 
-type Shape = Pick<StageFigure, 'kind' | 'width'>;
+type Shape = Pick<StageFigure, 'kind' | 'width'> & { depth?: number | null };
 
 /** What a figure takes up in squares, along its own width (x) and across it (y). */
-export function extentOf({ kind, width }: Shape) {
-  const offsets = slotOffsets(kind, width);
+export function extentOf({ kind, width, depth }: Shape) {
+  const offsets = slotOffsets(kind, width, depth);
   const xs = offsets.map((offset) => offset.x);
   const ys = offsets.map((offset) => offset.y);
   return {
@@ -60,7 +67,18 @@ export interface SpaceLayout {
 
 type Space = Pick<
   StageFigure,
-  'kind' | 'x' | 'y' | 'rotation' | 'width' | 'arrangement' | 'gap' | 'aspect'
+  | 'kind'
+  | 'x'
+  | 'y'
+  | 'rotation'
+  | 'width'
+  | 'arrangement'
+  | 'gap'
+  | 'aspect'
+  | 'holeWidth'
+  | 'areaWidth'
+  | 'areaDepth'
+  | 'spots'
 >;
 
 /** Room between holes, in squares; a row keeps it to half squares so it stays on the grid. */
@@ -113,9 +131,30 @@ export function layoutSpace(
   children: Map<number, Shape>,
   stage: StageSize,
 ): SpaceLayout {
+  const square = stage.squareSize;
+  if (space.kind === 'free') {
+    // Its area, with each figure on its own spot of it (turned with it).
+    const { width, depth } = areaOf(space);
+    const sizes = spotSizes(space, children);
+    const holes = Array.from({ length: space.width }, (_, hole) => {
+      const spot = space.spots?.[hole] ?? { x: width / 2, y: depth / 2 };
+      const offset = turn({ x: spot.x - width / 2, y: spot.y - depth / 2 }, space.rotation);
+      return {
+        hole,
+        x: round(space.x + offset.x * square),
+        y: round(space.y + offset.y * square),
+        rotation: space.rotation,
+        // Turned within the area too: a free angle, like in a ring.
+        angle: spot.angle ? round(spot.angle + space.rotation) : null,
+        along: sizes[hole]!.x,
+        across: sizes[hole]!.y,
+      };
+    });
+    return { holes, length: width, thickness: depth, radius: 0, radiusY: 0 };
+  }
   const battery = space.arrangement === 'battery';
   const sizes = Array.from({ length: space.width }, (_, hole) => {
-    const extent = extentOf(children.get(hole) ?? EMPTY_HOLE);
+    const extent = extentOf(children.get(hole) ?? emptyHoleOf(space));
     return battery ? { along: extent.y, across: extent.x } : { along: extent.x, across: extent.y };
   });
   const gap = gapSquares(space, stage);
@@ -124,7 +163,6 @@ export function layoutSpace(
     sizes.reduce((total, size) => total + size.along, 0) +
     gap * (space.kind === 'ring' ? sizes.length : sizes.length - 1);
   const thickness = Math.max(...sizes.map((size) => size.across), 1);
-  const square = stage.squareSize;
 
   if (space.kind === 'ring') {
     // An oval (a circle when its aspect is 1) whose edge is as long as its holes and gaps.
@@ -177,6 +215,30 @@ export function layoutSpace(
   return { holes, length, thickness, radius: 0, radiusY: 0 };
 }
 
+/** What the figure of each hole of a space takes up, in squares (its empty placeholder if none). */
+export const spotSizes = (
+  space: Pick<StageFigure, 'kind' | 'width' | 'holeWidth'>,
+  children: Map<number, Shape>,
+) =>
+  Array.from({ length: space.width }, (_, hole) =>
+    extentOf(children.get(hole) ?? emptyHoleOf(space)),
+  );
+
+/** A stage point in squares from the corner of a free dance's area, as if it were not turned. */
+export function areaPoint(
+  space: Pick<StageFigure, 'x' | 'y' | 'rotation' | 'areaWidth' | 'areaDepth'>,
+  point: StagePoint,
+  stage: StageSize,
+) {
+  const { width, depth } = areaOf(space);
+  const back = ((360 - space.rotation) % 360) as FigureRotation;
+  const offset = turn(
+    { x: (point.x - space.x) / stage.squareSize, y: (point.y - space.y) / stage.squareSize },
+    back,
+  );
+  return { x: offset.x + width / 2, y: offset.y + depth / 2 };
+}
+
 /** The figures of a space, by hole. */
 export const childrenOf = (figures: StageFigure[], spaceId: string) =>
   new Map(
@@ -196,8 +258,8 @@ export function placeChildren(space: StageFigure, figures: StageFigure[], stage:
 }
 
 /**
- * Moves a row so its first end sits on the half-square grid, so the people in it do too, and a
- * ring so its centre does (its people stand round it, off the grid).
+ * Moves a row so its first end sits on the half-square grid, so the people in it do too (a free
+ * dance its corner, likewise), and a ring so its centre does (its people stand round it, off the grid).
  */
 export function snapSpace<T extends Space>(
   space: T,
@@ -228,7 +290,7 @@ export function snapSpace<T extends Space>(
   };
 }
 
-/** The block of a space, in metres: a band along a row, or a disc for a ring. */
+/** The block of a space, in metres: a band along a row (or a free dance's area), or a disc for a ring. */
 export function spaceOutline(space: Space, layout: SpaceLayout, stage: StageSize): Outline {
   const square = stage.squareSize;
   if (space.kind === 'ring') {
@@ -306,16 +368,22 @@ export function addSpots(
   if (space.kind === 'ring') return [{ at: space.width, x: space.x, y: space.y }];
   const axis = turn({ x: 1, y: 0 }, space.rotation);
   const reach = (layout.length / 2 + outside) * square;
+  // A free dance draws its new spot at random: one + past its side is enough.
+  if (space.kind === 'free')
+    return [{ at: space.width, x: space.x + axis.x * reach, y: space.y + axis.y * reach }];
   return [
     { at: 0, x: space.x - axis.x * reach, y: space.y - axis.y * reach },
     { at: space.width, x: space.x + axis.x * reach, y: space.y + axis.y * reach },
   ];
 }
 
-/** Where the − of each hole goes: just outside the space, beside the hole (in metres). */
+/**
+ * Where the − of each hole goes: just outside the space, beside the hole (in metres); in a free
+ * dance, just above its person.
+ */
 export function removeSpots(space: Space, layout: SpaceLayout, stage: StageSize) {
   const square = stage.squareSize;
-  const out = (layout.thickness / 2 + 0.6) * square;
+  const out = (space.kind === 'free' ? 0.9 : layout.thickness / 2 + 0.6) * square;
   const across = turn({ x: 0, y: 1 }, space.rotation);
   return layout.holes.map((place) => {
     if (space.kind === 'ring') {
@@ -331,6 +399,7 @@ export function removeSpots(space: Space, layout: SpaceLayout, stage: StageSize)
         y: place.y + (normal.y / length) * out,
       };
     }
+    if (space.kind === 'free') return { hole: place.hole, x: place.x, y: place.y + out };
     return { hole: place.hole, x: place.x + across.x * out, y: place.y + across.y * out };
   });
 }

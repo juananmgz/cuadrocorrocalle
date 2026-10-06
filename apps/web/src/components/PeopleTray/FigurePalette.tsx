@@ -5,7 +5,6 @@ import {
   FIGURE_SLOTS,
   type FigureKind,
   type FigureRotation,
-  type Arrangement,
   ARRANGEMENTS,
   isSpace,
   MAX_FIGURE_WIDTH,
@@ -15,7 +14,11 @@ import {
 } from '@cuadrocorrocalle/shared';
 
 import { isSlanted, slantedBlock, slotOffsets, turn } from '../../stage/figures';
+import { roundedOutline } from '../../stage/outline';
 import styles from './PeopleTray.module.scss';
+import { SPACE_FIGURES, type SpaceFigure, type SpaceSetup } from './spaceSetup';
+
+export type { SpaceSetup };
 
 // Palette scale, in px per grid square, so every figure is drawn alike; huge ones shrink to fit.
 const SQUARE_PX = 11;
@@ -73,7 +76,16 @@ export function FigureIcon({
       style={reach ? undefined : { width: view.width * scale, height: view.height * scale }}
       aria-hidden="true"
     >
-      {slanted ? (
+      {kind === 'trio_triangle' ? (
+        // A triangle round its people, like on the stage.
+        <path
+          d={roundedOutline(
+            dots.map((dot) => ({ x: dot.x, y: -dot.y })),
+            0.5,
+          )}
+          className={styles.figureBlock}
+        />
+      ) : slanted ? (
         <rect
           x={slanted.x - slanted.length / 2}
           y={slanted.y - slanted.thickness / 2}
@@ -89,7 +101,7 @@ export function FigureIcon({
           y={box.top}
           width={box.right - box.left}
           height={box.bottom - box.top}
-          rx={0.25}
+          rx={0.5}
           className={styles.figureBlock}
         />
       )}
@@ -100,19 +112,33 @@ export function FigureIcon({
   );
 }
 
-/** A drawing of a space: a band of empty holes, or a ring of them. */
+// People scattered over a free dance, as drawn in the palette.
+const FREE_DOTS = [
+  { x: -1.1, y: -0.75 },
+  { x: 0.2, y: -0.9 },
+  { x: 1.15, y: -0.35 },
+  { x: -0.45, y: 0.15 },
+  { x: 0.75, y: 0.75 },
+  { x: -1.2, y: 0.85 },
+];
+
+/** A drawing of a space: a band of empty holes, a ring of them, or people scattered on an area. */
 export function SpaceIcon({ kind }: { kind: SpaceKind }) {
   const holes =
     kind === 'row'
       ? [-1.2, -0.4, 0.4, 1.2].map((x) => ({ x, y: 0 }))
-      : Array.from({ length: 6 }, (_, index) => {
-          const angle = (index / 6) * 2 * Math.PI;
-          return { x: Math.cos(angle) * 1.15, y: Math.sin(angle) * 1.15 };
-        });
+      : kind === 'free'
+        ? FREE_DOTS
+        : Array.from({ length: 6 }, (_, index) => {
+            const angle = (index / 6) * 2 * Math.PI;
+            return { x: Math.cos(angle) * 1.15, y: Math.sin(angle) * 1.15 };
+          });
   return (
     <svg viewBox="-2 -2 4 4" aria-hidden="true">
       {kind === 'row' ? (
         <rect x={-1.7} y={-0.5} width={3.4} height={1} rx={0.25} className={styles.figureBlock} />
+      ) : kind === 'free' ? (
+        <rect x={-1.7} y={-1.4} width={3.4} height={2.8} rx={0.25} className={styles.figureBlock} />
       ) : (
         <circle r={1.7} className={styles.figureBlock} />
       )}
@@ -234,12 +260,6 @@ export function FigurePalette({
   );
 }
 
-/** How a new space comes out: its holes and how its figures stand (the room between holes is stretched on the stage). */
-export interface SpaceSetup {
-  holes: number;
-  arrangement: Arrangement;
-}
-
 interface SpacePaletteProps extends Pick<FigurePaletteProps, 'enabled' | 'picked' | 'onPick'> {
   setup: Record<SpaceKind, SpaceSetup>;
   onSetup: (kind: SpaceKind, changes: Partial<SpaceSetup>) => void;
@@ -252,15 +272,16 @@ const clampNumber = (value: string, min: number, max: number, fallback: number) 
 };
 
 /**
- * The spaces (step 2.3): a row and a ring of holes to fill with simple figures. Each is a line
- * with its name over its drawing (pick or drag it) and how it comes out: holes and whether its figures stand
- * in series or in battery.
+ * The spaces (step 2.3): a row and a ring of holes to fill with simple figures, and the free dance
+ * (step 2.4), with people spread at random. Each is a line with its name over its drawing (pick or
+ * drag it) and how it comes out: holes (people, in a free dance) and whether its figures stand in
+ * series or in battery.
  */
 export function SpacePalette({ enabled, picked, onPick, setup, onSetup }: SpacePaletteProps) {
   return (
     <ul className={styles.spaces} aria-label="Espacios">
       {SPACE_KINDS.map((kind) => {
-        const { holes, arrangement } = setup[kind];
+        const { figure, holes, arrangement } = setup[kind];
         return (
           <li key={kind} className={styles.space}>
             <span className={styles.spaceName}>{FIGURE_LABELS[kind]}</span>
@@ -276,7 +297,22 @@ export function SpacePalette({ enabled, picked, onPick, setup, onSetup }: SpaceP
             <div className={styles.spaceSetup}>
               <div className={styles.spaceFields}>
                 <label className={styles.spaceField}>
-                  Huecos
+                  <span className={styles.srOnly}>Figura</span>
+                  <select
+                    value={figure}
+                    onChange={(event) =>
+                      onSetup(kind, { figure: event.target.value as SpaceFigure })
+                    }
+                  >
+                    {Object.entries(SPACE_FIGURES).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.spaceField}>
+                  <span className={styles.srOnly}>Cuántas</span>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -294,16 +330,23 @@ export function SpacePalette({ enabled, picked, onPick, setup, onSetup }: SpaceP
                 </label>
               </div>
               <div className={styles.segmented} role="group" aria-label="Disposición">
-                {ARRANGEMENTS.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    aria-pressed={arrangement === option}
-                    onClick={() => onSetup(kind, { arrangement: option })}
-                  >
-                    {option === 'series' ? 'En serie' : 'En batería'}
+                {kind === 'free' ? (
+                  // The only way a free dance stands; shown so it reads like the others.
+                  <button type="button" aria-pressed>
+                    Posición aleatoria
                   </button>
-                ))}
+                ) : (
+                  ARRANGEMENTS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      aria-pressed={arrangement === option}
+                      onClick={() => onSetup(kind, { arrangement: option })}
+                    >
+                      {option === 'series' ? 'En serie' : 'En batería'}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </li>

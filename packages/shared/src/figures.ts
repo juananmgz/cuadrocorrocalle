@@ -12,8 +12,9 @@ export const SIMPLE_FIGURE_KINDS = [
   'square',
   'diamond',
 ] as const;
-// Spaces (step 2.3, OA-04 and OA-27): a row or a ring of holes, each filled with a simple figure.
-export const SPACE_KINDS = ['row', 'ring'] as const;
+// Spaces (step 2.3, OA-04 and OA-27): a row or a ring of holes, each filled with a simple figure,
+// and the free dance (step 2.4, OA-29): an area with people spread about it at random.
+export const SPACE_KINDS = ['row', 'ring', 'free'] as const;
 export const FIGURE_KINDS = [...SIMPLE_FIGURE_KINDS, ...SPACE_KINDS] as const;
 export const figureKindSchema = z.enum(FIGURE_KINDS);
 export type FigureKind = z.infer<typeof figureKindSchema>;
@@ -36,6 +37,7 @@ export const FIGURE_LABELS: Record<FigureKind, string> = {
   diamond: 'Rombo',
   row: 'Fila',
   ring: 'Corro',
+  free: 'Baile libre',
 };
 
 /** How many people each figure holds (spaces hold figures, not people). */
@@ -49,6 +51,7 @@ export const FIGURE_SLOTS: Record<FigureKind, number> = {
   diamond: 4,
   row: 0,
   ring: 0,
+  free: 0,
 };
 
 /** Width of each figure when placed, in grid squares (holes for spaces), until the group sets its own. */
@@ -62,12 +65,26 @@ export const DEFAULT_FIGURE_WIDTH: Record<FigureKind, number> = {
   diamond: 3,
   row: 4,
   ring: 6,
+  free: 4,
 };
 // Widest figure, in grid squares.
 export const MAX_FIGURE_WIDTH = 40;
 // Room between the holes of a space, in metres: by default and at most.
 export const DEFAULT_SPACE_GAP = 0.5;
 export const MAX_SPACE_GAP = 5;
+// Area of a new free dance, in grid squares.
+export const DEFAULT_FREE_AREA = { width: 6, depth: 4 };
+
+/**
+ * A spot of a free dance: where its figure stands, in squares from the corner of its area, and
+ * how it is turned there in degrees (before the area itself is turned).
+ */
+export const spotSchema = z.object({
+  x: z.number().min(0),
+  y: z.number().min(0),
+  angle: z.number().min(0).max(360).optional(),
+});
+export type Spot = z.infer<typeof spotSchema>;
 
 export const FIGURE_ROTATIONS = [0, 90, 180, 270] as const;
 export const rotationSchema = z.union([
@@ -104,12 +121,30 @@ export const stageFigureSchema = z.object({
     .max(MAX_STAGE_DEPTH / 2),
   rotation: rotationSchema,
   width: widthSchema,
+  /** Trios in a triangle: how deep they are, in squares, when not as deep as wide. */
+  depth: widthSchema.nullable().optional(),
   /** Spaces: how their figures stand. */
   arrangement: arrangementSchema.nullable().optional(),
   /** Spaces: room left between one hole and the next, in metres. */
   gap: z.number().min(0).max(MAX_SPACE_GAP).nullable().optional(),
+  /** Rows and rings: how wide the pairs their empty holes wait for are (stretched across). */
+  holeWidth: widthSchema.nullable().optional(),
   /** Rings: depth over width, so a stretched ring is an oval (1, or none, for a circle). */
   aspect: z.number().min(0.1).max(10).nullable().optional(),
+  /** Free dances: the area, in squares, and where each of its holes is in it. */
+  areaWidth: z
+    .number()
+    .min(1)
+    .max(MAX_STAGE_WIDTH * 4)
+    .nullable()
+    .optional(),
+  areaDepth: z
+    .number()
+    .min(1)
+    .max(MAX_STAGE_DEPTH * 4)
+    .nullable()
+    .optional(),
+  spots: z.array(spotSchema).max(MAX_FIGURE_WIDTH).nullable().optional(),
   /** Simple figures in a space: the space and the hole they fill. */
   spaceId: z.string().min(8).max(64).nullable().optional(),
   hole: z.number().int().min(0).max(MAX_FIGURE_WIDTH).nullable().optional(),

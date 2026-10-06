@@ -138,6 +138,33 @@
   }
 }
 
+// A block with its own shape (a triangle): the button only holds the drawing.
+.block[data-shape] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.blockShape {
+  position: absolute;
+  top: calc(-1 * var(--border-width));
+  left: calc(-1 * var(--border-width));
+  width: calc(100% + 2 * var(--border-width));
+  height: calc(100% + 2 * var(--border-width));
+  overflow: visible;
+  pointer-events: none;
+
+  path {
+    fill: color-mix(in srgb, var(--accent) 14%, transparent);
+    stroke: var(--accent);
+    stroke-width: var(--border-width);
+  }
+
+  .block[data-incomplete] & path {
+    stroke: var(--warn);
+  }
+}
+
 // An empty place of a figure, waiting for someone.
 // A space: a lighter dashed band or disc under the figures in its holes.
 .block[data-space] {
@@ -244,6 +271,24 @@
   &[data-refused] {
     border-color: var(--danger);
     background: color-mix(in srgb, var(--danger) 12%, transparent);
+  }
+
+  // Its own shape (a triangle): the dashed line goes on the drawing.
+  &[data-shape] {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  &[data-shape] path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-dasharray: 6 4;
+    stroke-width: 2px;
+  }
+
+  &[data-shape][data-refused] path {
+    fill: color-mix(in srgb, var(--danger) 12%, transparent);
+    stroke: var(--danger);
   }
 }
 
