@@ -1,5 +1,6 @@
 import type { DragEndEvent, DragMoveEvent, DragStartEvent } from '@dnd-kit/core';
 import {
+  DEFAULT_CROSS_ARMS,
   DEFAULT_FIGURE_WIDTH,
   DEFAULT_SPACE_GAP,
   MAX_FIGURE_WIDTH,
@@ -1535,12 +1536,30 @@ export function useStageEditing({
               return apply({ ...row, x, y });
             }
             if (selected.figure.kind === 'cross') {
-              // A cross: the room between its people, as far as its longest arm reaches; it
-              // grows round its middle person.
+              // A cross: the room between its people, so that the arm being pulled ends where the
+              // pointer is; it grows round its middle person.
               const { figure } = selected;
-              const longest = Math.max(1, ...(figure.arms ?? [1]));
-              const main = also && also.reach > reach ? also.reach : reach;
-              const width = fitWidth(figure.kind, ((main - 0.5) / longest) * 2 + 1, stage);
+              const arms = figure.arms ?? DEFAULT_CROSS_ARMS;
+              const step = (figure.width - 1) / 2;
+              const spacingFor = (pull: { reach: number; towards: StagePoint }) => {
+                // The pull in the cross's own axes: which arm it drags, and the one opposite.
+                const local = turn(pull.towards, ((360 - figure.rotation) % 360) as FigureRotation);
+                const [arm, opposite] =
+                  Math.abs(local.x) >= Math.abs(local.y)
+                    ? local.x > 0
+                      ? [2, 1]
+                      : [1, 2]
+                    : local.y > 0
+                      ? [3, 0]
+                      : [0, 3];
+                // The handle pulls the side of its box: from the middle person, that is twice the
+                // reach less the box's half (or the reach itself, with Ctrl).
+                const half = ((arms[arm]! + arms[opposite]!) * step) / 2 + 0.5;
+                const along = fixed ? 2 * pull.reach - half : pull.reach;
+                return (along - 0.5) / Math.max(1, arms[arm]!);
+              };
+              const spacing = Math.max(...pulls.map(spacingFor));
+              const width = fitWidth(figure.kind, spacing * 2 + 1, stage);
               if (!done) return setReshaping({ width });
               setReshaping(null);
               if (width !== figure.width) reshape({ width });
