@@ -55,6 +55,8 @@ export function PerformanceEditor({
   const [editing, setEditing] = useState(!initial || initialView === 'pieces');
   // Piece to open in "Piezas", chosen from the summary.
   const [pieceToOpen, setPieceToOpen] = useState<string | null>(null);
+  // Where the title of the form goes: over both tabs, so it stays put when switching.
+  const [titleSlot, setTitleSlot] = useState<HTMLDivElement | null>(null);
   // The stage as shown, with any measure changed but not saved yet; people are placed on it.
   const [shownStage, setShownStage] = useState<StageSize | null>(null);
   const piecesHint = performance
@@ -115,6 +117,7 @@ export function PerformanceEditor({
             Piezas
           </button>
         </div>
+        <div ref={setTitleSlot} className={styles.titleSlot} hidden={summarizing} />
       </div>
 
       {/* Every view stays mounted, so switching keeps what was typed and the stage preview. */}
@@ -150,13 +153,13 @@ export function PerformanceEditor({
             onStageSizeChange={setShownStage}
             onMissingChange={setMissing}
             handleRef={formRef}
+            titleSlot={titleSlot}
           />
         )}
       </div>
       {performance && (
         <div className={styles.view} hidden={summarizing || view !== 'pieces'}>
           <div className={styles.pieces}>
-            <h2 className={styles.title}>{performance.title}</h2>
             <RepertoireCard
               performanceId={performance.id}
               fill

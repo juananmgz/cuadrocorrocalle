@@ -20,8 +20,18 @@
   gap: var(--space-2);
   justify-items: start;
 
-  .switch {
+  .switch,
+  .titleSlot {
     justify-self: stretch;
+  }
+}
+
+// The title of the performance, the same field in "Actuación" and "Piezas".
+.titleSlot {
+  min-width: 0;
+
+  &[hidden] {
+    display: none;
   }
 }
 
@@ -134,15 +144,7 @@
   gap: var(--space-3);
 
   @include mixins.from-tablet {
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     height: 100%;
   }
-}
-
-.title {
-  @include mixins.heading;
-
-  margin: 0;
-  font-size: 2rem;
-  overflow-wrap: anywhere;
 }
