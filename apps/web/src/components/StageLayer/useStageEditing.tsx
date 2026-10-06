@@ -467,6 +467,8 @@ export function useStageEditing({
     if (!stage) return null;
     for (const item of figureViews) {
       if (!item.layout || item.figure.id === exceptId) continue;
+      // The cross is a figure of its own: it never goes into a space.
+      if (kind === 'cross') return null;
       // A diagonal row only takes people on their own and diagonal figures.
       if (item.figure.kind === 'row_diagonal' && !DIAGONAL_FIGURES.has(kind)) continue;
       const children = childrenOf(figures, item.figure.id);

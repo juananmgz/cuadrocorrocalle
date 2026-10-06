@@ -32,6 +32,7 @@ export const WIDTH_STEP: Record<FigureKind, number> = {
   trio_diagonal: 1,
   square: 0.5,
   diamond: 1,
+  cross: 1,
   // Spaces grow a hole at a time.
   row: 1,
   row_diagonal: 1,
@@ -41,7 +42,7 @@ export const WIDTH_STEP: Record<FigureKind, number> = {
 
 /** Distance between neighbours along each axis, in squares, for its width. */
 const spacing = (kind: FigureKind, width: number) =>
-  kind === 'trio_line' || kind === 'trio_diagonal' || kind === 'diamond'
+  kind === 'trio_line' || kind === 'trio_diagonal' || kind === 'diamond' || kind === 'cross'
     ? (width - 1) / 2
     : width - 1;
 
@@ -103,6 +104,15 @@ export function slotOffsets(kind: FigureKind, width: number, depth?: number | nu
       return [
         { x: 0, y: -d },
         { x: -d, y: 0 },
+        { x: d, y: 0 },
+        { x: 0, y: d },
+      ];
+    // Front, sides and back round someone in the middle.
+    case 'cross':
+      return [
+        { x: 0, y: -d },
+        { x: -d, y: 0 },
+        { x: 0, y: 0 },
         { x: d, y: 0 },
         { x: 0, y: d },
       ];

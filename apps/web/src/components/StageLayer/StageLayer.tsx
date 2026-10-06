@@ -20,7 +20,7 @@ import {
 import { createPortal } from 'react-dom';
 
 import { isSlanted, slantedBlock, slotOffsets } from '../../stage/figures';
-import { roundedOutline } from '../../stage/outline';
+import { crossOutline, roundedOutline } from '../../stage/outline';
 import {
   addSpots,
   childrenOf,
@@ -202,8 +202,11 @@ interface BlockProps {
   hidden: boolean;
   /** A space: drawn lighter, under the figures in its holes. */
   space?: boolean;
-  /** What the open menu works on: marked so it is clear (a figure alone or a whole space). */
-  targeted?: boolean;
+  /**
+   * What the open menu works on, filled so it is clear: the figure itself, a whole space, or a
+   * figure inside a space that is.
+   */
+  targeted?: 'figure' | 'space' | 'inside' | null;
   onSelect?: () => void;
 }
 
@@ -245,7 +248,7 @@ function Block({
       data-figure-block={view.figure.id}
       data-space={space ? '' : undefined}
       data-selected={selected ? '' : undefined}
-      data-targeted={targeted ? '' : undefined}
+      data-targeted={targeted ?? undefined}
       data-hidden={hidden ? '' : undefined}
       data-incomplete={view.empty.length ? '' : undefined}
       data-shape={outline ? '' : undefined}
@@ -843,7 +846,7 @@ export function StageLayer({
     };
   };
 
-  /** A trio in a triangle is drawn as a triangle round its people, in its block's own px. */
+  /** A trio in a triangle (or a cross) is drawn with its own shape round its people, in its block's px. */
   const shapeOf = (
     item: {
       figure: Pick<StageFigure, 'kind' | 'width'> & {
@@ -855,7 +858,7 @@ export function StageLayer({
     style: CSSProperties,
   ) => {
     const { figure } = item;
-    if (figure.kind !== 'trio_triangle') return undefined;
+    if (figure.kind !== 'trio_triangle' && figure.kind !== 'cross') return undefined;
     const points =
       figure.angle != null
         ? slotOffsets(figure.kind, figure.width, figure.depth).map((offset) => ({
@@ -866,6 +869,11 @@ export function StageLayer({
             x: point.x - Number(style.left),
             y: point.y - Number(style.top),
           }));
+    if (figure.kind === 'cross') {
+      // Its middle person is the third; the first is at the end of an arm.
+      const [end, , middle] = points;
+      return crossOutline(middle!, { x: end!.x - middle!.x, y: end!.y - middle!.y }, square / 2);
+    }
     return roundedOutline(points, square / 2);
   };
 
@@ -1330,7 +1338,7 @@ export function StageLayer({
               style={spinning(item.figure.id, spaceStyle(item))}
               readOnly={readOnly}
               selected={item.figure.id === selectedFigureId}
-              targeted={item.figure.id === figureMenu?.figureId}
+              targeted={item.figure.id === figureMenu?.figureId ? 'space' : null}
               hidden={item.figure.id === movingFigureId}
               space
               onSelect={() => onSelectFigure?.(item.figure.id)}
@@ -1368,7 +1376,13 @@ export function StageLayer({
                 outline={shapeOf(item, block)}
                 readOnly={readOnly}
                 selected={open}
-                targeted={item.figure.id === figureMenu?.figureId}
+                targeted={
+                  item.figure.id === figureMenu?.figureId
+                    ? 'figure'
+                    : item.figure.spaceId && item.figure.spaceId === figureMenu?.figureId
+                      ? 'inside'
+                      : null
+                }
                 hidden={moving}
                 onSelect={() => onSelectFigure?.(item.figure.id)}
               />
