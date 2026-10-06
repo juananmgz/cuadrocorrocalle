@@ -26,4 +26,9 @@
   &:has([data-wide]) {
     max-width: 1440px;
   }
+
+  // Pages with tabs that fill the screen (Mi grupo) use all of it.
+  &:has([data-full]) {
+    max-width: none;
+  }
 }

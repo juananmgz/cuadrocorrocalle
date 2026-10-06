@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import {
   type CallUpEntry,
   type CreatePerformanceInput,
+  type GroupStats,
   DEFAULT_MUSIC_DEPTH,
   DEFAULT_MUSIC_SIDE,
   DEFAULT_SQUARE_SIZE,
@@ -91,6 +92,58 @@ export function createPerformanceService(
     async list(ownerId: string, groupId: string): Promise<Performance[] | null> {
       if (!(await groups.findOwned(ownerId, groupId))) return null;
       return (await repository.listByGroup(groupId)).map(toPerformance);
+    },
+
+    /** Call-ups, durations and pieces of every performance of a group, for its charts. */
+    async stats(ownerId: string, groupId: string): Promise<GroupStats | null> {
+      if (!(await groups.findOwned(ownerId, groupId))) return null;
+      const records = await repository.listByGroup(groupId);
+      const details = await Promise.all(
+        records.map(async (record) => ({
+          record,
+          entries: await callUps.list(record.id),
+          pieces: await pieces.list(record.id),
+        })),
+      );
+      const byPerson = new Map<string, GroupStats['people'][number]>();
+      const personOf = (personId: string) => {
+        let stats = byPerson.get(personId);
+        if (!stats)
+          byPerson.set(
+            personId,
+            (stats = { personId, calledUp: 0, yes: 0, pieces: 0, possiblePieces: 0 }),
+          );
+        return stats;
+      };
+      for (const { entries, pieces: list } of details) {
+        for (const entry of entries) {
+          const stats = personOf(entry.personId);
+          stats.calledUp += 1;
+          if (entry.status === 'yes') stats.yes += 1;
+          if (entry.status !== 'no') stats.possiblePieces += list.length;
+        }
+        for (const piece of list)
+          for (const participant of piece.participants) personOf(participant.personId).pieces += 1;
+      }
+      return {
+        performances: details.map(({ record, entries, pieces: list }) => {
+          const timed = list.filter((piece) => piece.durationSeconds != null);
+          const count = (status: CallUpEntry['status']) =>
+            entries.filter((entry) => entry.status === status).length;
+          return {
+            id: record.id,
+            title: record.title,
+            date: toPerformance(record).date,
+            minutes: timed.length
+              ? Math.round(timed.reduce((sum, piece) => sum + piece.durationSeconds!, 0) / 6) / 10
+              : null,
+            yes: count('yes'),
+            maybe: count('maybe'),
+            no: count('no'),
+          };
+        }),
+        people: [...byPerson.values()],
+      };
     },
 
     async get(ownerId: string, id: string) {
@@ -245,6 +298,7 @@ export function createPerformanceService(
           structure: piece.structure || null,
           optional: piece.optional ?? false,
           encore: piece.encore ?? false,
+          instruments: piece.instruments ?? [],
           participants: (piece.participants ?? []).map((participant) => ({
             personId: participant.personId,
             roles: participant.roles,

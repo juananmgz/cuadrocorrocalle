@@ -6,6 +6,7 @@ import {
   repertoireInputSchema,
   repertoirePath,
   type Schema,
+  STATS_PATH,
   updatePerformanceSchema,
 } from '@cuadrocorrocalle/shared';
 import type { FastifyInstance, FastifyReply } from 'fastify';
@@ -55,6 +56,12 @@ export async function performanceRoutes(
   app.get<{ Querystring: { grupo?: string } }>(PERFORMANCES_PATH, async (request, reply) => {
     const list = await performances.list(request.userId!, request.query.grupo ?? '');
     return list ? { performances: list } : reply.status(404).send({ message: 'Group not found' });
+  });
+
+  // The group's statistics, for the charts of "Mi grupo".
+  app.get<{ Querystring: { grupo?: string } }>(STATS_PATH, async (request, reply) => {
+    const stats = await performances.stats(request.userId!, request.query.grupo ?? '');
+    return stats ?? reply.status(404).send({ message: 'Group not found' });
   });
 
   app.post(PERFORMANCES_PATH, async (request, reply) => {

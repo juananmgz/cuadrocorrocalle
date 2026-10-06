@@ -4,6 +4,7 @@ import {
   peoplePath,
   PERFORMANCES_PATH,
   repertoirePath,
+  STATS_PATH,
 } from '@cuadrocorrocalle/shared';
 import { memoryAdapter } from 'better-auth/adapters/memory';
 import { expect, test } from 'vitest';
@@ -563,5 +564,81 @@ test('lets only people who come or may come take part in a piece', async () => {
       ])
     ).statusCode,
   ).toBe(400);
+  await app.close();
+});
+
+test("counts each performance's call-up and length, and each person's attendance", async () => {
+  const app = buildTestApp();
+  const { cookie, group } = await signUp(app, 'stats@example.com');
+  const [julia, mario] = (
+    await app.inject({
+      method: 'POST',
+      url: `${peoplePath(group)}/lista`,
+      headers: { cookie },
+      payload: { names: ['Julia', 'Mario'] },
+    })
+  ).json().people;
+  const performance = (
+    await app.inject({
+      method: 'POST',
+      url: PERFORMANCES_PATH,
+      headers: { cookie },
+      payload: { groupId: group, title: 'Garganta la Olla', date: '2026-08-15' },
+    })
+  ).json();
+  await app.inject({
+    method: 'PUT',
+    url: callUpPath(performance.id),
+    headers: { cookie },
+    payload: {
+      entries: [
+        { personId: julia.id, status: 'yes' },
+        { personId: mario.id, status: 'no' },
+      ],
+    },
+  });
+  await app.inject({
+    method: 'PUT',
+    url: repertoirePath(performance.id),
+    headers: { cookie },
+    payload: {
+      pieces: [
+        {
+          title: 'Jota',
+          type: 'dance',
+          durationSeconds: 180,
+          participants: [{ personId: julia.id, roles: ['dance'] }],
+        },
+        { title: 'Ronda', type: 'song', durationSeconds: 90 },
+      ],
+    },
+  });
+
+  const stats = await app.inject({
+    method: 'GET',
+    url: `${STATS_PATH}?grupo=${group}`,
+    headers: { cookie },
+  });
+  expect(stats.json()).toEqual({
+    performances: [
+      {
+        id: performance.id,
+        title: 'Garganta la Olla',
+        date: '2026-08-15',
+        minutes: 4.5,
+        yes: 1,
+        maybe: 0,
+        no: 1,
+      },
+    ],
+    people: expect.arrayContaining([
+      { personId: julia.id, calledUp: 1, yes: 1, pieces: 1, possiblePieces: 2 },
+      { personId: mario.id, calledUp: 1, yes: 0, pieces: 0, possiblePieces: 0 },
+    ]),
+  });
+  expect(
+    (await app.inject({ method: 'GET', url: `${STATS_PATH}?grupo=nope`, headers: { cookie } }))
+      .statusCode,
+  ).toBe(404);
   await app.close();
 });

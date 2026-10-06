@@ -35,3 +35,19 @@
 .name {
   font-weight: 700;
 }
+
+// With a button at the end, it sits inside the chip's right edge.
+.root[data-action] {
+  gap: var(--space-1);
+  padding-right: var(--space-1);
+
+  > :last-child {
+    margin-left: var(--space-1);
+  }
+
+  // About to remove: the whole chip turns red.
+  &:has([data-danger]:hover, [data-danger]:focus-visible) {
+    background: var(--danger-bg);
+    border-color: var(--danger);
+  }
+}
