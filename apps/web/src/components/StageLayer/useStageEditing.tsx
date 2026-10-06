@@ -17,7 +17,7 @@ import {
 import { useEffect, useState } from 'react';
 
 import { useSaveFigureDefaults } from '../../groups/groupsApi';
-import { placeParticipant } from '../../pieces/participants';
+import { defaultRoles, placeParticipant } from '../../pieces/participants';
 import {
   checkFigureDrop,
   type FigureDrop,
@@ -48,6 +48,7 @@ import {
 import {
   type DropCheck,
   isOnStage,
+  musicZone,
   isTooClose,
   type StagePoint,
   type StageSize,
@@ -331,6 +332,8 @@ export function useStageEditing({
     figureId: string | null,
     places?: StagePoint[],
     alsoBut: string | null = null,
+    /** Whoever plays may stand in the musicians' zone; everything else keeps out of it. */
+    musician = figureId ? playsIn(figureId) : false,
   ) => {
     if (!stage) return [];
     const joining = places ? joiningAt(figureId, places) : new Set<string>();
@@ -347,7 +350,33 @@ export function useStageEditing({
           !(figureId && figure.spaceId === figureId) &&
           !(figure.kind === 'solo' && takenIn.has(figure.id)),
       )
-      .map((figure) => blockOutline(figure));
+      .map((figure) => blockOutline(figure))
+      .concat(zoneOutline && !musician ? [zoneOutline] : []);
+  };
+
+  // The musicians' zone as a block, kept for them.
+  const zone = stage ? musicZone(stage) : null;
+  const zoneOutline = zone
+    ? [
+        { x: zone.left, y: zone.bottom },
+        { x: zone.right, y: zone.bottom },
+        { x: zone.right, y: zone.top },
+        { x: zone.left, y: zone.top },
+      ]
+    : null;
+  /** Whether someone plays in the piece (or would, added now with their usual role). */
+  const plays = (personId: string) => {
+    const participant = participants.find((item) => item.personId === personId);
+    const person = people.get(personId);
+    const roles =
+      participant?.roles ?? (person && pieceType ? defaultRoles(person, pieceType) : []);
+    return roles.includes('music');
+  };
+  /** Whether a figure is someone who plays, on their own. */
+  const playsIn = (figureId: string) => {
+    const figure = figures.find((item) => item.id === figureId);
+    const member = participants.find((item) => item.figureId === figureId);
+    return figure?.kind === 'solo' && !figure.spaceId && member ? plays(member.personId) : false;
   };
 
   /** The block a figure takes up: its own, or the band or disc of a space. */
@@ -709,7 +738,13 @@ export function useStageEditing({
     const others = placed.filter((item) => item.person.id !== personId).map((item) => item.point);
     const shape = newShape('solo');
     if (!shape) return null;
-    const solo = checkFigureDrop(shape, point, stage, others, blocksBut(null));
+    const solo = checkFigureDrop(
+      shape,
+      point,
+      stage,
+      others,
+      blocksBut(null, undefined, null, plays(personId)),
+    );
     return solo.ok
       ? { check: { ok: true, point: solo.places[0]! }, seat: null, solo: solo.figure }
       : { check: { ok: false, reason: solo.reason }, seat: null };
@@ -803,24 +838,43 @@ export function useStageEditing({
       : Math.min(stage.depth / 2, ...musicians.map(({ point }) => point.y - stage.squareSize));
     const shape = newShape('solo');
     const others = placed.map(({ point }) => point);
-    const blocks = blocksBut(null);
-    // Rows from the back to the front; in each, from the middle outwards.
+    const blocks = blocksBut(null, undefined, null, Boolean(playing));
+    // Rows from the back to the front; in each, from the middle outwards. Someone who plays
+    // tries their zone first, from its outer edge in.
     const columns = Math.floor(stage.width / 2 / step);
-    for (let y = Math.floor(backmost / step) * step; shape && y > -stage.depth / 2; y -= step) {
-      for (let index = 0; index <= columns * 2; index += 1) {
-        const x = (index % 2 ? 1 : -1) * Math.ceil(index / 2) * step;
-        const result = checkFigureDrop(shape, { x, y }, stage, others, blocks);
-        if (!result.ok || Math.hypot(result.figure.x - x, result.figure.y - y) > step) continue;
-        const figure: StageFigure = { ...result.figure, id: newFigureId() };
-        onChange({
-          figures: [...figures, figure],
-          participants: placeParticipant(participants, person, pieceType, result.places[0]!, {
-            figureId: figure.id,
-            slot: 0,
-          }),
-        });
-        return;
-      }
+    const spots: StagePoint[] = [];
+    if (playing && zone) {
+      const across = zone.right - zone.left;
+      const deep = zone.top - zone.bottom;
+      const lines = stage.musicSide === 'back' ? deep : across;
+      const along = stage.musicSide === 'back' ? across : deep;
+      for (let line = 0; line <= lines / step; line += 1)
+        for (let index = 0; index <= along / step; index += 1) {
+          const offset = (index % 2 ? 1 : -1) * Math.ceil(index / 2) * step;
+          spots.push(
+            stage.musicSide === 'back'
+              ? { x: offset, y: zone.top - line * step }
+              : stage.musicSide === 'left'
+                ? { x: zone.left + line * step, y: offset }
+                : { x: zone.right - line * step, y: offset },
+          );
+        }
+    }
+    for (let y = Math.floor(backmost / step) * step; y > -stage.depth / 2; y -= step)
+      for (let index = 0; index <= columns * 2; index += 1)
+        spots.push({ x: (index % 2 ? 1 : -1) * Math.ceil(index / 2) * step, y });
+    for (const { x, y } of shape ? spots : []) {
+      const result = checkFigureDrop(shape!, { x, y }, stage, others, blocks);
+      if (!result.ok || Math.hypot(result.figure.x - x, result.figure.y - y) > step) continue;
+      const figure: StageFigure = { ...result.figure, id: newFigureId() };
+      onChange({
+        figures: [...figures, figure],
+        participants: placeParticipant(participants, person, pieceType, result.places[0]!, {
+          figureId: figure.id,
+          slot: 0,
+        }),
+      });
+      return;
     }
     // No room: in the piece, waiting for a place.
     onChange({ ...content, participants: joined });

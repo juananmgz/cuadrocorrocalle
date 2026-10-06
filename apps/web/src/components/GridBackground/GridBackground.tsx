@@ -44,6 +44,8 @@ export interface GridStage {
   rows: number;
   /** Distance kept clear inside the stage edge, in squares; drawn as a dashed line. */
   edge?: number;
+  /** The musicians' zone: along the back or a side, this many squares deep (strip included). */
+  music?: { side: 'back' | 'left' | 'right'; deep: number } | null;
 }
 
 interface Frame {
@@ -86,6 +88,7 @@ const COLOR_NAMES = [
   '--grid-major',
   '--stage',
   '--stage-edge',
+  '--music',
   '--ink-soft',
   '--ink',
   '--surface',
@@ -341,7 +344,9 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
     const halfX = (axisX.current / 2) * grow;
     const halfY = (axisY.current / 2) * grow;
     // Rectangle centred on the middle point, sampled so it follows the curved floor.
-    const rectangle = (hx: number, hy: number) => {
+    const rectangle = (hx: number, hy: number) => box(-hx, -hy, hx, hy);
+    // Any rectangle of the floor, from (x0, y0) to (x1, y1) in squares from the middle point.
+    const box = (x0: number, y0: number, x1: number, y1: number) => {
       const outline: [number, number][] = [];
       const side = (x0: number, y0: number, x1: number, y1: number) => {
         const steps = flat ? 1 : Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2));
@@ -349,10 +354,10 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
           outline.push([lerp(x0, x1, i / steps), lerp(y0, y1, i / steps)]);
         }
       };
-      side(-hx, -hy, hx, -hy);
-      side(hx, -hy, hx, hy);
-      side(hx, hy, -hx, hy);
-      side(-hx, hy, -hx, -hy);
+      side(x0, y0, x1, y0);
+      side(x1, y0, x1, y1);
+      side(x1, y1, x0, y1);
+      side(x0, y1, x0, y0);
       const points = outline.map(([x, y]) => project(x, y));
       if (!points.every(Boolean)) return false;
       ctx.beginPath();
@@ -376,6 +381,38 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
         ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.setLineDash([]);
+      }
+
+      // The musicians' zone: a band of its own colour along the back or a side, named.
+      const music = frame.stage?.music;
+      if (music) {
+        const deep = Math.min(music.deep * grow, music.side === 'back' ? halfY * 2 : halfX * 2);
+        const [x0, y0, x1, y1] =
+          music.side === 'back'
+            ? [-halfX, halfY - deep, halfX, halfY]
+            : music.side === 'left'
+              ? [-halfX, -halfY, -halfX + deep, halfY]
+              : [halfX - deep, -halfY, halfX, halfY];
+        if (box(x0, y0, x1, y1)) {
+          ctx.fillStyle = colors['--music'];
+          ctx.fill();
+          ctx.globalAlpha = shown;
+          ctx.setLineDash([4, 4]);
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = colors['--stage-edge'];
+          ctx.stroke();
+          ctx.setLineDash([]);
+          const name = project((x0 + x1) / 2, (y0 + y1) / 2);
+          if (name) {
+            ctx.font = `700 ${Math.max(11, Math.min(16, camera.scale * 0.45))}px ${colors['--font-heading']}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.letterSpacing = '0.2em';
+            ctx.fillStyle = colors['--ink-soft'];
+            ctx.fillText('MÚSICOS', name.x, name.y);
+            ctx.letterSpacing = '0px';
+          }
+        }
       }
 
       // Labels go on top of the cross, drawn after it.

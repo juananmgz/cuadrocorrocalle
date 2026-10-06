@@ -6,7 +6,10 @@ import {
   MIN_EDGE_DISTANCE,
   MIN_STAGE_DEPTH,
   MIN_STAGE_WIDTH,
+  MAX_MUSIC_ROWS,
+  MUSIC_ROW_DEPTH,
   type CallUpEntry,
+  type MusicSide,
   type Performance,
 } from '@cuadrocorrocalle/shared';
 import { Pencil } from 'lucide-react';
@@ -29,6 +32,7 @@ import type { StageSize } from '../../stage/placement';
 import { Button } from '../../components/ui/Button/Button';
 import { Dialog, DialogClose } from '../../components/ui/Dialog/Dialog';
 import { RequiredMark } from '../../components/ui/RequiredMark/RequiredMark';
+import { Select } from '../../components/ui/Select/Select';
 import { TextField } from '../../components/ui/TextField/TextField';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -44,7 +48,21 @@ interface StageValues {
   depth: string;
   squareSize: string;
   edgeDistance: string;
+  /** Where the musicians play ('' without a zone) and how many rows. */
+  musicSide: MusicSide | '';
+  musicRows: string;
 }
+
+const MUSIC_SIDE_OPTIONS = [
+  { value: 'none', label: 'Sin zona de músicos' },
+  { value: 'back', label: 'Atrás' },
+  { value: 'left', label: 'A la izquierda' },
+  { value: 'right', label: 'A la derecha' },
+];
+
+/** The rows of the musicians' zone, kept within their limits. */
+const musicRowsOf = (value: string) =>
+  Math.min(MAX_MUSIC_ROWS, Math.max(1, Math.round(toNumber(value) ?? 1)));
 
 type Step = 'data' | 'stage' | 'callUp';
 
@@ -83,7 +101,14 @@ const toNumber = (value: string) => {
 const edgeOf = (value: string) => Math.max(MIN_EDGE_DISTANCE, toNumber(value) ?? 0);
 
 /** Stage in metres, or null until both measures are valid. */
-function toStageSize({ width, depth, squareSize, edgeDistance }: StageValues): StageSize | null {
+function toStageSize({
+  width,
+  depth,
+  squareSize,
+  edgeDistance,
+  musicSide,
+  musicRows,
+}: StageValues): StageSize | null {
   const w = toNumber(width);
   const d = toNumber(depth);
   return w && d
@@ -92,6 +117,8 @@ function toStageSize({ width, depth, squareSize, edgeDistance }: StageValues): S
         depth: d,
         squareSize: toNumber(squareSize) ?? DEFAULT_SQUARE_SIZE,
         edgeDistance: edgeOf(edgeDistance),
+        musicSide: musicSide || null,
+        musicRows: musicRowsOf(musicRows),
       }
     : null;
 }
@@ -104,6 +131,12 @@ function toStage(values: StageValues): GridStage | null {
         cols: size.width / size.squareSize,
         rows: size.depth / size.squareSize,
         edge: size.edgeDistance / size.squareSize,
+        music: size.musicSide
+          ? {
+              side: size.musicSide,
+              deep: (size.edgeDistance + (size.musicRows ?? 1) * MUSIC_ROW_DEPTH) / size.squareSize,
+            }
+          : null,
       }
     : null;
 }
@@ -244,6 +277,8 @@ export function CreatePerformanceCard({
     depth: String(performance?.stageDepth ?? (performance ? '' : 8)),
     squareSize: formatNumber(String(performance?.squareSize ?? DEFAULT_SQUARE_SIZE)),
     edgeDistance: formatNumber(String(performance?.edgeDistance ?? MIN_EDGE_DISTANCE)),
+    musicSide: performance?.musicSide ?? '',
+    musicRows: String(performance?.musicRows ?? 1),
   }));
   // Values shown on the grid: they only change when a field loses focus, so typing "9" over "10"
   // does not flash a 1 m stage.
@@ -296,6 +331,7 @@ export function CreatePerformanceCard({
       edgeDistance: formatNumber(
         limit(stage.edgeDistance, MIN_EDGE_DISTANCE, MAX_EDGE_DISTANCE, String(MIN_EDGE_DISTANCE)),
       ),
+      musicRows: String(musicRowsOf(stage.musicRows)),
     };
     setStage(next);
     // Incomplete measures keep the previous preview.
@@ -334,6 +370,8 @@ export function CreatePerformanceCard({
       stageDepth: toNumber(stage.depth),
       squareSize: toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE,
       edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(stage.edgeDistance)),
+      musicSide: stage.musicSide || null,
+      musicRows: musicRowsOf(stage.musicRows),
     };
     try {
       const saved = performance
@@ -383,6 +421,8 @@ export function CreatePerformanceCard({
     stageDepth: toNumber(settled.depth),
     squareSize: toNumber(settled.squareSize) ?? DEFAULT_SQUARE_SIZE,
     edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(settled.edgeDistance)),
+    musicSide: settled.musicSide || null,
+    musicRows: musicRowsOf(settled.musicRows),
   };
   const valuesKey = JSON.stringify(liveValues);
   const callUpKeyValue = JSON.stringify(callUp.entries);
@@ -425,7 +465,10 @@ export function CreatePerformanceCard({
     ]
       .filter(Boolean)
       .join(' · ') || 'Sin datos todavía';
-  const stageSummary = settled.width ? `${settled.width} × ${settled.depth} m` : '';
+  const musicSummary = settled.musicSide
+    ? ` · músicos ${MUSIC_SIDE_OPTIONS.find((option) => option.value === settled.musicSide)?.label.toLowerCase()}`
+    : '';
+  const stageSummary = settled.width ? `${settled.width} × ${settled.depth} m${musicSummary}` : '';
   const callUpSummary = callUp.pending
     ? 'Faltan personas por crear'
     : callUp.entries.length
@@ -569,6 +612,32 @@ export function CreatePerformanceCard({
               onChange={update('edgeDistance', cleanDecimal)}
               hint="De 0,25 a 2 m"
             />
+          </div>
+          {/* Where the musicians play, kept for them in every piece. */}
+          <div className={styles.pair}>
+            <Select
+              label="Zona de músicos"
+              options={MUSIC_SIDE_OPTIONS}
+              value={stage.musicSide || 'none'}
+              onValueChange={(value) => {
+                const next: StageValues = {
+                  ...stage,
+                  musicSide: value === 'none' ? '' : (value as MusicSide),
+                };
+                setStage(next);
+                setSettled(next);
+              }}
+            />
+            {stage.musicSide && (
+              <TextField
+                label="Filas"
+                inputMode="numeric"
+                autoComplete="off"
+                value={stage.musicRows}
+                onChange={update('musicRows', (value) => cleanInteger(value, 1))}
+                hint={`De 1 a ${MAX_MUSIC_ROWS}, de 1 m cada una`}
+              />
+            )}
           </div>
           <div className={styles.scaleNote}>
             <span>{square === '1' ? '1 m = 1 cuadrado' : `1 cuadrado = ${square} m`}</span>

@@ -23,7 +23,7 @@ test('previews the stage when leaving each field', { timeout: 20_000 }, async ()
   const last = () => onStageChange.mock.lastCall;
 
   // A new performance starts with a 10 × 8 m stage at 0,5 m per square.
-  expect(last()).toEqual([{ cols: 20, rows: 16, edge: 0.5 }]);
+  expect(last()).toEqual([{ cols: 20, rows: 16, edge: 0.5, music: null }]);
 
   await user.clear(screen.getByLabelText(/^Ancho/));
   // Only whole metres can be typed.
@@ -35,10 +35,10 @@ test('previews the stage when leaving each field', { timeout: 20_000 }, async ()
   await user.clear(screen.getByLabelText(/^Ancho/));
   await user.type(screen.getByLabelText(/^Ancho/), '9');
   // Still typing the new width: the grid keeps the sizes applied on leaving each field (32 × 6 m).
-  expect(last()).toEqual([{ cols: 64, rows: 12, edge: 0.5 }]);
+  expect(last()).toEqual([{ cols: 64, rows: 12, edge: 0.5, music: null }]);
 
   await user.click(screen.getByLabelText('Lugar (opcional)'));
-  expect(last()).toEqual([{ cols: 18, rows: 12, edge: 0.5 }]);
+  expect(last()).toEqual([{ cols: 18, rows: 12, edge: 0.5, music: null }]);
 
   // Below the minimum sizes, the width goes to 4 m and the depth to 2 m.
   await user.clear(screen.getByLabelText(/^Ancho/));
@@ -46,7 +46,7 @@ test('previews the stage when leaving each field', { timeout: 20_000 }, async ()
   await user.clear(screen.getByLabelText(/^Fondo/));
   await user.type(screen.getByLabelText(/^Fondo/), '1');
   await user.click(screen.getByLabelText('Lugar (opcional)'));
-  expect(last()).toEqual([{ cols: 8, rows: 4, edge: 0.5 }]);
+  expect(last()).toEqual([{ cols: 8, rows: 4, edge: 0.5, music: null }]);
   await user.clear(screen.getByLabelText(/^Ancho/));
   await user.type(screen.getByLabelText(/^Ancho/), '9');
   await user.clear(screen.getByLabelText(/^Fondo/));
@@ -81,7 +81,7 @@ test('previews the stage when leaving each field', { timeout: 20_000 }, async ()
   await user.clear(screen.getByLabelText('Metros por cuadrado'));
   await user.type(screen.getByLabelText('Metros por cuadrado'), '2');
   await user.click(screen.getByLabelText('Lugar (opcional)'));
-  expect(last()).toEqual([{ cols: 4.5, rows: 3, edge: 0.5 }]);
+  expect(last()).toEqual([{ cols: 4.5, rows: 3, edge: 0.5, music: null }]);
   expect(screen.getByText('1 cuadrado = 2 m')).toBeInTheDocument();
 });
 

@@ -153,15 +153,21 @@ export function RepertoireCard({
     const previous = lastStageKey.current;
     lastStageKey.current = stageKey;
     if (!stage || previous === null || previous === stageKey) return;
-    const affected = pieces.filter((piece) =>
-      piece.participants.some(({ x, y }) => x != null && y != null && isMisplaced({ x, y }, stage)),
-    );
+    // Who, in which piece: «Fuera del escenario. 1. Jota: Ana, Luis».
+    const affected = pieces.flatMap((piece, index) => {
+      const names = piece.participants.flatMap(({ personId, x, y }) =>
+        x != null && y != null && isMisplaced({ x, y }, stage)
+          ? [peopleById.get(personId)?.name ?? 'alguien']
+          : [],
+      );
+      return names.length
+        ? [`${index + 1}. ${piece.title.trim() || 'Sin título'}: ${names.join(', ')}`]
+        : [];
+    });
     if (!affected.length) return;
     toast.show({
-      title: 'Revisa las posiciones',
-      description: `Con las nuevas medidas, alguien ha quedado fuera del escenario o en el borde en: ${affected
-        .map((piece) => `«${piece.title.trim() || 'Sin título'}»`)
-        .join(', ')}.`,
+      title: 'Fuera del escenario',
+      description: `Con las nuevas medidas han quedado fuera o en el borde. ${affected.join('. ')}.`,
       tone: 'warning',
     });
     // Only a change of the stage warns, not every edit of the pieces.

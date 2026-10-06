@@ -4,6 +4,7 @@ import {
   type CallUpEntry,
   type CreatePerformanceInput,
   DEFAULT_SQUARE_SIZE,
+  type MusicSide,
   MIN_EDGE_DISTANCE,
   type Performance,
   type PieceInput,
@@ -28,6 +29,7 @@ const toDate = (day: string | null | undefined) =>
 const toPerformance = (record: PerformanceRecord): Performance => ({
   ...record,
   date: record.date ? record.date.toISOString().slice(0, 10) : null,
+  musicSide: record.musicSide as MusicSide | null,
   createdAt: record.createdAt.toISOString(),
 });
 
@@ -46,6 +48,8 @@ function toChanges(input: UpdatePerformanceInput): PerformanceChanges {
     stageDepth: input.stageDepth,
     squareSize: input.squareSize,
     edgeDistance: input.edgeDistance,
+    musicSide: input.musicSide,
+    musicRows: input.musicRows,
   };
   return Object.fromEntries(
     Object.entries(changes).filter(([, value]) => value !== undefined),
@@ -111,6 +115,8 @@ export function createPerformanceService(
         stageDepth: null,
         squareSize: DEFAULT_SQUARE_SIZE,
         edgeDistance: MIN_EDGE_DISTANCE,
+        musicSide: null,
+        musicRows: 1,
         ...toChanges(input),
         title: input.title,
         groupId: input.groupId,
@@ -142,7 +148,8 @@ export function createPerformanceService(
       }
 
       const { groupId, place, date, minMinutes, maxMinutes, notes } = performance;
-      const { stageWidth, stageDepth, squareSize, edgeDistance } = performance;
+      const { stageWidth, stageDepth, squareSize, edgeDistance, musicSide, musicRows } =
+        performance;
       const copy = await repository.create({
         groupId,
         place,
@@ -154,6 +161,8 @@ export function createPerformanceService(
         stageDepth,
         squareSize,
         edgeDistance,
+        musicSide,
+        musicRows,
         title: `Copia de ${performance.title}`.slice(0, 120),
       });
       await callUps.replace(copy.id, await callUps.list(performance.id));
