@@ -7,21 +7,18 @@ import { usePeople } from '../../people/peopleApi';
 import { type PieceDraft, toDraft } from '../../pieces/draft';
 import { useRepertoire } from '../../pieces/repertoireApi';
 import { summarize } from '../../pieces/summary';
-import { formatDay, formatDuration } from '../../performances/format';
+import { formatDay } from '../../performances/format';
+import { PIECE_SECONDS } from '../../pages/Home/PieceCycle';
 import { FROM_TABLET, useMediaQuery } from '../../hooks';
-import { slotPositions } from '../../stage/figures';
 import {
-  emptySlots,
   missingPlaces,
   repeatedPeople,
   repeatedText,
-  standingPoint,
   undecidedPlaces,
   undecidedText,
 } from '../../stage/pieceFigures';
 import type { StageSize } from '../../stage/placement';
-import { useStageView } from '../GridBackground/stageView';
-import { type PlacedPerson, StageLayer } from '../StageLayer/StageLayer';
+import { PiecePreview, PREVIEW_FADE } from '../PiecePreview/PiecePreview';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
 import { PersonChip } from '../ui/PersonChip/PersonChip';
@@ -32,6 +29,8 @@ interface PerformanceSummaryProps {
   performance: Performance;
   /** Opens the settings form. */
   onEdit: () => void;
+  /** Opens the settings form on its call-up. */
+  onEditCallUp: () => void;
   /** Opens a piece to edit it. */
   onOpenPiece: (pieceId: string) => void;
   /** Stage as shown, for the preview of a piece. */
@@ -46,16 +45,19 @@ interface FoldableProps {
   title: string;
   /** Shown next to the title, e.g. how many there are. */
   count?: number;
+  /** Shown first inside it, under the title, e.g. filters and "Editar". */
+  actions?: ReactNode;
   children: ReactNode;
 }
 
-/** A block of the summary that folds away; open by default. */
-function Foldable({ title, count, children }: FoldableProps) {
-  const [open, setOpen] = useState(true);
+/** A block of the summary that folds away; closed each time the summary opens. */
+function Foldable({ title, count, actions, children }: FoldableProps) {
+  const [open, setOpen] = useState(false);
   const id = useId();
 
   return (
     <section className={styles.foldable}>
+      {/* The title row holds only the title, its count and the chevron. */}
       <h2 className={styles.foldTitle}>
         <button
           type="button"
@@ -74,7 +76,10 @@ function Foldable({ title, count, children }: FoldableProps) {
         </button>
       </h2>
       <div id={id} className={styles.foldBody} data-open={open ? '' : undefined} inert={!open}>
-        <div className={styles.foldInner}>{children}</div>
+        <div className={styles.foldInner}>
+          {actions && <div className={styles.foldActions}>{actions}</div>}
+          {children}
+        </div>
       </div>
     </section>
   );
@@ -90,6 +95,7 @@ const pieceCount = (count: number, encore = false) =>
 export function PerformanceSummary({
   performance,
   onEdit,
+  onEditCallUp,
   onOpenPiece,
   stage,
   active,
@@ -115,7 +121,24 @@ export function PerformanceSummary({
     pieces[0] ??
     null;
   const wide = useMediaQuery(FROM_TABLET);
-  const stageView = useStageView();
+  // The pieces take turns on the stage, from the last back to the first, as on the home page.
+  const order = [...main, ...encores];
+  const nextKey = preview ? order[(order.indexOf(preview) + 1) % order.length]?.key : undefined;
+  // Its fade out is part of its turn, so the next one comes in right on time.
+  const [ending, setEnding] = useState(false);
+  useEffect(() => {
+    if (!active || !wide || !nextKey || order.length < 2) return;
+    const fade = window.setTimeout(() => setEnding(true), PIECE_SECONDS * 1000 - PREVIEW_FADE);
+    const next = window.setTimeout(() => {
+      setPreviewKey(nextKey);
+      setEnding(false);
+    }, PIECE_SECONDS * 1000);
+    return () => {
+      window.clearTimeout(fade);
+      window.clearTimeout(next);
+    };
+  }, [active, wide, nextKey, preview?.key, order.length]);
+  const [byGender, setByGender] = useState(false);
   const previewLabel = active && preview ? preview.title : null;
   useEffect(() => onPreviewLabel(previewLabel), [previewLabel, onPreviewLabel]);
 
@@ -144,17 +167,27 @@ export function PerformanceSummary({
     });
   }, [callUp, groupPeople, pieces]);
 
-  const placed: PlacedPerson[] = useMemo(() => {
-    if (!preview) return [];
-    const byId = new Map(people.map((item) => [item.person.id, item]));
-    return preview.participants.flatMap((participant) => {
-      const item = byId.get(participant.personId);
-      const point = standingPoint(preview, participant, stage);
-      return item && point
-        ? [{ person: { ...item.person, status: item.maybe ? 'maybe' : 'yes' }, point }]
-        : [];
-    });
-  }, [preview, people, stage]);
+  /** Who comes, with how many pieces each is in; under a title when split by gender. */
+  const peopleList = (list: typeof people, title?: string) => (
+    <div className={styles.peopleGroup}>
+      {title && (
+        <h3 className={styles.groupTitle}>
+          {title} <span className={styles.foldCount}>({list.length})</span>
+        </h3>
+      )}
+      <ul className={styles.people}>
+        {list.map(({ person, maybe, pieces: inPieces, encores: inEncores }) => (
+          <li key={person.id} className={styles.person} data-idle={inPieces ? undefined : ''}>
+            <PersonChip name={person.name} color={person.mainColor} secondary={maybe} />
+            <span className={styles.count}>
+              {pieceCount(inPieces)}
+              {inEncores > 0 && ` · ${pieceCount(inEncores, true)}`}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 
   const undecidedTotal = pieces.reduce((total, piece) => total + undecidedPlaces(piece), 0);
 
@@ -174,9 +207,8 @@ export function PerformanceSummary({
       >
         <p className={styles.details}>
           {[
-            formatDay(performance.date),
+            formatDay(performance.date, performance.time),
             performance.place,
-            formatDuration(performance.minMinutes, performance.maxMinutes),
             performance.stageWidth && performance.stageDepth
               ? `Escenario de ${performance.stageWidth} × ${performance.stageDepth} m`
               : null,
@@ -201,7 +233,7 @@ export function PerformanceSummary({
       <Foldable title="Piezas" count={pieces.length}>
         {pieces.length ? (
           <ol className={styles.pieces}>
-            {[...main, ...encores].map((piece) => (
+            {order.map((piece) => (
               <li
                 key={piece.key}
                 className={styles.pieceRow}
@@ -215,7 +247,10 @@ export function PerformanceSummary({
                   type="button"
                   className={styles.piece}
                   aria-pressed={piece.key === preview?.key}
-                  onClick={() => setPreviewKey(piece.key)}
+                  onClick={() => {
+                    setPreviewKey(piece.key);
+                    setEnding(false);
+                  }}
                 >
                   <span className={styles.number}>{numberOf(piece)}</span>
                   <span className={styles.pieceTitle}>{piece.title}</span>
@@ -251,36 +286,56 @@ export function PerformanceSummary({
         )}
       </Foldable>
 
-      <Foldable title="Personas que vienen" count={people.length}>
+      <Foldable
+        title="Personas que vienen"
+        count={people.length}
+        actions={
+          <>
+            {people.length > 0 && (
+              <label className={styles.check}>
+                <input type="checkbox" checked={byGender} onChange={() => setByGender(!byGender)} />
+                Separar por género
+              </label>
+            )}
+            <Button onClick={onEditCallUp}>Editar</Button>
+          </>
+        }
+      >
         {people.length ? (
-          <ul className={styles.people}>
-            {people.map(({ person, maybe, pieces: inPieces, encores }) => (
-              <li key={person.id} className={styles.person} data-idle={inPieces ? undefined : ''}>
-                <PersonChip name={person.name} color={person.mainColor} secondary={maybe} />
-                <span className={styles.count}>
-                  {pieceCount(inPieces)}
-                  {encores > 0 && ` · ${pieceCount(encores, true)}`}
-                </span>
-              </li>
-            ))}
-          </ul>
+          byGender ? (
+            <>
+              <div className={styles.genders}>
+                {peopleList(
+                  people.filter(({ person }) => person.figure === 'boy'),
+                  'Chicos',
+                )}
+                {peopleList(
+                  people.filter(({ person }) => person.figure === 'girl'),
+                  'Chicas',
+                )}
+              </div>
+              {people.some(({ person }) => !person.figure) &&
+                peopleList(
+                  people.filter(({ person }) => !person.figure),
+                  'Sin género',
+                )}
+            </>
+          ) : (
+            peopleList(people)
+          )
         ) : (
           <p className={styles.hint}>Nadie convocado todavía.</p>
         )}
       </Foldable>
 
-      {active && wide && preview && stage && stageView && (
-        <StageLayer
-          view={stageView}
+      {active && wide && preview && stage && (
+        <PiecePreview
+          fadeKey={preview.key}
+          fadingOut={ending}
+          groupId={performance.groupId}
+          performanceId={performance.id}
+          piece={preview}
           stage={stage}
-          placed={placed}
-          repeated={repeatedPeople(preview)}
-          figures={preview.figures.map((figure) => ({
-            figure,
-            places: slotPositions(figure, stage),
-            empty: emptySlots(preview, figure),
-          }))}
-          readOnly
         />
       )}
     </div>

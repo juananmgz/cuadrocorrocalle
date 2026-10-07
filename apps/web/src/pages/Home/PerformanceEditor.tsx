@@ -7,16 +7,23 @@ import type { GridStage } from '../../components/GridBackground/GridBackground';
 import type { StageSize } from '../../stage/placement';
 import { PerformanceSummary } from '../../components/PerformanceSummary/PerformanceSummary';
 import { RepertoireCard } from '../../components/RepertoireSection/RepertoireCard';
+import { StageMeasures } from '../../components/StageMeasures/StageMeasures';
+import { FROM_TABLET, useMediaQuery } from '../../hooks';
+import { StageTools } from '../../components/StageTools/StageTools';
+import { useMeasuresOn } from '../../stage/stagePrefs';
 import { CreatePerformanceCard, type PerformanceFormHandle } from './CreatePerformanceCard';
 import styles from './PerformanceEditor.module.scss';
 
 export type EditorView = 'settings' | 'pieces';
 
+// Whether the stage's measures stay on, remembered on this device.
 interface PerformanceEditorProps {
   groupId: string;
   /** The performance to edit; without it, the editor starts by creating one. */
   performance?: Performance;
   initialView?: EditorView;
+  /** Opens editing its general information instead of on its summary. */
+  startEditing?: boolean;
   /** Title to start with when creating. */
   initialTitle?: string;
   /** Leaving without saving. */
@@ -37,6 +44,7 @@ export function PerformanceEditor({
   groupId,
   performance: initial,
   initialView = 'settings',
+  startEditing = false,
   initialTitle,
   onCancel,
   onHome,
@@ -52,13 +60,17 @@ export function PerformanceEditor({
   // Whether the settings still miss something required (only matters before creating).
   const [missing, setMissing] = useState(true);
   // Creating starts editing; an existing performance shows its summary until "Editar" (or a piece).
-  const [editing, setEditing] = useState(!initial || initialView === 'pieces');
+  const [editing, setEditing] = useState(!initial || initialView === 'pieces' || startEditing);
   // Piece to open in "Piezas", chosen from the summary.
   const [pieceToOpen, setPieceToOpen] = useState<string | null>(null);
   // Where the title of the form goes: over both tabs, so it stays put when switching.
   const [titleSlot, setTitleSlot] = useState<HTMLDivElement | null>(null);
   // The stage as shown, with any measure changed but not saved yet; people are placed on it.
   const [shownStage, setShownStage] = useState<StageSize | null>(null);
+  // Its measures show while the "Escenario" block is open, or always with "Medidas" on.
+  const [stageOpen, setStageOpen] = useState(false);
+  const measuresOn = useMeasuresOn();
+  const wide = useMediaQuery(FROM_TABLET);
   const piecesHint = performance
     ? undefined
     : missing
@@ -126,6 +138,10 @@ export function PerformanceEditor({
           <PerformanceSummary
             performance={performance}
             onEdit={() => edit('settings')}
+            onEditCallUp={() => {
+              edit('settings');
+              formRef.current?.open('callUp');
+            }}
             onOpenPiece={(pieceId) => edit('pieces', pieceId)}
             stage={shownStage}
             active={summarizing}
@@ -151,12 +167,20 @@ export function PerformanceEditor({
             onSaved={setPerformance}
             onStageChange={onStageChange}
             onStageSizeChange={setShownStage}
+            onStageOpen={setStageOpen}
             onMissingChange={setMissing}
             handleRef={formRef}
             titleSlot={titleSlot}
           />
         )}
       </div>
+      {wide && shownStage && (
+        <StageMeasures
+          stage={shownStage}
+          shown={measuresOn || (stageOpen && !summarizing && view === 'settings')}
+        />
+      )}
+      {wide && <StageTools />}
       {performance && (
         <div className={styles.view} hidden={summarizing || view !== 'pieces'}>
           <div className={styles.pieces}>
