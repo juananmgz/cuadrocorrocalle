@@ -1,5 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
-import { Minus, Move, Plus, RotateCw, Shuffle, Trash2 } from 'lucide-react';
+import { Minus, Plus, RotateCw, Shuffle, Trash2 } from 'lucide-react';
 import {
   DEFAULT_CROSS_ARMS,
   FIGURE_LABELS,
@@ -146,6 +146,8 @@ function Token({ placed, style, hidden, misplaced, repeated, selected, onSelect 
       type="button"
       className={styles.token}
       data-figure-member={placed.figureId ?? undefined}
+      data-person={person.id}
+      data-selected={selected ? '' : undefined}
       data-hidden={hidden ? '' : undefined}
       data-misplaced={misplaced || repeated ? '' : undefined}
       style={{ ...style, background: fill, color: ink }}
@@ -153,6 +155,7 @@ function Token({ placed, style, hidden, misplaced, repeated, selected, onSelect 
       {...attributes}
       aria-label={`${person.name}${problemOf(misplaced, repeated)}: arrastra para moverlo o devuélvelo a la bandeja`}
       {...listeners}
+      onClick={onSelect}
     >
       {initials(person.name)}
     </button>
@@ -175,32 +178,6 @@ function StaticToken({ placed, style, misplaced, repeated }: Omit<TokenProps, 'h
     >
       {initials(person.name)}
     </span>
-  );
-}
-
-interface MoveHandleProps {
-  figureId: string;
-  label: string;
-  onCarry: () => void;
-}
-
-/** Moves one figure of a space: a click carries it until the next click, or it is dragged. */
-function MoveHandle({ figureId, label, onCarry }: MoveHandleProps) {
-  const { attributes, listeners, setNodeRef } = useDraggable({ id: `child:${figureId}` });
-  return (
-    <button
-      ref={setNodeRef}
-      type="button"
-      className={styles.moveHole}
-      data-figure-handle=""
-      {...attributes}
-      aria-label={`Mover la ${label} dentro del espacio o sacarla`}
-      title="Mover: dentro del espacio la cambia de sitio; fuera, la saca"
-      {...listeners}
-      onClick={onCarry}
-    >
-      <Move aria-hidden="true" />
-    </button>
   );
 }
 
@@ -324,6 +301,10 @@ interface FigureHandlesProps {
   handles: EditHandles;
   toStage: (x: number, y: number) => StagePoint;
   squareSize: number;
+  /** A figure inside a space only widens: it turns with its space. */
+  turnable?: boolean;
+  /** The hole it stands in, so hovering its handles keeps them. */
+  holeKey?: string;
 }
 
 // How long the handles stay after the pointer leaves the figure, in ms.
@@ -436,7 +417,16 @@ const quarter = (degrees: number) =>
  * their width) to widen it, and on its corners to turn it a quarter at a time (a click turns it once).
  * Slanted figures get them around their slanted block.
  */
-function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: FigureHandlesProps) {
+function FigureHandles({
+  box,
+  slanted,
+  figure,
+  handles,
+  toStage,
+  squareSize,
+  turnable = true,
+  holeKey,
+}: FigureHandlesProps) {
   const { width, height } = box;
   // Screen direction of the block's own axes, and a point given in them (from its top left).
   const angle = slanted ? Math.PI / 4 : 0;
@@ -494,12 +484,13 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
   // The stick starts right on the tip of the corner's stroke, so the two read as one.
   // Without a corner to stretch, the old curve stays there and the stick leaves from its middle.
   const tip = scaling ? HANDLE_STROKE / 2 : CURVE_MIDDLE;
-  const corners = [
-    { key: 'tr', left: width + reach - tip, top: -reach + tip - BALL_BOX, pivot: [width, 0] },
-  ];
-  const curve = scaling
-    ? null
-    : { key: 'tr', left: width + reach - CORNER_SIZE, top: -reach, pivot: [width, 0] };
+  const corners = turnable
+    ? [{ key: 'tr', left: width + reach - tip, top: -reach + tip - BALL_BOX, pivot: [width, 0] }]
+    : [];
+  const curve =
+    scaling || !turnable
+      ? null
+      : { key: 'tr', left: width + reach - CORNER_SIZE, top: -reach, pivot: [width, 0] };
 
   // Follows one pointer from press to release, whatever it passes over.
   const follow =
@@ -621,6 +612,7 @@ function FigureHandles({ box, slanted, figure, handles, toStage, squareSize }: F
     // A frame over the block, turned with it, that the handles are placed in.
     <div
       className={styles.handles}
+      data-hole-tools={holeKey}
       style={{
         left: box.left,
         top: box.top,
@@ -756,8 +748,6 @@ function growSpots(
     spot('left', -sideways, 0),
     spot('right', sideways, 0),
     spot('top', 0, -upwards),
-  /** People twice in the piece or sharing a place, drawn in red. */
-  repeated?: Set<string>;
     spot('bottom', 0, upwards),
   ];
 }
@@ -766,6 +756,8 @@ interface StageLayerProps {
   view: StageView;
   stage: StageSize;
   placed: PlacedPerson[];
+  /** People twice in the piece or sharing a place, drawn in red. */
+  repeated?: Set<string>;
   drag?: StageDrag | null;
   /** The person being dragged, to draw under the pointer. */
   dragged?: TrayPerson | null;
@@ -792,6 +784,16 @@ interface StageLayerProps {
   onCrossArm?: ((figureId: string, arm: number, change: 1 | -1) => void) | null;
   /** Takes a figure off the stage, with its people (a figure of a space, with its hole). */
   onDelete?: ((figureId: string) => void) | null;
+  /** Handles to widen a figure inside a space, shown while it is hovered. */
+  childHandles?: ((figureId: string) => EditHandles | null) | null;
+  /** Someone picked on the stage, drawn as selected, with their own menu. */
+  selectedPersonId?: string | null;
+  onSelectPerson?: ((personId: string | null) => void) | null;
+  /** Takes someone out of their figure, to free ground nearby. */
+  onTakeOut?: ((personId: string) => void) | null;
+  canTakeOut?: ((personId: string) => boolean) | null;
+  /** Takes someone out of the piece. */
+  onRemovePerson?: ((personId: string) => void) | null;
   /** The space being edited: a − beside each hole to take it out, with its figure. */
   onRemoveHole?: ((spaceId: string, hole: number) => void) | null;
   /** The space being edited: a move handle beside each figure to carry it (a click) or drag it. */
@@ -817,9 +819,9 @@ export function StageLayer({
   view,
   stage,
   placed,
+  repeated = NOBODY,
   drag = null,
   dragged = null,
-  repeated = NOBODY,
   readOnly = false,
   figures = [],
   selectedFigureId = null,
@@ -830,6 +832,12 @@ export function StageLayer({
   onMirror = null,
   onDuplicate = null,
   onDelete = null,
+  childHandles = null,
+  selectedPersonId = null,
+  onSelectPerson = null,
+  onTakeOut = null,
+  canTakeOut = null,
+  onRemovePerson = null,
   onCrossArm = null,
   onTurnChild = null,
   onGrowRow = null,
@@ -1283,6 +1291,9 @@ export function StageLayer({
 
   // A right click on a figure (or on the stage, for the one being edited) opens its menu there;
   // on touch screens a long press does the same.
+  const [personMenu, setPersonMenu] = useState<{ personId: string; x: number; y: number } | null>(
+    null,
+  );
   const [figureMenu, setFigureMenu] = useState<{ figureId: string; x: number; y: number } | null>(
     null,
   );
@@ -1291,6 +1302,14 @@ export function StageLayer({
     const open = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target : null;
       if (target?.closest('[data-figure-menu]')) return;
+      const personId = target?.closest<HTMLElement>('[data-person]')?.dataset.person;
+      if (personId && onRemovePerson) {
+        event.preventDefault();
+        onSelectPerson?.(personId);
+        setFigureMenu(null);
+        setPersonMenu({ personId, x: event.clientX, y: event.clientY });
+        return;
+      }
       const id =
         target?.closest<HTMLElement>('[data-figure-block]')?.dataset.figureBlock ??
         target?.closest<HTMLElement>('[data-figure-member]')?.dataset.figureMember ??
@@ -1301,7 +1320,29 @@ export function StageLayer({
     };
     window.addEventListener('contextmenu', open);
     return () => window.removeEventListener('contextmenu', open);
-  }, [readOnly, onMirror, selectedFigureId, view.left]);
+  }, [readOnly, onMirror, selectedFigureId, view.left, onRemovePerson, onSelectPerson]);
+
+  // A person's menu (right click or long press on them), and their selection: both go with a
+  // press elsewhere or Escape.
+  useEffect(() => {
+    if (!personMenu && !selectedPersonId) return;
+    const close = (event: Event) => {
+      if (event instanceof KeyboardEvent && event.key !== 'Escape') return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('[data-figure-menu]')) return;
+      setPersonMenu(null);
+      if (!target?.closest(`[data-person="${selectedPersonId}"]`)) onSelectPerson?.(null);
+    };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', close);
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('keydown', close);
+    };
+  }, [personMenu, selectedPersonId, onSelectPerson]);
+  const menuPerson = personMenu
+    ? placed.find((item) => item.person.id === personMenu.personId)?.person
+    : undefined;
   useEffect(() => {
     if (!figureMenu) return;
     const close = (event: Event) => {
@@ -1462,21 +1503,26 @@ export function StageLayer({
         </div>
       )}
       {target && <span className={styles.target} style={at(target, token)} />}
-      {placed.map((item) =>
+      {placed.map((item, index) =>
         readOnly ? (
           <StaticToken
-            key={item.person.id}
+            // Someone twice in the piece still gets a token of their own each time.
+            key={`${item.person.id}:${index}`}
             placed={item}
             style={spinning(item.figureId, at(item.point, token))}
             misplaced={misplaced.has(item.person.id)}
+            repeated={repeated.has(item.person.id)}
           />
         ) : (
           <Token
-            key={item.person.id}
+            key={`${item.person.id}:${index}`}
             placed={item}
             style={spinning(item.figureId, at(item.point, token))}
             hidden={drag?.personId === item.person.id}
             misplaced={misplaced.has(item.person.id)}
+            repeated={repeated.has(item.person.id)}
+            selected={selectedPersonId === item.person.id}
+            onSelect={() => onSelectPerson?.(item.person.id)}
           />
         ),
       )}
@@ -1511,7 +1557,6 @@ export function StageLayer({
             return (
               <div
                 key={`arm-${arm}`}
-            repeated={repeated.has(item.person.id)}
                 className={styles.holeTools}
                 data-figure-handle=""
                 style={{ left: middle.x + way.x * out, top: middle.y + way.y * out }}
@@ -1520,9 +1565,6 @@ export function StageLayer({
                   type="button"
                   className={styles.moveHole}
                   data-figure-handle=""
-            repeated={repeated.has(item.person.id)}
-            selected={selectedPersonId === item.person.id}
-            onSelect={() => onSelectPerson?.(item.person.id)}
                   aria-label={`Una persona más ${ARM_NAMES[arm]}`}
                   title="Una persona más en este brazo"
                   disabled={counts[arm]! >= MAX_CROSS_ARM}
@@ -1634,13 +1676,6 @@ export function StageLayer({
               data-hole-tools={key}
               style={{ left: x, top: y }}
             >
-              {child && onCarryChild && (
-                <MoveHandle
-                  figureId={child.figure.id}
-                  label={FIGURE_LABELS[child.figure.kind].toLowerCase()}
-                  onCarry={() => onCarryChild(child.figure.id)}
-                />
-              )}
               {child && onTurnChild && selected.figure.kind === 'free' && (
                 <button
                   type="button"
@@ -1668,6 +1703,35 @@ export function StageLayer({
             </div>
           );
         })}
+      {(() => {
+        // Hovering a figure of the space being edited: its own handles to widen it.
+        if (!selected?.layout || !childHandles || readOnly || !hoveredHole) return null;
+        const [spaceId, hole] = hoveredHole.split(':');
+        if (spaceId !== selected.figure.id) return null;
+        const child = figures.find(
+          ({ figure }) => figure.spaceId === spaceId && figure.hole === Number(hole),
+        );
+        const handles = child && childHandles(child.figure.id);
+        if (!child || !handles) return null;
+        const style = blockStyle(child.figure.kind, child.places, child.figure);
+        return (
+          <FigureHandles
+            box={{
+              left: Number(style.left),
+              top: Number(style.top),
+              width: Number(style.width),
+              height: Number(style.height),
+            }}
+            slanted={isSlanted(child.figure.kind)}
+            figure={child.figure}
+            handles={handles}
+            toStage={(x, y) => stageProjection(view, stage).toStage(x, y)}
+            squareSize={stage.squareSize}
+            turnable={false}
+            holeKey={hoveredHole}
+          />
+        );
+      })()}
       {selected && editBox && editHandles && (
         <FigureHandles
           box={editBox}
@@ -1755,6 +1819,44 @@ export function StageLayer({
               </button>
             </>
           )}
+        </div>
+      )}
+      {personMenu && menuPerson && onRemovePerson && (
+        <div
+          className={styles.figureMenu}
+          data-figure-menu=""
+          role="menu"
+          aria-label={menuPerson.name}
+          style={{ left: personMenu.x, top: personMenu.y }}
+        >
+          <p className={styles.figureMenuTitle}>{menuPerson.name}</p>
+          {onTakeOut && canTakeOut?.(menuPerson.id) && (
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.figureMenuItem}
+              onClick={() => {
+                onTakeOut(menuPerson.id);
+                setPersonMenu(null);
+              }}
+            >
+              Sacar de la figura
+            </button>
+          )}
+          {/* Apart and in red: they leave the piece (not the call-up). */}
+          <hr className={styles.figureMenuSeparator} />
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.figureMenuItem}
+            data-danger=""
+            onClick={() => {
+              onRemovePerson(menuPerson.id);
+              setPersonMenu(null);
+            }}
+          >
+            Quitar de la pieza
+          </button>
         </div>
       )}
     </div>,

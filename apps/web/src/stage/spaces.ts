@@ -519,6 +519,33 @@ export const reachOfSpace = (space: Pick<StageFigure, 'kind'>, layout: SpaceLayo
   space.kind === 'ring' ? layout.radius + layout.thickness / 2 : layout.length / 2;
 
 /** The hole nearest a point: where a figure moved inside a space would go. */
+/**
+ * Where a figure dropped on a full space makes room: the index of the new hole, between the two
+ * holes either side of the point (along a row, or round a ring). A free dance has no order.
+ */
+export function insertionAt(space: Space, layout: SpaceLayout, point: StagePoint) {
+  if (space.kind === 'free') return null;
+  const holes = [...layout.holes].sort((a, b) => a.hole - b.hole);
+  if (space.kind === 'ring') {
+    // Round a ring: next to the nearest hole, on the side of whichever neighbour is closer.
+    const distance = (place: { x: number; y: number }) =>
+      Math.hypot(place.x - point.x, place.y - point.y);
+    const count = holes.length;
+    const nearest = holes.reduce((best, place) =>
+      distance(place) < distance(best) ? place : best,
+    );
+    const next = holes[(nearest.hole + 1) % count]!;
+    const previous = holes[(nearest.hole - 1 + count) % count]!;
+    return distance(next) < distance(previous) ? nearest.hole + 1 : nearest.hole;
+  }
+  const { axis } = rowAxes(space);
+  const along = (at: StagePoint) => (at.x - space.x) * axis.x + (at.y - space.y) * axis.y;
+  const ascending = holes.length < 2 || along(holes[1]!) >= along(holes[0]!);
+  const target = along(point);
+  return holes.filter((place) => (ascending ? along(place) < target : along(place) > target))
+    .length;
+}
+
 export function nearestHole(layout: SpaceLayout, point: StagePoint) {
   let found = 0;
   let nearest = Infinity;

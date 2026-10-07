@@ -77,6 +77,7 @@ import {
   extentOf,
   gapForReach,
   holeAt,
+  insertionAt,
   nearestHole,
   layoutSpace,
   placeChildren,
@@ -151,6 +152,8 @@ const MAX_COPY_DISTANCE = 40;
 interface Fill {
   spaceId: string;
   holes: number[];
+  /** A full space: a new hole is opened at this index for the figure. */
+  insertAt?: number;
 }
 /** A figure of a space moved inside it (to another hole) or out of it (on its own). */
 interface Shift {
@@ -176,6 +179,9 @@ interface StageEditingOptions {
   /** Stores a new content for the open piece. */
   onChange: (content: StageContent) => void;
 }
+
+// Figures that widen along a line, also inside a space.
+const WIDENING = new Set<FigureKind>(['pair', 'pair_diagonal', 'trio_line', 'trio_diagonal']);
 
 /** Screen point where a drag started: a mouse or pen pointer, or a finger. */
 function startPoint(event: Event) {
@@ -215,6 +221,8 @@ export function useStageEditing({
   const [carriedPointer, setCarriedPointer] = useState<StagePoint | null>(null);
   // Figure in edit mode (handles shown) and its reshape while a handle is held.
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Someone picked on the stage (a click, or the start of a drag): drawn as selected.
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [reshaping, setReshaping] = useState<Reshape | null>(null);
   // Figure copied with Ctrl+C, pasted beside itself with Ctrl+V.
   const [copied, setCopied] = useState<string | null>(null);
@@ -509,7 +517,17 @@ export function useStageEditing({
       if (item.figure.kind === 'row_diagonal' && !DIAGONAL_FIGURES.has(kind)) continue;
       const children = childrenOf(figures, item.figure.id);
       const empty = item.layout.holes.map(({ hole }) => hole).filter((hole) => !children.has(hole));
-      if (!empty.length) continue;
+      if (!empty.length) {
+        // Full: dropped on it, a new hole opens there, between the two figures either side.
+        const at = insertionAt(item.figure, item.layout, point);
+        if (
+          at != null &&
+          item.figure.width < MAX_FIGURE_WIDTH &&
+          contains(spaceOutline(item.figure, item.layout, stage), point)
+        )
+          return { spaceId: item.figure.id, holes: [at], insertAt: at };
+        continue;
+      }
       const hole = holeAt(item.layout, point, stage);
       if (hole >= 0 && !children.has(hole)) return { spaceId: item.figure.id, holes: [hole] };
       if (contains(spaceOutline(item.figure, item.layout, stage), point))
@@ -522,17 +540,24 @@ export function useStageEditing({
   const fillResult = (shape: Shape, id: string | null, fill: Fill): MoveResult | null => {
     const space = figures.find((figure) => figure.id === fill.spaceId);
     if (!space || !stage) return null;
+    const at = fill.insertAt;
+    // Opening a hole moves the figures from there on one along.
     const children = new Map(
-      [...childrenOf(figures, space.id)].map(([hole, child]) => [hole, child as Shape]),
+      [...childrenOf(figures, space.id)].map(([hole, child]) => [
+        at != null && hole >= at ? hole + 1 : hole,
+        child as Shape,
+      ]),
     );
     for (const hole of fill.holes) children.set(hole, shape);
+    const grown = at != null ? { ...space, width: space.width + 1 } : space;
     // In a free dance the figures that grew draw their spots again if they no longer fit.
     const spots =
       space.kind === 'free'
         ? fitSpots(space, spotSizes(space, children), stage, seeded(`${space.id}:${shape.kind}`))
         : undefined;
     if (spots === null) return { ok: false, reason: 'full', places: [], fill };
-    const target = spots ? { ...space, spots } : space;
+    // (A free dance never gets a hole opened by a drop.)
+    const target = spots ? { ...grown, spots } : grown;
     const check = spaceResult(target, space.id, target, children, id);
     const layout = layoutSpace(check.ok ? check.figure : target, children, stage);
     // Show where the new figures' people would stand.
@@ -649,7 +674,16 @@ export function useStageEditing({
     }
     if (result.fill) {
       // Into the holes of a space: the figure (or copies of a new one) and the space, laid out again.
-      const { spaceId, holes } = result.fill;
+      const { spaceId, holes, insertAt } = result.fill;
+      // A full space opens a hole there: the figures from it on move one along.
+      const opened =
+        insertAt == null
+          ? figures
+          : figures.map((figure) =>
+              figure.spaceId === spaceId && figure.hole != null && figure.hole >= insertAt
+                ? { ...figure, hole: figure.hole + 1 }
+                : figure,
+            );
       const added = holes.map((hole, index) => ({
         ...move.shape,
         id: index === 0 && move.id ? move.id : newFigureId(),
@@ -660,7 +694,7 @@ export function useStageEditing({
       let next: StageContent = {
         ...content,
         figures: [
-          ...figures.filter((figure) => figure.id !== spaceId && figure.id !== move.id),
+          ...opened.filter((figure) => figure.id !== spaceId && figure.id !== move.id),
           { ...figures.find((figure) => figure.id === spaceId)!, ...result.figure, id: spaceId },
           ...added,
         ],
@@ -731,6 +765,14 @@ export function useStageEditing({
   } | null => {
     const point = toStage(pointer);
     if (!point || !stage || !content) return null;
+    // Back on their own place: they stay where they were.
+    const own = memberOf(personId);
+    const ownView = own && figureViews.find((item) => item.figure.id === own.figureId);
+    if (own && ownView && own.slot != null && slotAt(ownView.places, point, stage) === own.slot)
+      return {
+        check: { ok: true, point: ownView.places[own.slot]! },
+        seat: { figureId: ownView.figure.id, slot: own.slot },
+      };
     const notPlayed = notPlayedAt(point, personId);
     if (notPlayed) return { check: { ok: false, reason: 'close' }, seat: null, notPlayed };
     const seat = seatAt(point, null, personId);
@@ -912,6 +954,80 @@ export function useStageEditing({
   /** Who stands in a figure, if anyone. */
   const memberIn = (figureId: string) =>
     participants.find((item) => item.figureId === figureId)?.personId;
+
+  /** A figure of a space made wider or narrower: the space is laid out again around it. */
+  const resizeChild = (figureId: string, width: number, quiet: boolean) => {
+    const child = figures.find((figure) => figure.id === figureId);
+    const space = child?.spaceId ? figures.find((figure) => figure.id === child.spaceId) : null;
+    if (!content || !stage || !child || !space || child.hole == null) return;
+    if (width === child.width) return;
+    const children = childrenOf(figures, space.id);
+    children.set(child.hole, { ...child, width });
+    const check = spaceResult(space, space.id, space, children);
+    if (!check.ok)
+      return quiet ? undefined : warn(check.reason === 'off' ? 'full' : check.reason, 'figure');
+    let next: StageContent = {
+      ...content,
+      figures: figures.map((figure) =>
+        figure.id === space.id
+          ? { ...space, ...check.figure, id: space.id }
+          : figure.id === child.id
+            ? { ...child, width }
+            : figure,
+      ),
+    };
+    const placedSpace = next.figures.find((figure) => figure.id === space.id)!;
+    for (const item of placeChildren(placedSpace, next.figures, stage))
+      next = putFigure(next, item, slotPositions(item, stage));
+    onChange(next);
+  };
+
+  /** A solo on its own (not in a space nor a musician's seat): it is just where someone stands. */
+  const isLoneSolo = (figure: StageFigure) =>
+    figure.kind === 'solo' && !figure.spaceId && !figure.instrument;
+
+  /**
+   * Takes someone out of their figure to the nearest free ground, in a solo of their own; the
+   * place they leave stays empty for someone else.
+   */
+  const takeOut = (personId: string) => {
+    const person = people.get(personId);
+    const member = memberOf(personId);
+    if (!content || !stage || !person || !pieceType || member?.x == null || member.y == null)
+      return;
+    const shape = newShape('solo');
+    if (!shape) return;
+    const from = { x: member.x, y: member.y };
+    const others = placed.filter((item) => item.person.id !== personId).map((item) => item.point);
+    const blocks = blocksBut(null, undefined, null, plays(personId));
+    const step = stage.squareSize / 2;
+    // Rings of spots further and further away, the nearest first.
+    for (let ring = 1; ring <= 40; ring += 1) {
+      const spots: StagePoint[] = [];
+      for (let dx = -ring; dx <= ring; dx += 1)
+        for (let dy = -ring; dy <= ring; dy += 1)
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === ring)
+            spots.push({ x: from.x + dx * step, y: from.y + dy * step });
+      spots.sort(
+        (a, b) => Math.hypot(a.x - from.x, a.y - from.y) - Math.hypot(b.x - from.x, b.y - from.y),
+      );
+      for (const spot of spots) {
+        const result = checkFigureDrop(shape, spot, stage, others, blocks);
+        if (!result.ok || Math.hypot(result.figure.x - spot.x, result.figure.y - spot.y) > step)
+          continue;
+        const solo: StageFigure = { ...result.figure, id: newFigureId() };
+        onChange({
+          figures: [...withoutOwnSolo(figures, personId), solo],
+          participants: placeParticipant(participants, person, pieceType, result.places[0]!, {
+            figureId: solo.id,
+            slot: 0,
+          }),
+        });
+        return;
+      }
+    }
+    toast.show({ title: 'No queda sitio libre en el escenario', tone: 'error' });
+  };
 
   const memberOf = (personId: string): Participant | undefined =>
     participants.find((item) => item.personId === personId && item.figureId != null);
@@ -1244,19 +1360,24 @@ export function useStageEditing({
       return;
     }
     if (id.startsWith('figure:')) {
+      // A figure of a space is carried on its own (inside the space or out of it); the space
+      // goes when its own band is dragged.
       const figure = figures.find((item) => item.id === id.slice('figure:'.length));
-      if (figure) startFigureMove(spaceAround(figure), pointer);
+      if (figure) startFigureMove(figure, pointer);
       return;
     }
     const personId = id.replace(/^(tray|stage):/, '');
-    // Moving a member moves its whole figure.
+    // Someone on their own carries their solo; anyone else in a figure leaves it, and their
+    // place stays empty for someone else.
     const member = id.startsWith('stage:') ? memberOf(personId) : undefined;
     const figure = member && figures.find((item) => item.id === member.figureId);
-    if (figure) {
-      startFigureMove(spaceAround(figure), pointer);
+    if (id.startsWith('stage:')) setSelectedPersonId(personId);
+    if (figure && isLoneSolo(figure)) {
+      startFigureMove(figure, pointer);
       setPersonDrag({ personId, pointer, check: null });
       return;
     }
+    setSelectedId(null);
     setPersonDrag({ personId, pointer, check: null });
   };
 
@@ -1726,11 +1847,42 @@ export function useStageEditing({
     personDrag,
     layer: {
       placed: placedOf(shown),
+      repeated: shown ? repeatedPeople(shown) : undefined,
       drag: figureMove ? null : personDrag,
       dragged: personDrag && !figureMove ? (people.get(personDrag.personId) ?? null) : null,
       figures: viewsOf(shown),
       shifting: heldShift?.to != null,
       selectedFigureId: selectedId,
+      selectedPersonId,
+      onSelectPerson: setSelectedPersonId,
+      childHandles: (figureId: string): EditHandles | null => {
+        const child = figures.find((figure) => figure.id === figureId);
+        const space = child?.spaceId ? figures.find((item) => item.id === child.spaceId) : null;
+        if (!child || !space || space.kind === 'free' || !WIDENING.has(child.kind)) return null;
+        return {
+          resize: 'width',
+          // The width follows the pointer as it moves; a refusal is said once it is let go.
+          onResize: ({ reach }, done) => {
+            if (!stage) return;
+            const width = fitWidth(child.kind, widthForReach(child.kind, reach), stage);
+            if (width !== child.width || done) resizeChild(child.id, width, !done);
+          },
+          onTurn: () => {},
+        };
+      },
+      // Out of their figure (not for someone on their own, who already is).
+      onTakeOut: (personId: string) => {
+        const figure = figures.find((item) => item.id === memberOf(personId)?.figureId);
+        return figure && !isLoneSolo(figure) ? takeOut(personId) : undefined;
+      },
+      canTakeOut: (personId: string) => {
+        const figure = figures.find((item) => item.id === memberOf(personId)?.figureId);
+        return Boolean(figure && !isLoneSolo(figure));
+      },
+      onRemovePerson: (personId: string) => {
+        setSelectedPersonId(null);
+        removePerson(personId);
+      },
       onSelectFigure: (figureId: string | null) => {
         // A figure in a space edits its space.
         const figure = figures.find((item) => item.id === figureId);
@@ -1831,7 +1983,6 @@ export function useStageEditing({
               { ...figureDefaults, [settingsKind]: value },
               {
                 onSuccess: () => {
-      repeated: shown ? repeatedPeople(shown) : undefined,
                   setSettings(null);
                   toast.show({ title: 'Figura configurada', tone: 'success' });
                 },

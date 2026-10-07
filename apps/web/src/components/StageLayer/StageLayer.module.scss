@@ -61,6 +61,14 @@
     outline: 3px solid var(--accent);
     outline-offset: 2px;
   }
+
+  // Picked on its own: an accent ring around it, above its figure.
+  &[data-selected] {
+    z-index: 1;
+    box-shadow:
+      0 0 0 3px var(--surface),
+      0 0 0 6px var(--accent);
+  }
 }
 
 // Follows the pointer while dragging; red where nobody can stand.
