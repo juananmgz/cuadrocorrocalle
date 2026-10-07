@@ -29,6 +29,7 @@ import {
   extentOf,
   layoutSpace,
   removeSpots,
+  rowAxes,
   type HolePlace,
   type SpaceLayout,
 } from '../../stage/spaces';
@@ -957,9 +958,24 @@ export function StageLayer({
       const [width, height] = figure.rotation % 180 === 0 ? [across, deep] : [deep, across];
       return { ...turnedBox(figure, width, height, 0), borderRadius: '50%' };
     }
-    // A diagonal row lies on the diagonal.
-    const slant = figure.kind === 'row_diagonal' ? 45 : 0;
-    return turnedBox(figure, layout.length, layout.thickness, figure.rotation + slant);
+    if (figure.kind === 'row_diagonal' && layout.holes.length) {
+      // A diagonal row lies on the diagonal, hugging its figures like a straight row: from the
+      // first to the last, each as long along it as its slanted block (its hole leaves a little
+      // more, so the people stay on the grid).
+      const { axis } = rowAxes(figure);
+      const metre = stage.squareSize;
+      const ends = layout.holes.flatMap((place) => {
+        const along = (place.x - figure.x) * axis.x + (place.y - figure.y) * axis.y;
+        const half = ((place.along - (Math.SQRT2 - 1)) / 2) * metre;
+        return [along - half, along + half];
+      });
+      const [from, to] = [Math.min(...ends), Math.max(...ends)];
+      const middle = (from + to) / 2;
+      const centre = { x: figure.x + axis.x * middle, y: figure.y + axis.y * middle };
+      // The same slightly rounded corners as a straight row.
+      return turnedBox(centre, (to - from) / metre, layout.thickness, figure.rotation + 45);
+    }
+    return turnedBox(figure, layout.length, layout.thickness, figure.rotation);
   };
 
   /**
