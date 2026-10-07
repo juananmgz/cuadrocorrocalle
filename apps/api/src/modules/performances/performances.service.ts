@@ -287,6 +287,13 @@ export function createPerformanceService(
       const participants = input.flatMap((piece) => piece.participants ?? []);
       if (participants.some((participant) => !available.has(participant.personId)))
         return 'NOT_CALLED_UP' as const;
+      // Candidates for a place too.
+      const candidates = input.flatMap((piece) =>
+        (piece.figures ?? []).flatMap((figure) =>
+          (figure.candidates ?? []).flatMap((candidate) => candidate.people),
+        ),
+      );
+      if (candidates.some((personId) => !available.has(personId))) return 'NOT_CALLED_UP' as const;
 
       return pieces.replace(
         performance.id,

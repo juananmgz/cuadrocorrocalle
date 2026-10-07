@@ -7,7 +7,10 @@ import {
   putFigure,
   removeFigure,
   repeatedPeople,
+  setCandidates,
   standingPoint,
+  undecidedPlaces,
+  withOpenCandidates,
 } from './pieceFigures';
 
 const stage = { width: 8, depth: 4, squareSize: 0.5, edgeDistance: 1 };
@@ -98,4 +101,20 @@ test('draws someone in a figure right on its place, even if their saved point dr
   const content = { figures: [pair], participants: [drifted] };
   expect(standingPoint(content, drifted, stage)).toEqual(places[0]);
   expect(standingPoint(content, person('ana', 1, 2), stage)).toEqual({ x: 1, y: 2 });
+});
+
+test('keeps candidates for an empty place until someone stands there', () => {
+  const empty = { figures: [pair], participants: [] };
+  const undecided = setCandidates(empty, 'pair-1', 0, ['mario', 'miguel']);
+  expect(undecidedPlaces(undecided)).toBe(1);
+  // The other place is still just empty.
+  expect(missingPlaces(undecided)).toBe(1);
+  const chosen = {
+    ...undecided,
+    participants: [{ ...person('mario', 0, 0), figureId: 'pair-1', slot: 0 }],
+  };
+  expect(undecidedPlaces(chosen)).toBe(0);
+  expect(withOpenCandidates(chosen)[0]!.candidates).toBeNull();
+  // One candidate alone is no choice: the place is just empty again.
+  expect(setCandidates(undecided, 'pair-1', 0, ['mario']).figures[0]!.candidates).toBeNull();
 });

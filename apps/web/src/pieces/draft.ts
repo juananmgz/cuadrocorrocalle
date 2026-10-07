@@ -7,6 +7,7 @@ import type {
 } from '@cuadrocorrocalle/shared';
 
 import { formatClock, parseClock } from './clock';
+import { withOpenCandidates } from '../stage/pieceFigures';
 
 /** A piece being edited; the duration is kept as typed ("3:30"). */
 export interface PieceDraft {
@@ -79,5 +80,6 @@ export const toPieceInput = (draft: PieceDraft): PieceInput => ({
   encore: draft.encore,
   instruments: draft.instruments,
   participants: draft.participants,
-  figures: draft.figures,
+  // Candidates of places filled meanwhile are no longer needed.
+  figures: withOpenCandidates(draft),
 });

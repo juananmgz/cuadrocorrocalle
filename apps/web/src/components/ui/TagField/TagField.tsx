@@ -1,5 +1,5 @@
 import { Label } from 'radix-ui';
-import { Minus, Plus, X } from 'lucide-react';
+import { Minus, Plus, Trash2, X } from 'lucide-react';
 import { type KeyboardEvent, useId, useState } from 'react';
 
 import styles from './TagField.module.scss';
@@ -139,7 +139,7 @@ export function TagField({
       event.preventDefault();
       setText('');
       onCancel();
-    } else if (event.key === 'Backspace' && !text && tags.length) {
+    } else if (event.key === 'Backspace' && !text && tags.length && !counted) {
       remove(tags[tags.length - 1]!.tag);
     }
   };
@@ -150,48 +150,26 @@ export function TagField({
         {label}
       </Label.Root>
       <div className={styles.box}>
-        {tags.map(({ tag, count }) => (
-          <span key={tag} className={styles.tag}>
-            {tag}
-            {counted && (
-              // How many: one less, the number, one more.
-              <span className={styles.count}>
-                <button
-                  type="button"
-                  className={styles.remove}
-                  aria-label={`Uno menos de ${tag}`}
-                  disabled={count <= 1}
-                  onClick={() => changeCount(tag, -1)}
-                >
-                  <Minus size={12} aria-hidden="true" />
-                </button>
-                <span aria-label={`${count} en total`}>×{count}</span>
-                <button
-                  type="button"
-                  className={styles.remove}
-                  aria-label={`Uno más de ${tag}`}
-                  disabled={values.length >= max}
-                  onClick={() => changeCount(tag, 1)}
-                >
-                  <Plus size={12} aria-hidden="true" />
-                </button>
-              </span>
-            )}
-            <button
-              type="button"
-              className={styles.remove}
-              aria-label={`Quitar ${tag}`}
-              onClick={() => remove(tag)}
-            >
-              <X size={14} aria-hidden="true" />
-            </button>
-          </span>
-        ))}
+        {/* Plain tags go inside the field; counted ones are listed under it. */}
+        {!counted &&
+          tags.map(({ tag }) => (
+            <span key={tag} className={styles.tag}>
+              {tag}
+              <button
+                type="button"
+                className={styles.remove}
+                aria-label={`Quitar ${tag}`}
+                onClick={() => remove(tag)}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </span>
+          ))}
         <input
           id={id}
           className={styles.input}
           value={text}
-          placeholder={values.length ? undefined : placeholder}
+          placeholder={values.length && !counted ? undefined : placeholder}
           maxLength={maxLength}
           role={suggestions.length ? 'combobox' : undefined}
           aria-expanded={suggestions.length ? listOpen : undefined}
@@ -238,6 +216,47 @@ export function TagField({
           </div>
         )}
       </div>
+      {counted && tags.length > 0 && (
+        // One row each: its name, how many (with buttons to change it) and a red one to take it out.
+        <ul className={styles.list} aria-label={label}>
+          {tags.map(({ tag, count }) => (
+            <li key={tag} className={styles.row}>
+              <span className={styles.rowName}>{tag}</span>
+              <span className={styles.stepper}>
+                <button
+                  type="button"
+                  className={styles.step}
+                  aria-label={`Uno menos de ${tag}`}
+                  disabled={count <= 1}
+                  onClick={() => changeCount(tag, -1)}
+                >
+                  <Minus size={14} aria-hidden="true" />
+                </button>
+                <span className={styles.stepCount} aria-label={`${count} en total`}>
+                  {count}
+                </span>
+                <button
+                  type="button"
+                  className={styles.step}
+                  aria-label={`Uno más de ${tag}`}
+                  disabled={values.length >= max}
+                  onClick={() => changeCount(tag, 1)}
+                >
+                  <Plus size={14} aria-hidden="true" />
+                </button>
+              </span>
+              <button
+                type="button"
+                className={styles.delete}
+                aria-label={`Quitar ${tag}`}
+                onClick={() => remove(tag)}
+              >
+                <Trash2 size={16} aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {hint && (
         <p id={`${id}-hint`} className={styles.hint}>
           {hint}

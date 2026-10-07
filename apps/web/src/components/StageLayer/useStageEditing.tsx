@@ -40,6 +40,7 @@ import {
   emptySlots,
   putFigure,
   repeatedPeople,
+  setCandidates,
   standingPoint,
   removeFigure,
   reorderInSpace,
@@ -375,10 +376,31 @@ export function useStageEditing({
   };
 
   /** The block a figure takes up: its own, or the band or disc of a space. */
-  const blockOutline = (figure: StageFigure) =>
-    isSpace(figure.kind)
-      ? spaceOutline(figure, layoutSpace(figure, childrenOf(figures, figure.id), stage!), stage!)
-      : outlineOf(figure.kind, slotPositions(figure, stage!), stage!);
+  const blockOutline = (figure: StageFigure) => {
+    if (!isSpace(figure.kind)) return outlineOf(figure.kind, slotPositions(figure, stage!), stage!);
+    const children = childrenOf(figures, figure.id);
+    const layout = layoutSpace(figure, children, stage!);
+    return figure.kind === 'row_diagonal'
+      ? diagonalOutline(figure, layout, children)
+      : spaceOutline(figure, layout, stage!);
+  };
+
+  /**
+   * A diagonal row takes up what its people do, rounded round them: its band's square corners
+   * stick out past the ends and would bump into things it does not touch.
+   */
+  const diagonalOutline = (
+    space: Shape,
+    layout: ReturnType<typeof layoutSpace>,
+    children: Map<number, Pick<StageFigure, 'kind' | 'width'>>,
+  ) =>
+    outlineOf(
+      'pair_diagonal',
+      layout.holes.flatMap((place) =>
+        slotPositions({ ...(children.get(place.hole) ?? emptyHoleOf(space)), ...place }, stage!),
+      ),
+      stage!,
+    );
 
   /**
    * Where a space held with its centre at `centre` would land: a row on the grid, every hole
@@ -414,7 +436,12 @@ export function useStageEditing({
     const clash =
       people.some((point) => isTooClose(point, others)) ||
       blocksBut(id, undefined, joining).some((block) =>
-        overlaps(spaceOutline(landed, layout, stage!), block),
+        overlaps(
+          landed.kind === 'row_diagonal'
+            ? diagonalOutline(landed, layout, children)
+            : spaceOutline(landed, layout, stage!),
+          block,
+        ),
       );
     return clash
       ? { ok: false, reason: 'close', places: people }
@@ -1597,6 +1624,24 @@ export function useStageEditing({
             blocksBut(selected.figure.id),
           )
         : null;
+  // Refused, a space keeps its own shape (a diagonal row its slanted band) where it was held.
+  const heldShape =
+    held?.result && !held.result.fill
+      ? held.result.ok
+        ? { ...held.result.figure, id: held.id }
+        : isSpace(held.shape.kind) && held.result.places.length
+          ? {
+              ...held.shape,
+              id: held.id,
+              x:
+                held.result.places.reduce((sum, place) => sum + place.x, 0) /
+                held.result.places.length,
+              y:
+                held.result.places.reduce((sum, place) => sum + place.y, 0) /
+                held.result.places.length,
+            }
+          : undefined
+      : undefined;
   // Where the held figure would land; refused places are drawn in red.
   const ghost: FigureGhost | null = held?.result
     ? {
@@ -1605,15 +1650,10 @@ export function useStageEditing({
         ok: held.result.ok,
         spaceId: held.result.fill?.spaceId,
         turn: { key: held.id ?? 'new', rotation: held.shape.rotation },
-        shape:
-          held.result.ok && !held.result.fill ? { ...held.result.figure, id: held.id } : undefined,
+        shape: held.result.fill ? undefined : heldShape,
         layout:
-          held.result.ok && stage && isSpace(held.shape.kind)
-            ? layoutSpace(
-                held.result.figure,
-                childrenFor(held.shape.kind, held.id, held.shape.width),
-                stage,
-              )
+          heldShape && stage && isSpace(held.shape.kind)
+            ? layoutSpace(heldShape, childrenFor(held.shape.kind, held.id, held.shape.width), stage)
             : undefined,
       }
     : reshaped && selected
@@ -1878,6 +1918,30 @@ export function useStageEditing({
       canTakeOut: (personId: string) => {
         const figure = figures.find((item) => item.id === memberOf(personId)?.figureId);
         return Boolean(figure && !isLoneSolo(figure));
+      },
+      candidatePeople: [...people.values()].sort((a, b) => a.name.localeCompare(b.name, 'es')),
+      onSetCandidates: (figureId: string, slot: number, chosen: string[]) => {
+        if (content) onChange(setCandidates(content, figureId, slot, chosen));
+      },
+      // One of the candidates takes the place; the others are no longer needed there.
+      onChooseCandidate: (figureId: string, slot: number, personId: string) => {
+        const view = figureViews.find((item) => item.figure.id === figureId);
+        const person = people.get(personId);
+        if (!content || !view || !person || !pieceType) return;
+        const decided = setCandidates(content, figureId, slot, []);
+        onChange({
+          figures: withoutOwnSolo(decided.figures, personId),
+          participants: placeParticipant(
+            decided.participants,
+            person,
+            pieceType,
+            view.places[slot]!,
+            {
+              figureId,
+              slot,
+            },
+          ),
+        });
       },
       onRemovePerson: (personId: string) => {
         setSelectedPersonId(null);

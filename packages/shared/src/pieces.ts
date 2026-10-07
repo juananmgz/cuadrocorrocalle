@@ -100,6 +100,19 @@ export const pieceInputSchema = z
         });
       taken.add(key);
     }
+    // Candidates wait in an empty place of their figure, once per place.
+    for (const figure of piece.figures ?? []) {
+      const slots = new Set<number>();
+      for (const { slot } of figure.candidates ?? []) {
+        if (slot >= slotCount(figure) || taken.has(`${figure.id}:${slot}`) || slots.has(slot))
+          context.addIssue({
+            code: 'custom',
+            message: 'Candidatos en un hueco no válido',
+            path: ['figures'],
+          });
+        slots.add(slot);
+      }
+    }
     const holes = new Set<string>();
     for (const figure of piece.figures ?? []) {
       if (figure.spaceId == null && figure.hole == null) continue;

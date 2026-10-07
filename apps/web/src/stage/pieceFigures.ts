@@ -158,9 +158,55 @@ export function standingPoint(
 export const repeatedText = (count: number) =>
   count === 1 ? '1 persona repetida' : `${count} personas repetidas`;
 
-/** How many places are still empty across the piece's figures. */
+/** The candidates of a figure's empty places ("Mario / Miguel"); filled places drop theirs. */
+export function openCandidates(content: StageContent, figure: StageFigure) {
+  const empty = new Set(emptySlots(content, figure));
+  return (figure.candidates ?? []).filter(
+    ({ slot, people }) => empty.has(slot) && people.length >= 2,
+  );
+}
+
+/** How many places are still to be decided between candidates. */
+export const undecidedPlaces = (content: StageContent) =>
+  content.figures.reduce((total, figure) => total + openCandidates(content, figure).length, 0);
+
+/** "1 hueco por decidir", "2 huecos por decidir". */
+export const undecidedText = (count: number) =>
+  count === 1 ? '1 hueco por decidir' : `${count} huecos por decidir`;
+
+/** The figures with only the candidates still waiting, as they are saved. */
+export const withOpenCandidates = (content: StageContent): StageFigure[] =>
+  content.figures.map((figure) => {
+    if (!figure.candidates) return figure;
+    const open = openCandidates(content, figure);
+    return { ...figure, candidates: open.length ? open : null };
+  });
+
+/** A figure's candidates for one of its places: two or more, or none. */
+export function setCandidates(
+  content: StageContent,
+  figureId: string,
+  slot: number,
+  people: string[],
+): StageContent {
+  return {
+    ...content,
+    figures: content.figures.map((figure) => {
+      if (figure.id !== figureId) return figure;
+      const others = (figure.candidates ?? []).filter((candidate) => candidate.slot !== slot);
+      const candidates = people.length >= 2 ? [...others, { slot, people }] : others;
+      return { ...figure, candidates: candidates.length ? candidates : null };
+    }),
+  };
+}
+
+/** How many places are still empty across the piece's figures (not those being decided). */
 export const missingPlaces = (content: StageContent) =>
-  content.figures.reduce((total, figure) => total + emptySlots(content, figure).length, 0);
+  content.figures.reduce(
+    (total, figure) =>
+      total + emptySlots(content, figure).length - openCandidates(content, figure).length,
+    0,
+  );
 
 /** Lays a space out again: it keeps to the grid and the figures in it (with their people) follow. */
 export function relayoutSpace(content: StageContent, spaceId: string, stage: StageSize) {

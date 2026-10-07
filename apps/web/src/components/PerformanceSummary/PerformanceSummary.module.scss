@@ -262,3 +262,10 @@
   font-weight: 700;
   color: var(--danger);
 }
+
+// A performance with places still between candidates.
+.incomplete {
+  margin: 0;
+  font-weight: 700;
+  color: var(--warn);
+}

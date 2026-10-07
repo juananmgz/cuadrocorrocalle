@@ -271,3 +271,9 @@
     background: var(--sel-bg);
   }
 }
+
+// Buttons that remove are red, not only on hover.
+.remove,
+.delete {
+  color: var(--danger);
+}

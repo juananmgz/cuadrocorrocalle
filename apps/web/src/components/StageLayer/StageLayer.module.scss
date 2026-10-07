@@ -276,6 +276,25 @@
   &[data-hidden] {
     opacity: 0.25;
   }
+
+  // A place with candidates: still to be decided.
+  &[data-candidates] {
+    border-color: var(--warn);
+  }
+}
+
+// "Mario / Miguel" under a place being decided, in grey.
+.candidates {
+  position: absolute;
+  padding: 0 var(--space-1);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  border-radius: 4px;
+  transform: translateX(-50%);
 }
 
 // Where a figure being placed or moved would land.
@@ -560,4 +579,56 @@
       transparent
     );
   }
+}
+
+// The people to pick as candidates for a place: their chips, a little apart, in a list that
+// scrolls when long.
+.candidateList {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+  max-height: 260px;
+  padding: var(--space-1);
+  overflow-y: auto;
+}
+
+.candidateItem {
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+
+  &:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+// "Elegir": its candidates open beside the menu, level with it.
+.submenuAnchor {
+  position: relative;
+  display: grid;
+}
+
+.submenuChevron {
+  margin-left: auto;
+}
+
+.submenu {
+  position: absolute;
+  top: calc(-1 * var(--space-1));
+  left: 100%;
+  margin-left: var(--space-2);
+}
+
+// A strip over the gap, so the pointer can cross from "Elegir" to its list without closing it.
+.submenu::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--space-3));
+  width: var(--space-3);
+  content: '';
 }

@@ -520,6 +520,18 @@ test('lets only people who come or may come take part in a piece', async () => {
     400,
   );
 
+  // Candidates wait in an empty place, only people who come or may come.
+  const undecided = { ...pair, candidates: [{ slot: 1, people: [julia.id, lucia.id] }] };
+  const decided = await withFigure([], [undecided]);
+  expect(decided.statusCode).toBe(200);
+  expect(decided.json().pieces[0].figures[0].candidates).toEqual(undecided.candidates);
+  const taken = [
+    { personId: julia.id, roles: ['dance'], x: 0, y: 0.25, figureId: pair.id, slot: 1 },
+  ];
+  expect((await withFigure(taken, [undecided])).statusCode).toBe(400);
+  const notComing = { ...pair, candidates: [{ slot: 0, people: [julia.id, mario.id] }] };
+  expect((await withFigure([], [notComing])).statusCode).toBe(400);
+
   // A free dance keeps its area and the spot of each of its people.
   const free = {
     id: 'figure-free-1',

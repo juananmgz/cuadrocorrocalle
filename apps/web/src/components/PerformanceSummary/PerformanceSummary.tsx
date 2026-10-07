@@ -16,6 +16,8 @@ import {
   repeatedPeople,
   repeatedText,
   standingPoint,
+  undecidedPlaces,
+  undecidedText,
 } from '../../stage/pieceFigures';
 import type { StageSize } from '../../stage/placement';
 import { useStageView } from '../GridBackground/stageView';
@@ -106,7 +108,12 @@ export function PerformanceSummary({
 
   // Clicking a piece previews what it has on the stage, as saved; "Editar" opens it.
   const [previewKey, setPreviewKey] = useState<string | null>(null);
-  const preview = pieces.find((piece) => piece.key === previewKey) ?? null;
+  // The first piece shows on the stage until another is picked.
+  const preview =
+    pieces.find((piece) => piece.key === previewKey) ??
+    pieces.find((piece) => !piece.encore) ??
+    pieces[0] ??
+    null;
   const wide = useMediaQuery(FROM_TABLET);
   const stageView = useStageView();
   const previewLabel = active && preview ? preview.title : null;
@@ -149,6 +156,8 @@ export function PerformanceSummary({
     });
   }, [preview, people, stage]);
 
+  const undecidedTotal = pieces.reduce((total, piece) => total + undecidedPlaces(piece), 0);
+
   return (
     <div className={styles.root}>
       <Card
@@ -176,6 +185,12 @@ export function PerformanceSummary({
             .filter(Boolean)
             .join(' · ') || 'Sin fecha ni lugar todavía'}
         </p>
+        {/* Places still to be decided between candidates: the performance is not finished. */}
+        {undecidedTotal > 0 && (
+          <p className={styles.incomplete}>
+            Incompleta: {undecidedText(undecidedTotal)} entre candidatos
+          </p>
+        )}
         <RepertoireSummaryView
           summary={summary}
           minMinutes={performance.minMinutes}
@@ -191,14 +206,16 @@ export function PerformanceSummary({
                 key={piece.key}
                 className={styles.pieceRow}
                 data-incomplete={
-                  missingPlaces(piece) || repeatedPeople(piece).size ? '' : undefined
+                  missingPlaces(piece) || repeatedPeople(piece).size || undecidedPlaces(piece)
+                    ? ''
+                    : undefined
                 }
               >
                 <button
                   type="button"
                   className={styles.piece}
-                  aria-pressed={piece.key === previewKey}
-                  onClick={() => setPreviewKey(piece.key === previewKey ? null : piece.key)}
+                  aria-pressed={piece.key === preview?.key}
+                  onClick={() => setPreviewKey(piece.key)}
                 >
                   <span className={styles.number}>{numberOf(piece)}</span>
                   <span className={styles.pieceTitle}>{piece.title}</span>
@@ -211,6 +228,11 @@ export function PerformanceSummary({
                   {repeatedPeople(piece).size > 0 && (
                     <span className={styles.repeated}>
                       {repeatedText(repeatedPeople(piece).size)}
+                    </span>
+                  )}
+                  {undecidedPlaces(piece) > 0 && (
+                    <span className={styles.missingPlaces}>
+                      {undecidedText(undecidedPlaces(piece))}
                     </span>
                   )}
                   {missingPlaces(piece) > 0 && (

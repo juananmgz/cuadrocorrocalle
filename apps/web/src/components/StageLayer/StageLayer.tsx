@@ -1,5 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
-import { Minus, Plus, RotateCw, Shuffle, Trash2 } from 'lucide-react';
+import { Check, ChevronRight, Minus, Plus, RotateCw, Shuffle, Trash2 } from 'lucide-react';
 import {
   DEFAULT_CROSS_ARMS,
   FIGURE_LABELS,
@@ -21,7 +21,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
-import { isSlanted, slantedBlock, slotOffsets } from '../../stage/figures';
+import { isSlanted, slantedBlock, slotAt, slotOffsets } from '../../stage/figures';
 import { crossArms, crossOutline, roundedOutline } from '../../stage/outline';
 import {
   addSpots,
@@ -29,6 +29,7 @@ import {
   extentOf,
   layoutSpace,
   removeSpots,
+  rowAxes,
   type HolePlace,
   type SpaceLayout,
 } from '../../stage/spaces';
@@ -44,6 +45,7 @@ import type { MirrorWay } from '../../stage/mirror';
 import { stageProjection } from '../../stage/projection';
 import type { StageView } from '../GridBackground/stageView';
 import type { TrayPerson } from '../PeopleTray/PeopleTray';
+import { PersonChip } from '../ui/PersonChip/PersonChip';
 import { getPersonColor } from '../ui/personColors';
 import styles from './StageLayer.module.scss';
 
@@ -52,6 +54,13 @@ const MIN_TOKEN = 22;
 const MAX_TOKEN = 48;
 
 const NOBODY = new Set<string>();
+const NOBODY_THERE: TrayPerson[] = [];
+
+/** "Mario / Miguel": the first names of the candidates for a place. */
+const candidateNames = (people: string[], everyone: TrayPerson[]) =>
+  people
+    .map((id) => everyone.find((person) => person.id === id)?.name.split(/\s+/)[0] ?? '?')
+    .join(' / ');
 
 export interface PlacedPerson {
   person: TrayPerson;
@@ -794,6 +803,10 @@ interface StageLayerProps {
   canTakeOut?: ((personId: string) => boolean) | null;
   /** Takes someone out of the piece. */
   onRemovePerson?: ((personId: string) => void) | null;
+  /** People who can be candidates for an empty place (step 2.8), and what is done with them. */
+  candidatePeople?: TrayPerson[];
+  onSetCandidates?: ((figureId: string, slot: number, people: string[]) => void) | null;
+  onChooseCandidate?: ((figureId: string, slot: number, personId: string) => void) | null;
   /** The space being edited: a − beside each hole to take it out, with its figure. */
   onRemoveHole?: ((spaceId: string, hole: number) => void) | null;
   /** The space being edited: a move handle beside each figure to carry it (a click) or drag it. */
@@ -838,6 +851,9 @@ export function StageLayer({
   onTakeOut = null,
   canTakeOut = null,
   onRemovePerson = null,
+  candidatePeople = NOBODY_THERE,
+  onSetCandidates = null,
+  onChooseCandidate = null,
   onCrossArm = null,
   onTurnChild = null,
   onGrowRow = null,
@@ -957,9 +973,24 @@ export function StageLayer({
       const [width, height] = figure.rotation % 180 === 0 ? [across, deep] : [deep, across];
       return { ...turnedBox(figure, width, height, 0), borderRadius: '50%' };
     }
-    // A diagonal row lies on the diagonal.
-    const slant = figure.kind === 'row_diagonal' ? 45 : 0;
-    return turnedBox(figure, layout.length, layout.thickness, figure.rotation + slant);
+    if (figure.kind === 'row_diagonal' && layout.holes.length) {
+      // A diagonal row lies on the diagonal, hugging its figures like a straight row: from the
+      // first to the last, each as long along it as its slanted block (its hole leaves a little
+      // more, so the people stay on the grid).
+      const { axis } = rowAxes(figure);
+      const metre = stage.squareSize;
+      const ends = layout.holes.flatMap((place) => {
+        const along = (place.x - figure.x) * axis.x + (place.y - figure.y) * axis.y;
+        const half = ((place.along - (Math.SQRT2 - 1)) / 2) * metre;
+        return [along - half, along + half];
+      });
+      const [from, to] = [Math.min(...ends), Math.max(...ends)];
+      const middle = (from + to) / 2;
+      const centre = { x: figure.x + axis.x * middle, y: figure.y + axis.y * middle };
+      // The same slightly rounded corners as a straight row.
+      return turnedBox(centre, (to - from) / metre, layout.thickness, figure.rotation + 45);
+    }
+    return turnedBox(figure, layout.length, layout.thickness, figure.rotation);
   };
 
   /**
@@ -1294,6 +1325,16 @@ export function StageLayer({
   const [personMenu, setPersonMenu] = useState<{ personId: string; x: number; y: number } | null>(
     null,
   );
+  const [slotMenu, setSlotMenu] = useState<{
+    figureId: string;
+    slot: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  // Who is being ticked in the open menu (one alone is not saved yet, so it is kept here).
+  const [picking, setPicking] = useState<string[]>([]);
+  // The candidates to choose from, open beside the menu.
+  const [choosing, setChoosing] = useState(false);
   const [figureMenu, setFigureMenu] = useState<{ figureId: string; x: number; y: number } | null>(
     null,
   );
@@ -1316,11 +1357,59 @@ export function StageLayer({
         (selectedFigureId && event.clientX >= view.left ? selectedFigureId : null);
       if (!id) return;
       event.preventDefault();
+      // Over an empty place of a simple figure: the menu of that place, for its candidates.
+      const item = figures.find((entry) => entry.figure.id === id);
+      if (item && onSetCandidates && !item.layout) {
+        const point = stageProjection(view, stage).toStage(event.clientX, event.clientY);
+        const slot = slotAt(item.places, point, stage);
+        if (slot >= 0 && item.empty.includes(slot)) {
+          setFigureMenu(null);
+          setSlotMenu({ figureId: id, slot, x: event.clientX, y: event.clientY });
+          setPicking(
+            item.figure.candidates?.find((candidate) => candidate.slot === slot)?.people ?? [],
+          );
+          setChoosing(false);
+          return;
+        }
+      }
       setFigureMenu({ figureId: id, x: event.clientX, y: event.clientY });
     };
     window.addEventListener('contextmenu', open);
     return () => window.removeEventListener('contextmenu', open);
-  }, [readOnly, onMirror, selectedFigureId, view.left, onRemovePerson, onSelectPerson]);
+  }, [
+    readOnly,
+    onMirror,
+    selectedFigureId,
+    view,
+    stage,
+    figures,
+    onRemovePerson,
+    onSelectPerson,
+    onSetCandidates,
+  ]);
+
+  // The menu of an empty place: who could stand there, and choosing one of them.
+  useEffect(() => {
+    if (!slotMenu) return;
+    const close = (event: Event) => {
+      if (event instanceof KeyboardEvent && event.key !== 'Escape') return;
+      if (event.target instanceof Element && event.target.closest('[data-figure-menu]')) return;
+      setSlotMenu(null);
+    };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', close);
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('keydown', close);
+    };
+  }, [slotMenu]);
+  const slotFigure = slotMenu
+    ? figures.find((item) => item.figure.id === slotMenu.figureId)?.figure
+    : undefined;
+  const slotCandidates =
+    (slotMenu &&
+      slotFigure?.candidates?.find((candidate) => candidate.slot === slotMenu.slot)?.people) ??
+    [];
 
   // A person's menu (right click or long press on them), and their selection: both go with a
   // press elsewhere or Escape.
@@ -1465,14 +1554,31 @@ export function StageLayer({
           );
         })}
       {figures.flatMap((item) =>
-        item.empty.map((slot) => (
-          <span
-            key={`${item.figure.id}:${slot}`}
-            className={styles.placeholder}
-            data-hidden={item.figure.id === movingFigureId ? '' : undefined}
-            style={spinning(item.figure.id, at(item.places[slot]!, token))}
-          />
-        )),
+        item.empty.map((slot) => {
+          const candidates = item.figure.candidates?.find((candidate) => candidate.slot === slot);
+          const place = item.places[slot]!;
+          return (
+            <Fragment key={`${item.figure.id}:${slot}`}>
+              <span
+                className={styles.placeholder}
+                data-candidates={candidates ? '' : undefined}
+                data-hidden={item.figure.id === movingFigureId ? '' : undefined}
+                style={spinning(item.figure.id, at(place, token))}
+              />
+              {candidates && item.figure.id !== movingFigureId && (
+                <span
+                  className={styles.candidates}
+                  style={{
+                    left: toScreen(place).x,
+                    top: toScreen(place).y + token / 2 + 2,
+                  }}
+                >
+                  {candidateNames(candidates.people, candidatePeople)}
+                </span>
+              )}
+            </Fragment>
+          );
+        }),
       )}
       {ghost && (
         // Turned in the preview: it spins there, so the figure just lands when let go.
@@ -1816,6 +1922,112 @@ export function StageLayer({
                 }}
               >
                 Eliminar
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {slotMenu && slotFigure && onSetCandidates && (
+        <div
+          className={styles.figureMenu}
+          data-figure-menu=""
+          role="menu"
+          aria-label={`Hueco de la ${FIGURE_LABELS[slotFigure.kind].toLowerCase()}`}
+          style={{ left: slotMenu.x, top: slotMenu.y }}
+        >
+          <p className={styles.figureMenuTitle}>
+            Hueco de la {FIGURE_LABELS[slotFigure.kind].toLowerCase()}
+          </p>
+          {/* One "Elegir" opens the candidates beside the menu; choosing one puts them there. */}
+          {onChooseCandidate && slotCandidates.length > 0 && (
+            <div
+              className={styles.submenuAnchor}
+              onPointerEnter={() => setChoosing(true)}
+              onPointerLeave={() => setChoosing(false)}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                aria-haspopup="menu"
+                aria-expanded={choosing}
+                className={styles.figureMenuItem}
+                onClick={() => setChoosing((open) => !open)}
+              >
+                Elegir definitivo
+                <ChevronRight size={16} aria-hidden="true" className={styles.submenuChevron} />
+              </button>
+              {choosing && (
+                <div className={`${styles.figureMenu} ${styles.submenu}`} role="menu">
+                  <div className={styles.candidateList}>
+                    {slotCandidates.map((personId) => {
+                      const person = candidatePeople.find((item) => item.id === personId);
+                      return person ? (
+                        <button
+                          key={personId}
+                          type="button"
+                          role="menuitem"
+                          className={styles.candidateItem}
+                          aria-label={`Elegir a ${person.name}`}
+                          onClick={() => {
+                            onChooseCandidate(slotMenu.figureId, slotMenu.slot, personId);
+                            setSlotMenu(null);
+                          }}
+                        >
+                          <PersonChip name={person.name} color={person.mainColor} />
+                        </button>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {slotCandidates.length > 0 && <hr className={styles.figureMenuSeparator} />}
+          <p className={styles.figureMenuTitle}>Candidatos (dos o más)</p>
+          <div className={styles.candidateList}>
+            {candidatePeople.map((person) => {
+              const picked = picking.includes(person.id);
+              return (
+                <button
+                  key={person.id}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={picked}
+                  className={styles.candidateItem}
+                  onClick={() => {
+                    const next = picked
+                      ? picking.filter((id) => id !== person.id)
+                      : [...picking, person.id];
+                    // The first one is kept here until a second makes it a choice.
+                    setPicking(next);
+                    onSetCandidates(slotMenu.figureId, slotMenu.slot, next);
+                  }}
+                >
+                  <PersonChip
+                    name={person.name}
+                    color={person.mainColor}
+                    highlighted={picked}
+                    action={picked ? <Check size={16} aria-hidden="true" /> : undefined}
+                  />
+                </button>
+              );
+            })}
+          </div>
+          {picking.length > 0 && (
+            <>
+              {/* Apart and in red: the place goes back to just empty. */}
+              <hr className={styles.figureMenuSeparator} />
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.figureMenuItem}
+                data-danger=""
+                onClick={() => {
+                  setPicking([]);
+                  onSetCandidates(slotMenu.figureId, slotMenu.slot, []);
+                }}
+              >
+                Quitar todos los candidatos
               </button>
             </>
           )}

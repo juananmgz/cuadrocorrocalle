@@ -34,6 +34,7 @@ Migraciones:
 - `20261006180000_instruments` (paso 2.7): instrumentos de cada pieza (`instruments`) y el instrumento del sitio de cada músico (`instrument` en sus figuras).
 - `20261006190000_group_instruments` (paso 2.7): instrumentos que toca cada grupo (`instruments`), que se ofrecen en sus piezas.
 - `20261006200000_person_instruments` (paso 2.7): instrumentos que toca cada persona (`instruments`); solo ocupa los sitios de esos instrumentos.
+- `20261007090000_hole_candidates` (paso 2.8): candidatos de los huecos vacíos de cada figura (`candidates`, JSON con el hueco y las personas).
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -166,6 +167,7 @@ erDiagram
     float area_width "baile libre: ancho del área, en casillas"
     float area_depth "baile libre: fondo del área, en casillas"
     jsonb spots "baile libre: sitio de cada persona"
+    jsonb candidates "huecos por decidir: hueco y personas"
     text space_id "figura simple dentro de un espacio"
     int hole "su hueco en el espacio"
     float angle "giro libre en un corro, en grados"
