@@ -51,6 +51,8 @@ import styles from './StageLayer.module.scss';
 const MIN_TOKEN = 22;
 const MAX_TOKEN = 48;
 
+const NOBODY = new Set<string>();
+
 export interface PlacedPerson {
   person: TrayPerson;
   point: StagePoint;
@@ -122,10 +124,18 @@ interface TokenProps {
   hidden: boolean;
   /** Off the stage or in the safety strip, e.g. after a resize. */
   misplaced: boolean;
+  /** Twice in the piece, or sharing a place with someone. */
+  repeated?: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
 }
 
 /** One person on the stage; it can be dragged to another place or back to the tray. */
-function Token({ placed, style, hidden, misplaced }: TokenProps) {
+/** What a token says about where it is, for screen readers. */
+const problemOf = (misplaced: boolean, repeated?: boolean) =>
+  repeated ? ' (repetida en la pieza)' : misplaced ? ' (fuera de sitio)' : '';
+
+function Token({ placed, style, hidden, misplaced, repeated, selected, onSelect }: TokenProps) {
   const { person } = placed;
   const { attributes, listeners, setNodeRef } = useDraggable({ id: `stage:${person.id}` });
   const { fill, ink } = getPersonColor(person.mainColor);
@@ -137,11 +147,11 @@ function Token({ placed, style, hidden, misplaced }: TokenProps) {
       className={styles.token}
       data-figure-member={placed.figureId ?? undefined}
       data-hidden={hidden ? '' : undefined}
-      data-misplaced={misplaced ? '' : undefined}
+      data-misplaced={misplaced || repeated ? '' : undefined}
       style={{ ...style, background: fill, color: ink }}
-      title={person.name}
+      title={repeated ? `${person.name}: repetida en la pieza` : person.name}
       {...attributes}
-      aria-label={`${person.name}${misplaced ? ' (fuera de sitio)' : ''}: arrastra para moverlo o devuélvelo a la bandeja`}
+      aria-label={`${person.name}${problemOf(misplaced, repeated)}: arrastra para moverlo o devuélvelo a la bandeja`}
       {...listeners}
     >
       {initials(person.name)}
@@ -150,18 +160,18 @@ function Token({ placed, style, hidden, misplaced }: TokenProps) {
 }
 
 /** One person on the stage, only to look at, e.g. in the preview of a piece. */
-function StaticToken({ placed, style, misplaced }: Omit<TokenProps, 'hidden'>) {
+function StaticToken({ placed, style, misplaced, repeated }: Omit<TokenProps, 'hidden'>) {
   const { person } = placed;
   const { fill, ink } = getPersonColor(person.mainColor);
   return (
     <span
       className={styles.token}
       data-static=""
-      data-misplaced={misplaced ? '' : undefined}
+      data-misplaced={misplaced || repeated ? '' : undefined}
       style={{ ...style, background: fill, color: ink }}
-      title={person.name}
+      title={repeated ? `${person.name}: repetida en la pieza` : person.name}
       role="img"
-      aria-label={`${person.name}${misplaced ? ' (fuera de sitio)' : ''}`}
+      aria-label={`${person.name}${problemOf(misplaced, repeated)}`}
     >
       {initials(person.name)}
     </span>
@@ -746,6 +756,8 @@ function growSpots(
     spot('left', -sideways, 0),
     spot('right', sideways, 0),
     spot('top', 0, -upwards),
+  /** People twice in the piece or sharing a place, drawn in red. */
+  repeated?: Set<string>;
     spot('bottom', 0, upwards),
   ];
 }
@@ -807,6 +819,7 @@ export function StageLayer({
   placed,
   drag = null,
   dragged = null,
+  repeated = NOBODY,
   readOnly = false,
   figures = [],
   selectedFigureId = null,
@@ -1498,6 +1511,7 @@ export function StageLayer({
             return (
               <div
                 key={`arm-${arm}`}
+            repeated={repeated.has(item.person.id)}
                 className={styles.holeTools}
                 data-figure-handle=""
                 style={{ left: middle.x + way.x * out, top: middle.y + way.y * out }}
@@ -1506,6 +1520,9 @@ export function StageLayer({
                   type="button"
                   className={styles.moveHole}
                   data-figure-handle=""
+            repeated={repeated.has(item.person.id)}
+            selected={selectedPersonId === item.person.id}
+            onSelect={() => onSelectPerson?.(item.person.id)}
                   aria-label={`Una persona más ${ARM_NAMES[arm]}`}
                   title="Una persona más en este brazo"
                   disabled={counts[arm]! >= MAX_CROSS_ARM}

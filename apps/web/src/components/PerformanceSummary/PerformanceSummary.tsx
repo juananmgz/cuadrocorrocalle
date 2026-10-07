@@ -183,7 +183,9 @@ export function PerformanceSummary({
               <li
                 key={piece.key}
                 className={styles.pieceRow}
-                data-incomplete={missingPlaces(piece) ? '' : undefined}
+                data-incomplete={
+                  missingPlaces(piece) || repeatedPeople(piece).size ? '' : undefined
+                }
               >
                 <button
                   type="button"
@@ -206,6 +208,11 @@ export function PerformanceSummary({
                     </span>
                   )}
                 </button>
+                  {repeatedPeople(piece).size > 0 && (
+                    <span className={styles.repeated}>
+                      {repeatedText(repeatedPeople(piece).size)}
+                    </span>
+                  )}
                 <Button onClick={() => piece.id && onOpenPiece(piece.id)}>Editar</Button>
               </li>
             ))}
@@ -245,6 +252,7 @@ export function PerformanceSummary({
           }))}
           readOnly
         />
+          repeated={repeatedPeople(preview)}
       )}
     </div>
   );

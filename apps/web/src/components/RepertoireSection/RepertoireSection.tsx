@@ -31,7 +31,7 @@ import { type ReactNode, useMemo, useState } from 'react';
 import { formatClock } from '../../pieces/clock';
 import { draftError, emptyDraft, type PieceDraft } from '../../pieces/draft';
 import { STARTER_INSTRUMENTS } from '../../pieces/instruments';
-import { missingPlaces } from '../../stage/pieceFigures';
+import { missingPlaces, repeatedPeople, repeatedText } from '../../stage/pieceFigures';
 import { summarize } from '../../pieces/summary';
 import { cleanText } from '../../performances/sanitize';
 import type { TrayPerson } from '../PeopleTray/PeopleTray';
@@ -122,6 +122,7 @@ function PieceRow({
   const error = draftError(draft);
   // Figures with nobody in some of their places (step 2.2).
   const missing = missingPlaces(draft);
+  const repeated = repeatedPeople(draft).size;
   const set = (changes: Partial<PieceDraft>) => onChange({ ...draft, ...changes });
 
   return (
@@ -181,6 +182,7 @@ function PieceRow({
                   {draft.participants.length === 1 ? 'persona' : 'personas'}
                 </span>
               )}
+              {repeated > 0 && <span className={styles.repeated}>{repeatedText(repeated)}</span>}
               {missing > 0 && (
                 <span className={styles.missingPlaces}>
                   {missing} {missing === 1 ? 'hueco vacío' : 'huecos vacíos'}

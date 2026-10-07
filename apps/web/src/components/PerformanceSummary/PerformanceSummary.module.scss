@@ -254,3 +254,11 @@
   font-weight: 700;
   color: var(--warn);
 }
+
+// Someone twice in a piece: it should never happen, so it shows in red.
+.repeated {
+  grid-column: 2;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--danger);
+}

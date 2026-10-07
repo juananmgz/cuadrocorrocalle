@@ -1847,6 +1847,7 @@ export function useStageEditing({
               { ...figureDefaults, [settingsKind]: value },
               {
                 onSuccess: () => {
+      repeated: shown ? repeatedPeople(shown) : undefined,
                   setSettings(null);
                   toast.show({ title: 'Figura configurada', tone: 'success' });
                 },
