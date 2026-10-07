@@ -6,6 +6,7 @@ import {
   contains,
   gapForReach,
   holeAt,
+  insertionAt,
   layoutSpace,
   placeChildren,
   snapSpace,
@@ -200,4 +201,14 @@ test('lays a diagonal row on the diagonal, its people on the half-square grid', 
       );
     }
   }
+});
+
+test('opens a new hole between the two figures either side of a point', () => {
+  const layout = layoutSpace(row, new Map(), stage);
+  // Holes at -1, 0 and 1 m along the row.
+  expect(insertionAt(row, layout, { x: -1.4, y: 0 })).toBe(0);
+  expect(insertionAt(row, layout, { x: -0.5, y: 0 })).toBe(1);
+  expect(insertionAt(row, layout, { x: 0.4, y: 0 })).toBe(2);
+  expect(insertionAt(row, layout, { x: 1.6, y: 0 })).toBe(3);
+  expect(insertionAt({ ...row, kind: 'free' }, layout, { x: 0, y: 0 })).toBeNull();
 });

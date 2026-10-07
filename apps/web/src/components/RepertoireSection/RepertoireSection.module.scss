@@ -63,6 +63,13 @@
   color: var(--warn);
 }
 
+// Someone twice in the piece: it should never happen, so it shows in red.
+.repeated {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--danger);
+}
+
 .row {
   position: relative;
   display: flex;

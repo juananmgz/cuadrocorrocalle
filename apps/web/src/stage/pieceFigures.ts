@@ -116,6 +116,48 @@ export function emptySlots(content: StageContent, figure: StageFigure) {
   );
 }
 
+/**
+ * People who are twice in a piece, or share a figure's place with someone else. It should never
+ * happen (the API refuses it), but if it does they are shown in red so it can be fixed.
+ */
+export function repeatedPeople(content: StageContent) {
+  const repeated = new Set<string>();
+  const seen = new Set<string>();
+  const places = new Map<string, string>();
+  for (const { personId, figureId, slot } of content.participants) {
+    if (seen.has(personId)) repeated.add(personId);
+    seen.add(personId);
+    if (figureId == null || slot == null) continue;
+    const place = `${figureId}:${slot}`;
+    const other = places.get(place);
+    if (other && other !== personId) repeated.add(other).add(personId);
+    places.set(place, personId);
+  }
+  return repeated;
+}
+
+/**
+ * Where someone stands: the place of their figure when they are in one (so they are always drawn
+ * right in its middle, even if a saved position drifted), or their own point.
+ */
+export function standingPoint(
+  content: StageContent,
+  participant: Pick<Participant, 'x' | 'y' | 'figureId' | 'slot'>,
+  stage: StageSize | null,
+) {
+  if (participant.x == null || participant.y == null) return null;
+  const figure =
+    stage && participant.figureId != null && participant.slot != null
+      ? content.figures.find((item) => item.id === participant.figureId)
+      : undefined;
+  const place = figure && stage ? slotPositions(figure, stage)[participant.slot!] : undefined;
+  return place ?? { x: participant.x, y: participant.y };
+}
+
+/** "1 persona repetida", "2 personas repetidas". */
+export const repeatedText = (count: number) =>
+  count === 1 ? '1 persona repetida' : `${count} personas repetidas`;
+
 /** How many places are still empty across the piece's figures. */
 export const missingPlaces = (content: StageContent) =>
   content.figures.reduce((total, figure) => total + emptySlots(content, figure).length, 0);

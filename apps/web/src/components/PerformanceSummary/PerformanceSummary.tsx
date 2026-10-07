@@ -10,7 +10,13 @@ import { summarize } from '../../pieces/summary';
 import { formatDay, formatDuration } from '../../performances/format';
 import { FROM_TABLET, useMediaQuery } from '../../hooks';
 import { slotPositions } from '../../stage/figures';
-import { emptySlots, missingPlaces } from '../../stage/pieceFigures';
+import {
+  emptySlots,
+  missingPlaces,
+  repeatedPeople,
+  repeatedText,
+  standingPoint,
+} from '../../stage/pieceFigures';
 import type { StageSize } from '../../stage/placement';
 import { useStageView } from '../GridBackground/stageView';
 import { type PlacedPerson, StageLayer } from '../StageLayer/StageLayer';
@@ -134,13 +140,14 @@ export function PerformanceSummary({
   const placed: PlacedPerson[] = useMemo(() => {
     if (!preview) return [];
     const byId = new Map(people.map((item) => [item.person.id, item]));
-    return preview.participants.flatMap(({ personId, x, y }) => {
-      const item = byId.get(personId);
-      return item && x != null && y != null
-        ? [{ person: { ...item.person, status: item.maybe ? 'maybe' : 'yes' }, point: { x, y } }]
+    return preview.participants.flatMap((participant) => {
+      const item = byId.get(participant.personId);
+      const point = standingPoint(preview, participant, stage);
+      return item && point
+        ? [{ person: { ...item.person, status: item.maybe ? 'maybe' : 'yes' }, point }]
         : [];
     });
-  }, [preview, people]);
+  }, [preview, people, stage]);
 
   return (
     <div className={styles.root}>
@@ -183,7 +190,9 @@ export function PerformanceSummary({
               <li
                 key={piece.key}
                 className={styles.pieceRow}
-                data-incomplete={missingPlaces(piece) ? '' : undefined}
+                data-incomplete={
+                  missingPlaces(piece) || repeatedPeople(piece).size ? '' : undefined
+                }
               >
                 <button
                   type="button"
@@ -199,6 +208,11 @@ export function PerformanceSummary({
                     {` · ${piece.participants.length} ${piece.participants.length === 1 ? 'persona' : 'personas'}`}
                     {` · ${piece.duration || 'sin duración'}`}
                   </span>
+                  {repeatedPeople(piece).size > 0 && (
+                    <span className={styles.repeated}>
+                      {repeatedText(repeatedPeople(piece).size)}
+                    </span>
+                  )}
                   {missingPlaces(piece) > 0 && (
                     <span className={styles.missingPlaces}>
                       {missingPlaces(piece)}{' '}
@@ -238,6 +252,7 @@ export function PerformanceSummary({
           view={stageView}
           stage={stage}
           placed={placed}
+          repeated={repeatedPeople(preview)}
           figures={preview.figures.map((figure) => ({
             figure,
             places: slotPositions(figure, stage),
