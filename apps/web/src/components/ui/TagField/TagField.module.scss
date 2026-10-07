@@ -37,22 +37,23 @@
   border-radius: 999px;
 }
 
+// The × that takes a tag out: red, like every button that removes.
 .remove {
   display: grid;
   place-items: center;
   width: 20px;
   height: 20px;
   padding: 0;
-  color: inherit;
+  color: var(--on-danger);
   cursor: pointer;
-  background: transparent;
+  background: var(--danger);
   border: 0;
   border-radius: 50%;
 
   &:hover,
   &:focus-visible {
-    background: color-mix(in srgb, var(--on-accent) 25%, transparent);
-    outline: none;
+    outline: 2px solid var(--on-accent);
+    outline-offset: 1px;
   }
 }
 

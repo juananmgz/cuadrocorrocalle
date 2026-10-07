@@ -17,6 +17,8 @@ flowchart LR
   S -.-> A
 ```
 
+**Quitar en rojo:** todo botón que quita, borra o elimina va en rojo (`variant="danger"` en `Button`, `danger` en los menús, o el color `--danger` en los botones de icono: la × de las etiquetas, la papelera de los instrumentos, el − de quitar un hueco, la franja de soltar para quitar). Los que solo cierran (la × de diálogos y avisos) no.
+
 **Transiciones:** todo cambio de estado (hover, seleccionado, abierto, eliminar…) dura 0,2 s: el token `--duration` y `--state-transition` (color, fondo, borde, contorno, sombra y opacidad) en `styles/_tokens.scss`. Los controles (botones, enlaces, campos, pestañas, opciones) lo llevan de serie desde `styles/global.scss`, y los pliegues y flechas de la app usan la misma duración. Con «reducir movimiento» en el sistema es 0 s.
 
 **Acceso a la API:** solo a través de la web. El proxy añade la clave `PROXY_SECRET` y la IP del visitante; la API rechaza lo demás salvo `/api/health`.
