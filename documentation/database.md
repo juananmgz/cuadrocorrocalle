@@ -35,6 +35,8 @@ Migraciones:
 - `20261006190000_group_instruments` (paso 2.7): instrumentos que toca cada grupo (`instruments`), que se ofrecen en sus piezas.
 - `20261006200000_person_instruments` (paso 2.7): instrumentos que toca cada persona (`instruments`); solo ocupa los sitios de esos instrumentos.
 - `20261007090000_hole_candidates` (paso 2.8): candidatos de los huecos vacíos de cada figura (`candidates`, JSON con el hueco y las personas).
+- `20261007100000_performance_time` (paso 2.8): hora de la actuación (`time`, «HH:MM», opcional); la fecha pasa a ser obligatoria al crearla.
+- `20261007140000_dance_centre` (paso 2.9): `dance_centre` (sí por defecto): con zona de músicos, la cruz del centro va al centro de la zona de baile, entre el borde de los músicos y el del público.
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -106,6 +108,7 @@ erDiagram
     text title
     text place
     date date "solo el día"
+    text time "HH:MM, opcional"
     int min_minutes
     int max_minutes
     text notes
@@ -115,6 +118,7 @@ erDiagram
     float edge_distance_m "0,25 por defecto y mínimo"
     text music_side "zona de músicos: back, left o right"
     float music_depth_m "ancho de la zona desde el borde"
+    boolean dance_centre "centro en la zona de baile"
   }
   people ||--o{ call_ups : "convocada en"
   performances ||--o{ call_ups : "convoca"

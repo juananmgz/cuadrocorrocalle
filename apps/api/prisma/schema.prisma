@@ -140,8 +140,9 @@ model Performance {
   group        Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
   title        String
   place        String?
-  // Day of the performance, without time zone.
+  // Day of the performance, without time zone, and its time if known ("20:30").
   date         DateTime? @db.Date
+  time         String?
   minMinutes   Int?      @map("min_minutes")
   maxMinutes   Int?      @map("max_minutes")
   // Stage size in metres and how many metres one grid square represents.
@@ -154,6 +155,9 @@ model Performance {
   // metres from the stage edge.
   musicSide    String?   @default("back") @map("music_side")
   musicDepth   Float     @default(1.5) @map("music_depth_m")
+  // Whether the centre cross goes to the middle of the room left for dancing (without the
+  // musicians' zone) instead of the middle of the stage.
+  danceCentre  Boolean   @default(true) @map("dance_centre")
   notes        String?
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")

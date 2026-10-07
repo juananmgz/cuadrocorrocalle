@@ -47,6 +47,7 @@ export function PerformanceDetail() {
           groupId={activeGroup.id}
           performance={performance}
           initialView={params.get('vista') === 'piezas' ? 'pieces' : 'settings'}
+          startEditing={params.get('vista') === 'editar'}
           onCancel={() => navigate('/inicio')}
           onHome={() => navigate('/inicio')}
           onStageChange={setPreviewStage}

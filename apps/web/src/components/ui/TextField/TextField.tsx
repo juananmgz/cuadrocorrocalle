@@ -2,6 +2,7 @@ import { Label } from 'radix-ui';
 import { type ComponentProps, useId } from 'react';
 
 import { RequiredMark } from '../RequiredMark/RequiredMark';
+import { LabelText } from '../LabelText/LabelText';
 import styles from './TextField.module.scss';
 
 interface TextFieldProps extends ComponentProps<'input'> {
@@ -21,7 +22,7 @@ export function TextField({ label, hint, error, requiredMark, id, ...props }: Te
   return (
     <div className={styles.root}>
       <Label.Root className={styles.label} htmlFor={inputId}>
-        {label}
+        <LabelText text={label} />
         {requiredMark && <RequiredMark />}
       </Label.Root>
       <input

@@ -2,6 +2,7 @@ import { Label } from 'radix-ui';
 import { Minus, Plus, Trash2, X } from 'lucide-react';
 import { type KeyboardEvent, useId, useState } from 'react';
 
+import { LabelText } from '../LabelText/LabelText';
 import styles from './TagField.module.scss';
 
 interface TagFieldProps {
@@ -147,7 +148,7 @@ export function TagField({
   return (
     <div className={styles.root} data-inline={inline ? '' : undefined}>
       <Label.Root className={inline ? styles.srOnly : styles.label} htmlFor={id}>
-        {label}
+        <LabelText text={label} />
       </Label.Root>
       <div className={styles.box}>
         {/* Plain tags go inside the field; counted ones are listed under it. */}

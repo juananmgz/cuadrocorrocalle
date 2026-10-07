@@ -36,11 +36,13 @@ import { Dialog, DialogClose } from '../../components/ui/Dialog/Dialog';
 import { RequiredMark } from '../../components/ui/RequiredMark/RequiredMark';
 import { Select } from '../../components/ui/Select/Select';
 import { TextField } from '../../components/ui/TextField/TextField';
+import { TimeField } from '../../components/ui/TimeField/TimeField';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { callUpKey, saveCallUp } from '../../callUps/callUpApi';
 import { formatDay, formatDuration } from '../../performances/format';
 import { usePerformanceMutations } from '../../performances/performancesApi';
+import { gridStageFromSize } from '../../performances/stageOf';
 import { cleanDecimal, cleanInteger, cleanText } from '../../performances/sanitize';
 import { CallUpSection } from './CallUpSection';
 import styles from './CreatePerformanceCard.module.scss';
@@ -53,6 +55,8 @@ interface StageValues {
   /** Where the musicians play ('' without a zone) and how wide their band is, in metres. */
   musicSide: MusicSide | '';
   musicDepth: string;
+  /** The centre cross in the middle of the room for dancing, without the musicians' zone. */
+  danceCentre: boolean;
 }
 
 const MUSIC_SIDE_OPTIONS = [
@@ -88,6 +92,8 @@ interface CreatePerformanceCardProps {
   onStageChange: (stage: GridStage | null) => void;
   /** The same stage in metres, as shown, e.g. for the people placed on it. */
   onStageSizeChange?: (stage: StageSize | null) => void;
+  /** Whether the "Escenario" block is open, so its measures show on the stage. */
+  onStageOpen?: (open: boolean) => void;
   /** Reports whether something required is still missing. */
   onMissingChange?: (missing: boolean) => void;
   handleRef?: Ref<PerformanceFormHandle>;
@@ -115,6 +121,7 @@ function toStageSize({
   edgeDistance,
   musicSide,
   musicDepth,
+  danceCentre,
 }: StageValues): StageSize | null {
   const w = toNumber(width);
   const d = toNumber(depth);
@@ -126,6 +133,7 @@ function toStageSize({
         edgeDistance: edgeOf(edgeDistance),
         musicSide: musicSide || null,
         musicDepth: musicDepthOf(musicDepth),
+        danceCentre,
       }
     : null;
 }
@@ -133,19 +141,7 @@ function toStageSize({
 /** Stage in grid squares, or null until both measures are valid. */
 function toStage(values: StageValues): GridStage | null {
   const size = toStageSize(values);
-  return size
-    ? {
-        cols: size.width / size.squareSize,
-        rows: size.depth / size.squareSize,
-        edge: size.edgeDistance / size.squareSize,
-        music: size.musicSide
-          ? {
-              side: size.musicSide,
-              deep: (size.musicDepth ?? DEFAULT_MUSIC_DEPTH) / size.squareSize,
-            }
-          : null,
-      }
-    : null;
+  return size ? gridStageFromSize(size) : null;
 }
 
 const formatNumber = (value: string) => value.replace('.', ',');
@@ -186,6 +182,8 @@ function nextFieldOnEnter(event: KeyboardEvent<HTMLFormElement>) {
 export interface PerformanceFormHandle {
   /** Creates (or saves) if nothing required is missing; otherwise marks what is missing. */
   attempt: () => void;
+  /** Opens one of its blocks, e.g. the call-up. */
+  open: (step: Step) => void;
 }
 
 /** Two yellow beats over an element that still needs filling in; a new key replays it. */
@@ -279,6 +277,7 @@ export function CreatePerformanceCard({
   onSaved,
   onStageChange,
   onStageSizeChange,
+  onStageOpen,
   onMissingChange,
   handleRef,
   titleSlot = null,
@@ -295,6 +294,7 @@ export function CreatePerformanceCard({
     // A new performance keeps the back for its musicians.
     musicSide: performance ? (performance.musicSide ?? '') : DEFAULT_MUSIC_SIDE,
     musicDepth: formatNumber(String(performance?.musicDepth ?? DEFAULT_MUSIC_DEPTH)),
+    danceCentre: performance?.danceCentre ?? true,
   }));
   // Values shown on the grid: they only change when a field loses focus, so typing "9" over "10"
   // does not flash a 1 m stage.
@@ -307,6 +307,7 @@ export function CreatePerformanceCard({
   const [info, setInfo] = useState<Record<string, string>>(() => ({
     place: performance?.place ?? '',
     date: performance?.date ?? '',
+    time: performance?.time ?? '',
     minMinutes: String(performance?.minMinutes ?? ''),
     maxMinutes: String(performance?.maxMinutes ?? ''),
   }));
@@ -330,6 +331,7 @@ export function CreatePerformanceCard({
     onStageChange(toStage(settled));
     onStageSizeChange?.(toStageSize(settled));
   }, [settled, onStageChange, onStageSizeChange]);
+  useEffect(() => onStageOpen?.(step === 'stage'), [step, onStageOpen]);
 
   // Leaving a stage field applies it; values out of range go to the nearest limit
   // (width 4 to 32 m, depth 2 to 20 m, edge 0,25 to 2 m).
@@ -388,7 +390,8 @@ export function CreatePerformanceCard({
     const values = {
       title,
       place: String(form.get('place')),
-      date: String(form.get('date')) || null,
+      date: String(form.get('date')),
+      time: /^\d{2}:\d{2}$/.test(String(form.get('time') ?? '')) ? String(form.get('time')) : null,
       minMinutes: minutes('minMinutes'),
       maxMinutes: minutes('maxMinutes'),
       stageWidth: toNumber(stage.width),
@@ -397,6 +400,7 @@ export function CreatePerformanceCard({
       edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(stage.edgeDistance)),
       musicSide: stage.musicSide || null,
       musicDepth: musicDepthOf(stage.musicDepth),
+      danceCentre: stage.danceCentre,
     };
     try {
       const saved = performance
@@ -418,6 +422,7 @@ export function CreatePerformanceCard({
   const missing = [
     // The default "Nueva actuación" does not count: the performance needs its own name.
     (!title.trim() || title.trim() === DEFAULT_TITLE) && 'ponerle título',
+    !info.date && 'poner la fecha',
     !toNumber(stage.width) && 'el ancho del escenario',
     !toNumber(stage.depth) && 'el fondo del escenario',
     // Someone has to come, or at least may come.
@@ -426,20 +431,22 @@ export function CreatePerformanceCard({
   ].filter(Boolean);
   const missingTitle = !title.trim() || title.trim() === DEFAULT_TITLE;
   const missingStage = !toNumber(stage.width) || !toNumber(stage.depth);
+  const missingDate = !info.date;
   const missingCallUp = callUp.pending || !callUp.entries.some((entry) => entry.status !== 'no');
   const attempt = () => {
     if (missing.length) setBeat((current) => current + 1);
     else formRef.current?.requestSubmit();
   };
 
-  useImperativeHandle(handleRef, () => ({ attempt }));
+  useImperativeHandle(handleRef, () => ({ attempt, open: setStep }));
   useEffect(() => onMissingChange?.(missing.length > 0), [missing.length, onMissingChange]);
 
   // Editing saves on its own a moment after each change, once nothing required is missing.
   const liveValues = {
     title: title.trim(),
     place: info.place || null,
-    date: info.date || null,
+    date: info.date,
+    time: /^\d{2}:\d{2}$/.test(info.time ?? '') ? info.time : null,
     minMinutes: toNumber(info.minMinutes ?? ''),
     maxMinutes: toNumber(info.maxMinutes ?? ''),
     stageWidth: toNumber(settled.width),
@@ -448,6 +455,7 @@ export function CreatePerformanceCard({
     edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(settled.edgeDistance)),
     musicSide: settled.musicSide || null,
     musicDepth: musicDepthOf(settled.musicDepth),
+    danceCentre: settled.danceCentre,
   };
   const valuesKey = JSON.stringify(liveValues);
   const callUpKeyValue = JSON.stringify(callUp.entries);
@@ -486,7 +494,7 @@ export function CreatePerformanceCard({
   const dataSummary =
     [
       info.place?.trim(),
-      formatDay(info.date || null),
+      formatDay(info.date || null, info.time || null),
       formatDuration(toNumber(info.minMinutes ?? ''), toNumber(info.maxMinutes ?? '')),
     ]
       .filter(Boolean)
@@ -568,6 +576,7 @@ export function CreatePerformanceCard({
 
       <StepPanel
         id="data"
+        attention={missingDate ? beat : 0}
         title="Información general"
         summary={dataSummary}
         open={step === 'data'}
@@ -580,8 +589,21 @@ export function CreatePerformanceCard({
           defaultValue={performance?.place ?? ''}
           onInput={textField}
         />
-        <TextField label="Fecha" name="date" type="date" defaultValue={performance?.date ?? ''} />
-        <div className={styles.pair}>
+        {/* Date (required), time and durations side by side while they fit, wrapping below. */}
+        <div className={styles.when}>
+          <TextField
+            label="Fecha"
+            name="date"
+            type="date"
+            requiredMark
+            defaultValue={performance?.date ?? ''}
+          />
+          <TimeField
+            label="Hora (opcional)"
+            name="time"
+            defaultValue={performance?.time ?? ''}
+            onChange={(time) => setInfo((current) => ({ ...current, time }))}
+          />
           <TextField
             label="Duración mínima"
             name="minMinutes"
@@ -671,6 +693,24 @@ export function CreatePerformanceCard({
               />
             )}
           </div>
+          {/* The musicians' zone is not for dancing: the centre goes to the middle of the rest. */}
+          {stage.musicSide && (
+            <label className={styles.check}>
+              <input
+                type="checkbox"
+                checked={stage.danceCentre}
+                onChange={(event) => {
+                  const next = { ...stage, danceCentre: event.target.checked };
+                  setStage(next);
+                  setSettled(next);
+                }}
+              />
+              Recalcular el centro hábil
+              <span className={styles.checkHint}>
+                El centro va entre el borde de los músicos y el del público
+              </span>
+            </label>
+          )}
           <div className={styles.scaleNote}>
             <span>{square === '1' ? '1 m = 1 cuadrado' : `1 cuadrado = ${square} m`}</span>
             <button

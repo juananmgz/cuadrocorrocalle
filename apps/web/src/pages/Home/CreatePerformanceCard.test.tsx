@@ -23,7 +23,9 @@ test('previews the stage when leaving each field', { timeout: 20_000 }, async ()
   const last = () => onStageChange.mock.lastCall;
 
   // A new performance starts with a 10 × 8 m stage at 0,5 m per square.
-  expect(last()).toEqual([{ cols: 20, rows: 16, edge: 0.5, music: { side: 'back', deep: 3 } }]);
+  expect(last()).toEqual([
+    { cols: 20, rows: 16, edge: 0.5, music: { side: 'back', deep: 3 }, centre: { x: 0, y: -1.5 } },
+  ]);
 
   await user.clear(screen.getByLabelText(/^Ancho/));
   // Only whole metres can be typed.
@@ -35,10 +37,14 @@ test('previews the stage when leaving each field', { timeout: 20_000 }, async ()
   await user.clear(screen.getByLabelText(/^Ancho/));
   await user.type(screen.getByLabelText(/^Ancho/), '9');
   // Still typing the new width: the grid keeps the sizes applied on leaving each field (32 × 6 m).
-  expect(last()).toEqual([{ cols: 64, rows: 12, edge: 0.5, music: { side: 'back', deep: 3 } }]);
+  expect(last()).toEqual([
+    { cols: 64, rows: 12, edge: 0.5, music: { side: 'back', deep: 3 }, centre: { x: 0, y: -1.5 } },
+  ]);
 
   await user.click(screen.getByLabelText('Lugar (opcional)'));
-  expect(last()).toEqual([{ cols: 18, rows: 12, edge: 0.5, music: { side: 'back', deep: 3 } }]);
+  expect(last()).toEqual([
+    { cols: 18, rows: 12, edge: 0.5, music: { side: 'back', deep: 3 }, centre: { x: 0, y: -1.5 } },
+  ]);
 
   // Below the minimum sizes, the width goes to 4 m and the depth to 2 m.
   await user.clear(screen.getByLabelText(/^Ancho/));
@@ -46,7 +52,9 @@ test('previews the stage when leaving each field', { timeout: 20_000 }, async ()
   await user.clear(screen.getByLabelText(/^Fondo/));
   await user.type(screen.getByLabelText(/^Fondo/), '1');
   await user.click(screen.getByLabelText('Lugar (opcional)'));
-  expect(last()).toEqual([{ cols: 8, rows: 4, edge: 0.5, music: { side: 'back', deep: 3 } }]);
+  expect(last()).toEqual([
+    { cols: 8, rows: 4, edge: 0.5, music: { side: 'back', deep: 3 }, centre: { x: 0, y: -1.5 } },
+  ]);
   await user.clear(screen.getByLabelText(/^Ancho/));
   await user.type(screen.getByLabelText(/^Ancho/), '9');
   await user.clear(screen.getByLabelText(/^Fondo/));
@@ -81,7 +89,15 @@ test('previews the stage when leaving each field', { timeout: 20_000 }, async ()
   await user.clear(screen.getByLabelText('Metros por cuadrado'));
   await user.type(screen.getByLabelText('Metros por cuadrado'), '2');
   await user.click(screen.getByLabelText('Lugar (opcional)'));
-  expect(last()).toEqual([{ cols: 4.5, rows: 3, edge: 0.5, music: { side: 'back', deep: 0.75 } }]);
+  expect(last()).toEqual([
+    {
+      cols: 4.5,
+      rows: 3,
+      edge: 0.5,
+      music: { side: 'back', deep: 0.75 },
+      centre: { x: 0, y: -0.375 },
+    },
+  ]);
   expect(screen.getByText('1 cuadrado = 2 m')).toBeInTheDocument();
 });
 
@@ -106,7 +122,7 @@ test('asks before leaving without creating, and Enter does not create', async ()
 
   // Enter applies the field and moves on to the next one.
   await user.type(screen.getByLabelText('Lugar (opcional)'), 'Plaza Mayor{Enter}');
-  expect(screen.getByLabelText('Fecha')).toHaveFocus();
+  expect(screen.getByLabelText(/^Fecha/)).toHaveFocus();
   expect(onCreated).not.toHaveBeenCalled();
 
   // The default title and a required field left blank block "Crear actuación" and say what is missing.
@@ -116,8 +132,9 @@ test('asks before leaving without creating, and Enter does not create', async ()
   await user.clear(screen.getByLabelText('Título de la actuación'));
   await user.type(screen.getByLabelText('Título de la actuación'), 'Pasarón de la Vera');
   expect(screen.queryByText(/ponerle título/)).not.toBeInTheDocument();
-  // Nobody called up yet: it cannot be created either.
-  expect(screen.getByText(/Falta convocar al menos a una persona/)).toBeInTheDocument();
+  // Nor without a date, nor with nobody called up yet.
+  expect(screen.getByText(/poner la fecha/)).toBeInTheDocument();
+  expect(screen.getByText(/convocar al menos a una persona/)).toBeInTheDocument();
   expect(create).toHaveAttribute('aria-disabled', 'true');
   await user.clear(screen.getByLabelText(/^Ancho/));
   expect(screen.getByText(/el ancho del escenario/)).toBeInTheDocument();
