@@ -1,4 +1,5 @@
 import { Toast as RadixToast } from 'radix-ui';
+import { X } from 'lucide-react';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 
 import styles from './Toast.module.scss';
@@ -39,7 +40,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               </RadixToast.Description>
             )}
             <RadixToast.Close className={styles.close} aria-label="Cerrar aviso">
-              ✕
+              <X size={16} aria-hidden="true" />
             </RadixToast.Close>
           </RadixToast.Root>
         ))}

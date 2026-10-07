@@ -4,6 +4,7 @@ import {
   type Membership,
   type PastedPerson,
   type Person,
+  rolesForInstruments,
   type UpdatePersonInput,
 } from '@cuadrocorrocalle/shared';
 
@@ -16,8 +17,18 @@ const toPerson = ({
   mainColor,
   membership,
   roles,
+  instruments,
   notes,
-}: PersonRecord): Person => ({ id, name, figure, mainColor, membership, roles, notes });
+}: PersonRecord): Person => ({
+  id,
+  name,
+  figure,
+  mainColor,
+  membership,
+  roles,
+  instruments,
+  notes,
+});
 
 export function createPersonService(repository: PersonRepository) {
   return {
@@ -34,7 +45,9 @@ export function createPersonService(repository: PersonRepository) {
           figure: input.figure ?? null,
           mainColor: input.mainColor ?? colorForIndex(count),
           membership: input.membership ?? 'member',
-          roles: input.roles ?? [],
+          // Playing something makes them a musician (or a singer).
+          roles: rolesForInstruments(input.roles ?? [], input.instruments ?? []),
+          instruments: input.instruments ?? [],
           notes: input.notes || null,
         },
       ]);
@@ -54,6 +67,7 @@ export function createPersonService(repository: PersonRepository) {
             mainColor: colorForIndex(count + index),
             membership,
             roles: person.roles ?? [],
+            instruments: [],
             notes: null,
           };
         }),
@@ -64,6 +78,11 @@ export function createPersonService(repository: PersonRepository) {
     async update(groupId: string, id: string, input: UpdatePersonInput) {
       const { notes, ...rest } = input;
       const changes = notes === undefined ? rest : { ...rest, notes: notes || null };
+      // New instruments bring their role with them.
+      if (input.instruments?.length) {
+        const current = (await repository.listByGroup(groupId)).find((person) => person.id === id);
+        changes.roles = rolesForInstruments(input.roles ?? current?.roles ?? [], input.instruments);
+      }
       const updated = await repository.update(id, groupId, changes);
       return updated ? toPerson(updated) : null;
     },

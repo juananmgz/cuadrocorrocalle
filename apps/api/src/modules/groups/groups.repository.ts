@@ -1,4 +1,4 @@
-import type { GridColor } from '@cuadrocorrocalle/shared';
+import type { FigureDefaults, GridColor } from '@cuadrocorrocalle/shared';
 
 import type { PrismaClient } from '../../generated/prisma/client';
 
@@ -8,6 +8,9 @@ export interface GroupRecord {
   name: string;
   gridColor: GridColor;
   isTrial: boolean;
+  /** Stored as JSON; read through figureDefaultsSchema. */
+  figureDefaults: unknown;
+  instruments: string[];
   createdAt: Date;
 }
 
@@ -30,6 +33,14 @@ export interface GroupRepository {
     ownerId: string,
     data: Pick<NewGroup, 'name' | 'gridColor'>,
   ): Promise<GroupRecord | null>;
+  /** Stores how each figure comes out when placed; null when not the owner's. */
+  setFigureDefaults(
+    id: string,
+    ownerId: string,
+    figureDefaults: FigureDefaults,
+  ): Promise<GroupRecord | null>;
+  /** Stores the instruments the group plays; null when not the owner's. */
+  setInstruments(id: string, ownerId: string, instruments: string[]): Promise<GroupRecord | null>;
 }
 
 export function createPrismaGroupRepository(prisma: PrismaClient): GroupRepository {
@@ -59,6 +70,26 @@ export function createPrismaGroupRepository(prisma: PrismaClient): GroupReposito
       const updated = await prisma.group.findUniqueOrThrow({ where: { id } });
       return { ...updated, gridColor: updated.gridColor as GridColor };
     },
+    async setFigureDefaults(id, ownerId, figureDefaults) {
+      const { count } = await prisma.group.updateMany({
+        where: { id, ownerId },
+        data: { figureDefaults },
+      });
+      if (count === 0) return null;
+
+      const updated = await prisma.group.findUniqueOrThrow({ where: { id } });
+      return { ...updated, gridColor: updated.gridColor as GridColor };
+    },
+    async setInstruments(id, ownerId, instruments) {
+      const { count } = await prisma.group.updateMany({
+        where: { id, ownerId },
+        data: { instruments },
+      });
+      if (count === 0) return null;
+
+      const updated = await prisma.group.findUniqueOrThrow({ where: { id } });
+      return { ...updated, gridColor: updated.gridColor as GridColor };
+    },
   };
 }
 
@@ -73,7 +104,14 @@ export function createMemoryGroupRepository(): GroupRepository {
     },
     async create(group) {
       nextId += 1;
-      const record = { isTrial: false, ...group, id: `group-${nextId}`, createdAt: new Date() };
+      const record = {
+        isTrial: false,
+        figureDefaults: {},
+        instruments: [],
+        ...group,
+        id: `group-${nextId}`,
+        createdAt: new Date(),
+      };
       groups.push(record);
       return record;
     },
@@ -91,6 +129,20 @@ export function createMemoryGroupRepository(): GroupRepository {
       if (!group) return null;
 
       Object.assign(group, data);
+      return group;
+    },
+    async setFigureDefaults(id, ownerId, figureDefaults) {
+      const group = groups.find((item) => item.id === id && item.ownerId === ownerId);
+      if (!group) return null;
+
+      group.figureDefaults = figureDefaults;
+      return group;
+    },
+    async setInstruments(id, ownerId, instruments) {
+      const group = groups.find((item) => item.id === id && item.ownerId === ownerId);
+      if (!group) return null;
+
+      group.instruments = instruments;
       return group;
     },
   };

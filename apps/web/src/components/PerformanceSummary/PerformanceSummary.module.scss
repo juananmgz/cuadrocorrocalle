@@ -1,0 +1,314 @@
+@use '../../styles/mixins';
+
+// Summary box: highlighted in blue when everything fits, yellow when there is any problem.
+.overview {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--sel-bg);
+  border: var(--border-width) solid var(--accent);
+  border-left-width: 6px;
+  border-radius: var(--radius);
+
+  &:not([data-status='ok']) {
+    background: var(--warn-bg);
+    border-color: var(--warn);
+  }
+}
+
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+
+  dt {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.summaryBlock {
+  display: grid;
+  gap: var(--space-1);
+}
+
+// Note under the box when the performance has no duration to compare with.
+.disclaimer {
+  margin: 0;
+  font-size: 0.875rem;
+  font-style: italic;
+  color: var(--warn);
+}
+
+.verdict {
+  margin: 0;
+  font-weight: 700;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.root {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.people {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.person {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+
+  // Called up but in no piece yet.
+  &[data-idle] .count {
+    color: var(--warn);
+  }
+}
+
+.count {
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.details {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.pieces {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+// Each piece: the row previews it on the stage, "Editar" at its end opens it.
+.pieceRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding-right: var(--space-2);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius);
+
+  // The whole row lights up, "Editar" included.
+  &:hover,
+  &:has([aria-pressed='true']) {
+    background: var(--sel-bg);
+    border-color: var(--accent);
+  }
+}
+
+.piece {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 2.5em minmax(0, 1fr);
+  gap: 0 var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+  }
+}
+
+.number {
+  grid-row: span 2;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.pieceTitle {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.pieceMeta {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+// Blocks that fold away: the pieces and the people who come.
+.foldable {
+  @include mixins.panel;
+}
+
+.foldTitle {
+  margin: 0;
+}
+
+// Its filters and "Editar", first inside the block, under the title.
+.foldActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.check {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 36px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+  }
+}
+
+// Split by gender: boys and girls side by side, anyone without one under them.
+.genders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+
+.peopleGroup {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.foldToggle {
+  @include mixins.heading;
+
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-3);
+  font-size: 1.375rem;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+
+  @include mixins.from-tablet {
+    padding: var(--space-3) var(--space-4);
+  }
+}
+
+// Lucide's chevron at the right, turning over when the block opens (as in the tray).
+.chevron {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  color: var(--ink-soft);
+  transition: transform var(--duration) ease;
+
+  &[data-open] {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.foldCount {
+  font-size: 1rem;
+  color: var(--ink-soft);
+}
+
+.foldBody {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration) ease;
+
+  &[data-open] {
+    grid-template-rows: 1fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.foldInner {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  overflow: hidden;
+
+  [data-open] > & {
+    padding-bottom: var(--space-3);
+  }
+
+  @include mixins.from-tablet {
+    padding-inline: var(--space-4);
+  }
+}
+
+// A piece whose figures still have empty places: a warning, as in the repertoire.
+.pieceRow[data-incomplete] {
+  border-color: var(--warn);
+}
+
+.missingPlaces {
+  grid-column: 2;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--warn);
+}
+
+// Someone twice in a piece: it should never happen, so it shows in red.
+.repeated {
+  grid-column: 2;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+// A performance with places still between candidates.
+.incomplete {
+  margin: 0;
+  font-weight: 700;
+  color: var(--warn);
+}

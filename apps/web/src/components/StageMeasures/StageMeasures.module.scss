@@ -1,0 +1,133 @@
+// Over the grid, under the people, and never in the way of the pointer.
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.dimension {
+  color: var(--accent);
+}
+
+// Coming: the first tick, then the line drawing itself out, then the stop tick and the number.
+// Going: the other way round.
+.start,
+.stop,
+.line {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
+}
+
+.start,
+.stop {
+  animation: appear 150ms ease-out both;
+}
+
+.start {
+  animation-delay: var(--show);
+}
+
+.stop {
+  animation-delay: calc(var(--show) + 600ms);
+}
+
+.line {
+  stroke-dasharray: 1;
+  animation: draw 450ms ease-out calc(var(--show) + 150ms) both;
+}
+
+.number {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  letter-spacing: 0.04em;
+  fill: currentcolor;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 4px;
+  animation: appear 250ms ease-out calc(var(--show) + 600ms) both;
+}
+
+.root[data-leaving] {
+  .stop,
+  .number {
+    animation: vanish 150ms ease-in var(--hide) both;
+  }
+
+  .line {
+    animation: undraw 450ms ease-in calc(var(--hide) + 150ms) both;
+  }
+
+  .start {
+    animation: vanish 150ms ease-in calc(var(--hide) + 600ms) both;
+  }
+}
+
+// Not from the button: no animation, they are simply there.
+.root[data-static] * {
+  animation: none;
+}
+
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes undraw {
+  from {
+    stroke-dashoffset: 0;
+  }
+
+  to {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vanish {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start,
+  .stop,
+  .line,
+  .number,
+  .root[data-leaving] .start,
+  .root[data-leaving] .stop,
+  .root[data-leaving] .line,
+  .root[data-leaving] .number {
+    animation: none;
+  }
+
+  .root[data-leaving] {
+    display: none;
+  }
+}

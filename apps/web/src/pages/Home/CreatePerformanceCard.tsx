@@ -6,9 +6,15 @@ import {
   MIN_EDGE_DISTANCE,
   MIN_STAGE_DEPTH,
   MIN_STAGE_WIDTH,
+  DEFAULT_MUSIC_DEPTH,
+  DEFAULT_MUSIC_SIDE,
+  MAX_MUSIC_DEPTH,
+  MIN_MUSIC_DEPTH,
   type CallUpEntry,
+  type MusicSide,
   type Performance,
 } from '@cuadrocorrocalle/shared';
+import { ChevronDown, Pencil } from 'lucide-react';
 import {
   type FormEvent,
   type InputEvent,
@@ -21,17 +27,22 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 import type { GridStage } from '../../components/GridBackground/GridBackground';
+import type { StageSize } from '../../stage/placement';
 import { Button } from '../../components/ui/Button/Button';
 import { Dialog, DialogClose } from '../../components/ui/Dialog/Dialog';
 import { RequiredMark } from '../../components/ui/RequiredMark/RequiredMark';
+import { Select } from '../../components/ui/Select/Select';
 import { TextField } from '../../components/ui/TextField/TextField';
+import { TimeField } from '../../components/ui/TimeField/TimeField';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { callUpKey, saveCallUp } from '../../callUps/callUpApi';
 import { formatDay, formatDuration } from '../../performances/format';
 import { usePerformanceMutations } from '../../performances/performancesApi';
+import { gridStageFromSize } from '../../performances/stageOf';
 import { cleanDecimal, cleanInteger, cleanText } from '../../performances/sanitize';
 import { CallUpSection } from './CallUpSection';
 import styles from './CreatePerformanceCard.module.scss';
@@ -41,7 +52,26 @@ interface StageValues {
   depth: string;
   squareSize: string;
   edgeDistance: string;
+  /** Where the musicians play ('' without a zone) and how wide their band is, in metres. */
+  musicSide: MusicSide | '';
+  musicDepth: string;
+  /** The centre cross in the middle of the room for dancing, without the musicians' zone. */
+  danceCentre: boolean;
 }
+
+const MUSIC_SIDE_OPTIONS = [
+  { value: 'none', label: 'Sin zona de músicos' },
+  { value: 'back', label: 'Atrás' },
+  { value: 'left', label: 'A la izquierda' },
+  { value: 'right', label: 'A la derecha' },
+];
+
+/** How wide the musicians' zone is, in half metres within its limits. */
+const musicDepthOf = (value: string) =>
+  Math.min(
+    MAX_MUSIC_DEPTH,
+    Math.max(MIN_MUSIC_DEPTH, Math.round((toNumber(value) ?? DEFAULT_MUSIC_DEPTH) * 2) / 2),
+  );
 
 type Step = 'data' | 'stage' | 'callUp';
 
@@ -54,30 +84,64 @@ interface CreatePerformanceCardProps {
   /** Title to start with when creating, e.g. from the guided start. */
   initialTitle?: string;
   onCancel: () => void;
-  /** Called with the performance once created or saved. */
+  /** Called with the performance once created. */
   onCreated: (performance: Performance) => void;
+  /** Editing saves as it changes; called with the performance after each save. */
+  onSaved?: (performance: Performance) => void;
   /** Reports the stage to preview on the grid. */
   onStageChange: (stage: GridStage | null) => void;
+  /** The same stage in metres, as shown, e.g. for the people placed on it. */
+  onStageSizeChange?: (stage: StageSize | null) => void;
+  /** Whether the "Escenario" block is open, so its measures show on the stage. */
+  onStageOpen?: (open: boolean) => void;
   /** Reports whether something required is still missing. */
   onMissingChange?: (missing: boolean) => void;
   handleRef?: Ref<PerformanceFormHandle>;
+  /** Where to draw the title instead of on top of the form, e.g. over the editor's tabs. */
+  titleSlot?: HTMLElement | null;
 }
+
+// Editing saves this long after the last change.
+const AUTOSAVE_DELAY = 800;
 
 const toNumber = (value: string) => {
   const number = Number(value.replace(',', '.'));
   return value.trim() && Number.isFinite(number) && number > 0 ? number : null;
 };
 
-const edgeOf = (value: string) => Math.max(MIN_EDGE_DISTANCE, toNumber(value) ?? 0);
+// The edge goes in quarters of a metre: 0,25, 0,5, 0,75…
+const edgeOf = (value: string) =>
+  Math.max(MIN_EDGE_DISTANCE, Math.round((toNumber(value) ?? 0) * 4) / 4);
 
-/** Stage in grid squares, or null until both measures are valid. */
-function toStage({ width, depth, squareSize, edgeDistance }: StageValues): GridStage | null {
+/** Stage in metres, or null until both measures are valid. */
+function toStageSize({
+  width,
+  depth,
+  squareSize,
+  edgeDistance,
+  musicSide,
+  musicDepth,
+  danceCentre,
+}: StageValues): StageSize | null {
   const w = toNumber(width);
   const d = toNumber(depth);
-  const square = toNumber(squareSize) ?? DEFAULT_SQUARE_SIZE;
   return w && d
-    ? { cols: w / square, rows: d / square, edge: edgeOf(edgeDistance) / square }
+    ? {
+        width: w,
+        depth: d,
+        squareSize: toNumber(squareSize) ?? DEFAULT_SQUARE_SIZE,
+        edgeDistance: edgeOf(edgeDistance),
+        musicSide: musicSide || null,
+        musicDepth: musicDepthOf(musicDepth),
+        danceCentre,
+      }
     : null;
+}
+
+/** Stage in grid squares, or null until both measures are valid. */
+function toStage(values: StageValues): GridStage | null {
+  const size = toStageSize(values);
+  return size ? gridStageFromSize(size) : null;
 }
 
 const formatNumber = (value: string) => value.replace('.', ',');
@@ -118,6 +182,8 @@ function nextFieldOnEnter(event: KeyboardEvent<HTMLFormElement>) {
 export interface PerformanceFormHandle {
   /** Creates (or saves) if nothing required is missing; otherwise marks what is missing. */
   attempt: () => void;
+  /** Opens one of its blocks, e.g. the call-up. */
+  open: (step: Step) => void;
 }
 
 /** Two yellow beats over an element that still needs filling in; a new key replays it. */
@@ -157,23 +223,31 @@ function StepPanel({
       onClick={open ? undefined : onOpen}
     >
       <Heartbeat beat={attention} />
-      <h2 id={`${id}-title`} className={styles.title}>
-        <button
-          type="button"
-          className={styles.header}
-          aria-expanded={open}
-          aria-controls={`${id}-body`}
-          onClick={(event) => {
-            // Avoid a second toggle from the section's own click.
-            event.stopPropagation();
-            onOpen();
-          }}
-        >
-          {title}
-          {required && <RequiredMark />}
-        </button>
-      </h2>
-      {!open && summary && <p className={styles.summary}>{summary}</p>}
+      {/* Title and, while closed, its summary: the chevron sits halfway down both. */}
+      <div className={styles.head}>
+        <h2 id={`${id}-title`} className={styles.title}>
+          <button
+            type="button"
+            className={styles.header}
+            aria-expanded={open}
+            aria-controls={`${id}-body`}
+            onClick={(event) => {
+              // Avoid a second toggle from the section's own click.
+              event.stopPropagation();
+              onOpen();
+            }}
+          >
+            {title}
+            {required && <RequiredMark />}
+            <ChevronDown
+              className={styles.chevron}
+              data-open={open ? '' : undefined}
+              aria-hidden="true"
+            />
+          </button>
+        </h2>
+        {!open && summary && <p className={styles.summary}>{summary}</p>}
+      </div>
       {/* Closed blocks stay mounted so their fields keep what was typed. */}
       <div
         id={`${id}-body`}
@@ -200,9 +274,13 @@ export function CreatePerformanceCard({
   initialTitle,
   onCancel,
   onCreated,
+  onSaved,
   onStageChange,
+  onStageSizeChange,
+  onStageOpen,
   onMissingChange,
   handleRef,
+  titleSlot = null,
 }: CreatePerformanceCardProps) {
   const { create, update: updatePerformance } = usePerformanceMutations();
   const queryClient = useQueryClient();
@@ -213,6 +291,10 @@ export function CreatePerformanceCard({
     depth: String(performance?.stageDepth ?? (performance ? '' : 8)),
     squareSize: formatNumber(String(performance?.squareSize ?? DEFAULT_SQUARE_SIZE)),
     edgeDistance: formatNumber(String(performance?.edgeDistance ?? MIN_EDGE_DISTANCE)),
+    // A new performance keeps the back for its musicians.
+    musicSide: performance ? (performance.musicSide ?? '') : DEFAULT_MUSIC_SIDE,
+    musicDepth: formatNumber(String(performance?.musicDepth ?? DEFAULT_MUSIC_DEPTH)),
+    danceCentre: performance?.danceCentre ?? true,
   }));
   // Values shown on the grid: they only change when a field loses focus, so typing "9" over "10"
   // does not flash a 1 m stage.
@@ -225,6 +307,7 @@ export function CreatePerformanceCard({
   const [info, setInfo] = useState<Record<string, string>>(() => ({
     place: performance?.place ?? '',
     date: performance?.date ?? '',
+    time: performance?.time ?? '',
     minMinutes: String(performance?.minMinutes ?? ''),
     maxMinutes: String(performance?.maxMinutes ?? ''),
   }));
@@ -246,7 +329,9 @@ export function CreatePerformanceCard({
 
   useEffect(() => {
     onStageChange(toStage(settled));
-  }, [settled, onStageChange]);
+    onStageSizeChange?.(toStageSize(settled));
+  }, [settled, onStageChange, onStageSizeChange]);
+  useEffect(() => onStageOpen?.(step === 'stage'), [step, onStageOpen]);
 
   // Leaving a stage field applies it; values out of range go to the nearest limit
   // (width 4 to 32 m, depth 2 to 20 m, edge 0,25 to 2 m).
@@ -262,8 +347,18 @@ export function CreatePerformanceCard({
       width: limit(stage.width, MIN_STAGE_WIDTH, MAX_STAGE_WIDTH, ''),
       depth: limit(stage.depth, MIN_STAGE_DEPTH, MAX_STAGE_DEPTH, ''),
       edgeDistance: formatNumber(
-        limit(stage.edgeDistance, MIN_EDGE_DISTANCE, MAX_EDGE_DISTANCE, String(MIN_EDGE_DISTANCE)),
+        String(
+          edgeOf(
+            limit(
+              stage.edgeDistance,
+              MIN_EDGE_DISTANCE,
+              MAX_EDGE_DISTANCE,
+              String(MIN_EDGE_DISTANCE),
+            ),
+          ),
+        ),
       ),
+      musicDepth: formatNumber(String(musicDepthOf(stage.musicDepth))),
     };
     setStage(next);
     // Incomplete measures keep the previous preview.
@@ -295,13 +390,17 @@ export function CreatePerformanceCard({
     const values = {
       title,
       place: String(form.get('place')),
-      date: String(form.get('date')) || null,
+      date: String(form.get('date')),
+      time: /^\d{2}:\d{2}$/.test(String(form.get('time') ?? '')) ? String(form.get('time')) : null,
       minMinutes: minutes('minMinutes'),
       maxMinutes: minutes('maxMinutes'),
       stageWidth: toNumber(stage.width),
       stageDepth: toNumber(stage.depth),
       squareSize: toNumber(stage.squareSize) ?? DEFAULT_SQUARE_SIZE,
       edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(stage.edgeDistance)),
+      musicSide: stage.musicSide || null,
+      musicDepth: musicDepthOf(stage.musicDepth),
+      danceCentre: stage.danceCentre,
     };
     try {
       const saved = performance
@@ -323,6 +422,7 @@ export function CreatePerformanceCard({
   const missing = [
     // The default "Nueva actuación" does not count: the performance needs its own name.
     (!title.trim() || title.trim() === DEFAULT_TITLE) && 'ponerle título',
+    !info.date && 'poner la fecha',
     !toNumber(stage.width) && 'el ancho del escenario',
     !toNumber(stage.depth) && 'el fondo del escenario',
     // Someone has to come, or at least may come.
@@ -331,30 +431,133 @@ export function CreatePerformanceCard({
   ].filter(Boolean);
   const missingTitle = !title.trim() || title.trim() === DEFAULT_TITLE;
   const missingStage = !toNumber(stage.width) || !toNumber(stage.depth);
+  const missingDate = !info.date;
   const missingCallUp = callUp.pending || !callUp.entries.some((entry) => entry.status !== 'no');
   const attempt = () => {
     if (missing.length) setBeat((current) => current + 1);
     else formRef.current?.requestSubmit();
   };
 
-  useImperativeHandle(handleRef, () => ({ attempt }));
+  useImperativeHandle(handleRef, () => ({ attempt, open: setStep }));
   useEffect(() => onMissingChange?.(missing.length > 0), [missing.length, onMissingChange]);
 
+  // Editing saves on its own a moment after each change, once nothing required is missing.
+  const liveValues = {
+    title: title.trim(),
+    place: info.place || null,
+    date: info.date,
+    time: /^\d{2}:\d{2}$/.test(info.time ?? '') ? info.time : null,
+    minMinutes: toNumber(info.minMinutes ?? ''),
+    maxMinutes: toNumber(info.maxMinutes ?? ''),
+    stageWidth: toNumber(settled.width),
+    stageDepth: toNumber(settled.depth),
+    squareSize: toNumber(settled.squareSize) ?? DEFAULT_SQUARE_SIZE,
+    edgeDistance: Math.min(MAX_EDGE_DISTANCE, edgeOf(settled.edgeDistance)),
+    musicSide: settled.musicSide || null,
+    musicDepth: musicDepthOf(settled.musicDepth),
+    danceCentre: settled.danceCentre,
+  };
+  const valuesKey = JSON.stringify(liveValues);
+  const callUpKeyValue = JSON.stringify(callUp.entries);
+  const lastSaved = useRef({ values: valuesKey, callUp: callUpKeyValue });
+  useEffect(() => {
+    if (!performance || missing.length || callUp.pending) return;
+    const saved = lastSaved.current;
+    if (saved.values === valuesKey && saved.callUp === callUpKeyValue) return;
+    const timer = window.setTimeout(async () => {
+      setSaving(true);
+      setSaveError('');
+      try {
+        const next =
+          saved.values === valuesKey
+            ? performance
+            : await updatePerformance.mutateAsync({ id: performance.id, ...JSON.parse(valuesKey) });
+        if (saved.callUp !== callUpKeyValue) {
+          await saveCallUp(performance.id, JSON.parse(callUpKeyValue));
+          await queryClient.invalidateQueries({ queryKey: callUpKey(performance.id) });
+        }
+        lastSaved.current = { values: valuesKey, callUp: callUpKeyValue };
+        onSaved?.(next);
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : 'No se ha podido guardar');
+      } finally {
+        setSaving(false);
+      }
+    }, AUTOSAVE_DELAY);
+    return () => window.clearTimeout(timer);
+    // Saves when what would be stored changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valuesKey, callUpKeyValue, missing.length, callUp.pending]);
+
   const calledCount = callUp.entries.filter((entry) => entry.status === 'yes').length;
+  const maybeCount = callUp.entries.filter((entry) => entry.status === 'maybe').length;
   const dataSummary =
     [
       info.place?.trim(),
-      formatDay(info.date || null),
+      formatDay(info.date || null, info.time || null),
       formatDuration(toNumber(info.minMinutes ?? ''), toNumber(info.maxMinutes ?? '')),
     ]
       .filter(Boolean)
       .join(' · ') || 'Sin datos todavía';
-  const stageSummary = settled.width ? `${settled.width} × ${settled.depth} m` : '';
+  const musicSummary = settled.musicSide
+    ? ` · músicos ${MUSIC_SIDE_OPTIONS.find((option) => option.value === settled.musicSide)?.label.toLowerCase()}`
+    : '';
+  const stageSummary = settled.width ? `${settled.width} × ${settled.depth} m${musicSummary}` : '';
   const callUpSummary = callUp.pending
     ? 'Faltan personas por crear'
     : callUp.entries.length
-      ? `${calledCount} ${calledCount === 1 ? 'viene' : 'vienen'} de ${callUp.entries.length} convocados`
+      ? // «9 confirmados», or «7 confirmados, 2 por confirmar».
+        [
+          `${calledCount} ${calledCount === 1 ? 'confirmado' : 'confirmados'}`,
+          maybeCount ? `${maybeCount} por confirmar` : null,
+        ]
+          .filter(Boolean)
+          .join(', ')
       : 'Sin convocatoria todavía';
+
+  // Big editable title, like a document name; it goes back to the default if left empty. With a
+  // slot it is drawn there, over both tabs, but still belongs to this form.
+  const titleField = (
+    <div className={styles.titleField}>
+      <Heartbeat beat={missingTitle ? beat : 0} />
+      {/* The label makes the pencil focus the field too; the hidden copy sizes it to its text. */}
+      <label className={styles.titleRow}>
+        <span className={styles.titleBox}>
+          <span className={styles.titleSizer} aria-hidden="true">
+            {title || ' '}
+          </span>
+          <input
+            ref={titleRef}
+            className={styles.titleInput}
+            aria-label="Título de la actuación"
+            // When creating, the title is the first thing to fill in; focusing selects it.
+            autoFocus={!editing}
+            size={1}
+            aria-invalid={titleError ? true : undefined}
+            aria-describedby={titleError ? 'title-error' : undefined}
+            maxLength={120}
+            autoComplete="off"
+            value={title}
+            onFocus={(event) => event.currentTarget.select()}
+            onChange={(event) => {
+              setTitle(cleanText(event.target.value));
+              setTitleError('');
+            }}
+            onBlur={() => {
+              if (!title.trim()) setTitle(DEFAULT_TITLE);
+            }}
+          />
+        </span>
+        <Pencil className={styles.editIcon} size={20} aria-hidden="true" />
+        <RequiredMark />
+      </label>
+      {titleError && (
+        <p id="title-error" className={styles.error} role="alert">
+          {titleError}
+        </p>
+      )}
+    </div>
+  );
 
   return (
     <form
@@ -369,64 +572,11 @@ export function CreatePerformanceCard({
         if (name) setInfo((current) => ({ ...current, [name]: value }));
       }}
     >
-      {/* Big editable title, like a document name; it goes back to the default if left empty. */}
-      <div className={styles.titleField}>
-        <Heartbeat beat={missingTitle ? beat : 0} />
-        {/* The label makes the pencil focus the field too; the hidden copy sizes it to its text. */}
-        <label className={styles.titleRow}>
-          <span className={styles.titleBox}>
-            <span className={styles.titleSizer} aria-hidden="true">
-              {title || ' '}
-            </span>
-            <input
-              ref={titleRef}
-              className={styles.titleInput}
-              aria-label="Título de la actuación"
-              // When creating, the title is the first thing to fill in; focusing selects it.
-              autoFocus={!editing}
-              size={1}
-              aria-invalid={titleError ? true : undefined}
-              aria-describedby={titleError ? 'title-error' : undefined}
-              maxLength={120}
-              autoComplete="off"
-              value={title}
-              onFocus={(event) => event.currentTarget.select()}
-              onChange={(event) => {
-                setTitle(cleanText(event.target.value));
-                setTitleError('');
-              }}
-              onBlur={() => {
-                if (!title.trim()) setTitle(DEFAULT_TITLE);
-              }}
-            />
-          </span>
-          <svg
-            className={styles.editIcon}
-            viewBox="0 0 24 24"
-            width="20"
-            height="20"
-            aria-hidden="true"
-          >
-            <path
-              d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3zM14 8l2 2"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <RequiredMark />
-        </label>
-        {titleError && (
-          <p id="title-error" className={styles.error} role="alert">
-            {titleError}
-          </p>
-        )}
-      </div>
+      {titleSlot ? createPortal(titleField, titleSlot) : titleField}
 
       <StepPanel
         id="data"
+        attention={missingDate ? beat : 0}
         title="Información general"
         summary={dataSummary}
         open={step === 'data'}
@@ -439,8 +589,21 @@ export function CreatePerformanceCard({
           defaultValue={performance?.place ?? ''}
           onInput={textField}
         />
-        <TextField label="Fecha" name="date" type="date" defaultValue={performance?.date ?? ''} />
-        <div className={styles.pair}>
+        {/* Date (required), time and durations side by side while they fit, wrapping below. */}
+        <div className={styles.when}>
+          <TextField
+            label="Fecha"
+            name="date"
+            type="date"
+            requiredMark
+            defaultValue={performance?.date ?? ''}
+          />
+          <TimeField
+            label="Hora (opcional)"
+            name="time"
+            defaultValue={performance?.time ?? ''}
+            onChange={(time) => setInfo((current) => ({ ...current, time }))}
+          />
           <TextField
             label="Duración mínima"
             name="minMinutes"
@@ -501,9 +664,53 @@ export function CreatePerformanceCard({
               autoComplete="off"
               value={stage.edgeDistance}
               onChange={update('edgeDistance', cleanDecimal)}
-              hint="De 0,25 a 2 m"
+              hint="De 0,25 a 2 m, de 0,25 en 0,25"
             />
           </div>
+          {/* Where the musicians play, kept for them in every piece. */}
+          <div className={styles.pair} data-top="">
+            <Select
+              label="Zona de músicos"
+              options={MUSIC_SIDE_OPTIONS}
+              value={stage.musicSide || 'none'}
+              onValueChange={(value) => {
+                const next: StageValues = {
+                  ...stage,
+                  musicSide: value === 'none' ? '' : (value as MusicSide),
+                };
+                setStage(next);
+                setSettled(next);
+              }}
+            />
+            {stage.musicSide && (
+              <TextField
+                label="Espacio para músicos (m)"
+                inputMode="decimal"
+                autoComplete="off"
+                value={stage.musicDepth}
+                onChange={update('musicDepth', cleanDecimal)}
+                hint="De 0,5 a 6 m, desde el borde"
+              />
+            )}
+          </div>
+          {/* The musicians' zone is not for dancing: the centre goes to the middle of the rest. */}
+          {stage.musicSide && (
+            <label className={styles.check}>
+              <input
+                type="checkbox"
+                checked={stage.danceCentre}
+                onChange={(event) => {
+                  const next = { ...stage, danceCentre: event.target.checked };
+                  setStage(next);
+                  setSettled(next);
+                }}
+              />
+              Recalcular el centro hábil
+              <span className={styles.checkHint}>
+                El centro va entre el borde de los músicos y el del público
+              </span>
+            </label>
+          )}
           <div className={styles.scaleNote}>
             <span>{square === '1' ? '1 m = 1 cuadrado' : `1 cuadrado = ${square} m`}</span>
             <button
@@ -564,32 +771,38 @@ export function CreatePerformanceCard({
           {saveError}
         </p>
       )}
+      {/* Editing saves as it goes, so only a status shows; creating has its buttons. */}
+      <p className={styles.saveStatus} aria-live="polite">
+        {editing && saving ? 'Guardando…' : ''}
+      </p>
       {/* Under the last block; leaving asks first because nothing is saved until then. */}
-      <div className={styles.actions}>
-        <Button onClick={() => setConfirmingCancel(true)}>Cancelar</Button>
-        <Button
-          type="submit"
-          variant="primary"
-          className={styles.create}
-          // Not disabled, so a click can point at what is missing.
-          disabled={saving}
-          aria-disabled={missing.length > 0}
-          title={missing.length ? 'Rellena los campos necesarios' : undefined}
-          onClick={(event) => {
-            if (!missing.length) return;
-            event.preventDefault();
-            attempt();
-          }}
-        >
-          {editing
-            ? saving
-              ? 'Guardando…'
-              : 'Guardar cambios'
-            : saving
-              ? 'Creando…'
-              : 'Crear actuación'}
-        </Button>
-      </div>
+      {!editing && (
+        <div className={styles.actions}>
+          <Button onClick={() => setConfirmingCancel(true)}>Cancelar</Button>
+          <Button
+            type="submit"
+            variant="primary"
+            className={styles.create}
+            // Not disabled, so a click can point at what is missing.
+            disabled={saving}
+            aria-disabled={missing.length > 0}
+            title={missing.length ? 'Rellena los campos necesarios' : undefined}
+            onClick={(event) => {
+              if (!missing.length) return;
+              event.preventDefault();
+              attempt();
+            }}
+          >
+            {editing
+              ? saving
+                ? 'Guardando…'
+                : 'Guardar cambios'
+              : saving
+                ? 'Creando…'
+                : 'Crear actuación'}
+          </Button>
+        </div>
+      )}
       {missing.length > 0 && (
         <p className={styles.missing}>
           <RequiredMark /> Falta {missing.join(', ')}.

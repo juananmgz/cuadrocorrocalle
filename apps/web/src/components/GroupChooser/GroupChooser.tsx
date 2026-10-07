@@ -1,4 +1,5 @@
 import type { GridColor, Group } from '@cuadrocorrocalle/shared';
+import { Pencil } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 import { gridColorVar } from '../../groups/gridColors';
@@ -125,7 +126,11 @@ export function GroupChooser({
                     aria-hidden="true"
                   >
                     {group.name.trim().slice(0, 1).toUpperCase()}
-                    {managing && <span className={styles.pencil}>✎</span>}
+                    {managing && (
+                      <span className={styles.pencil}>
+                        <Pencil size={14} aria-hidden="true" />
+                      </span>
+                    )}
                   </span>
                   <span className={styles.name}>{group.name}</span>
                   {group.isTrial && <span className={styles.badge}>Prueba</span>}

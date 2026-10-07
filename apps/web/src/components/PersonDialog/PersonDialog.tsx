@@ -5,6 +5,7 @@ import {
   type Person,
   PERSON_COLOR_IDS,
   type PersonRole,
+  rolesForInstruments,
 } from '@cuadrocorrocalle/shared';
 import { RadioGroup } from 'radix-ui';
 import { type FormEvent, useState } from 'react';
@@ -14,6 +15,7 @@ import { GenderToggle, RoleToggles } from '../PersonFields/PersonFields';
 import { Button } from '../ui/Button/Button';
 import { type ColorChoice, ColorPicker, RANDOM_COLOR } from '../ui/ColorPicker/ColorPicker';
 import { Dialog } from '../ui/Dialog/Dialog';
+import { TagField } from '../ui/TagField/TagField';
 import { TextField } from '../ui/TextField/TextField';
 import styles from './PersonDialog.module.scss';
 
@@ -23,9 +25,11 @@ interface PersonDialogProps {
   /** Person to edit; a new one is added without it. */
   person?: Person;
   mutations: PeopleMutations;
+  /** The group's instruments, offered for what the person plays. */
+  instruments?: string[];
 }
 
-/** Adds or edits a person: name, gender, membership, roles, main colour and notes. */
+/** Adds or edits a person: name, gender, membership, roles, instruments, colour and notes. */
 export function PersonDialog(props: PersonDialogProps) {
   const { open, onOpenChange, person } = props;
 
@@ -41,10 +45,16 @@ export function PersonDialog(props: PersonDialogProps) {
   );
 }
 
-function PersonForm({ onOpenChange, person, mutations }: PersonDialogProps) {
+function PersonForm({ onOpenChange, person, mutations, instruments = [] }: PersonDialogProps) {
   const [figure, setFigure] = useState<Figure | null>(person?.figure ?? null);
   const [membership, setMembership] = useState<Membership>(person?.membership ?? 'member');
   const [roles, setRoles] = useState<PersonRole[]>(person?.roles ?? []);
+  const [playing, setPlaying] = useState<string[]>(person?.instruments ?? []);
+  // Playing something makes them a musician (or a singer) at once.
+  const changePlaying = (next: string[]) => {
+    setPlaying(next);
+    setRoles((current) => rolesForInstruments(current, next));
+  };
   // New people start with a random colour.
   const [color, setColor] = useState<ColorChoice>(person?.mainColor ?? RANDOM_COLOR);
   const [checked, setChecked] = useState(false);
@@ -66,6 +76,7 @@ function PersonForm({ onOpenChange, person, mutations }: PersonDialogProps) {
       figure,
       membership,
       roles,
+      instruments: playing,
       mainColor:
         color === RANDOM_COLOR
           ? PERSON_COLOR_IDS[Math.floor(Math.random() * PERSON_COLOR_IDS.length)]!
@@ -125,13 +136,26 @@ function PersonForm({ onOpenChange, person, mutations }: PersonDialogProps) {
         <RoleToggles value={roles} onChange={setRoles} labelledBy="person-roles" />
         {rolesError && <p className={styles.error}>{rolesError}</p>}
       </div>
+      <TagField
+        label="Instrumentos"
+        values={playing}
+        onChange={changePlaying}
+        placeholder="Dulzaina, canto…"
+        hint={
+          instruments.length
+            ? 'Los de Mi grupo que toca. Solo podrá ocupar el sitio de esos instrumentos.'
+            : 'Los que toca. Añade los del grupo en su información para elegirlos de la lista.'
+        }
+        suggestions={instruments}
+        suggestionsTitle="De Mi grupo: elige uno o escribe otro"
+      />
       <ColorPicker label="Color principal" value={color} onValueChange={setColor} allowRandom />
       <TextField
         label="Notas"
         name="notes"
         defaultValue={person?.notes ?? ''}
         maxLength={500}
-        hint="Opcional: instrumento, voz, talla…"
+        hint="Opcional: voz, talla…"
       />
       {mutations.remove.error && (
         <p className={styles.error} role="alert">

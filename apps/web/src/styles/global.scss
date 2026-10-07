@@ -54,7 +54,43 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+// Controls change colour gently when hovered, pressed, selected or opened. Zero specificity,
+// so a component's own transition replaces it.
+:where(
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  label,
+  [role='tab'],
+  [role='option'],
+  [role='menuitem'],
+  [role='menuitemradio'],
+  [role='button']
+) {
+  transition: var(--state-transition);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration: 0s;
+  }
+}
+
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
+}
+
+// While something is being moved, the grabbing hand shows wherever the pointer goes.
+html[data-grabbing],
+html[data-grabbing] * {
+  cursor: grabbing !important;
+}
+
+// While a figure is turned by a corner, its turning cursor goes with the pointer.
+html[data-turning],
+html[data-turning] * {
+  cursor: var(--turn-cursor) !important;
 }

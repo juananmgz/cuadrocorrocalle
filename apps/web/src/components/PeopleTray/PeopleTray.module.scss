@@ -6,10 +6,129 @@
 
   position: sticky;
   top: 0;
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   max-height: 100%;
+  overflow: hidden;
+}
+
+// The blocks scroll; the button to hide the tray stays under them.
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden auto;
+}
+
+// Folded: a strip of icons, one per block, and the button to unfold it at the bottom.
+.root[data-tray-collapsed] {
+  overflow: visible;
+}
+
+.rail {
+  display: grid;
+  flex: 1;
+  grid-template-rows: repeat(4, auto) 1fr;
+}
+
+.railButton {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 48px;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+
+  & + & {
+    border-top: var(--border-width) solid var(--line);
+  }
+
+  &[aria-expanded='true'] {
+    color: var(--on-accent);
+    background: var(--accent);
+  }
+
+  &:hover:not([aria-expanded='true']) {
+    background: var(--sel-bg);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: -3px;
+  }
+
+  // The button to show it again: at the bottom, always in view, as quiet as the footer.
+  &[data-fold] {
+    position: sticky;
+    bottom: 0;
+    align-self: end;
+    color: var(--ink-soft);
+    background: var(--footer);
+
+    &:hover {
+      color: var(--ink);
+      background: var(--footer);
+    }
+  }
+}
+
+// One block of the folded tray, floating beside its icon.
+.floating {
+  @include mixins.popover;
+
+  position: fixed;
+  z-index: 30;
+  display: grid;
+  width: min(340px, calc(100vw - 80px));
+  max-height: calc(100vh - 96px);
+  overflow: hidden auto;
+}
+
+.floatingTitle {
+  @include mixins.heading;
+
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: 1.125rem;
+}
+
+.floatingBody {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+// Unfolded: the button to fold it, stuck to the bottom of the tray, in the accent colour.
+.foldButton {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 40px;
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: var(--footer);
+  border: 0;
+  border-top: var(--border-width) solid var(--line);
+
+  &:hover {
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+  }
 }
 
 .section + .section {
@@ -41,18 +160,25 @@
     flex: none;
   }
 
-  &::after {
-    margin-left: auto;
-    font-size: 0.875rem;
-    content: '▾';
-  }
-
-  &[aria-expanded='true']::after {
-    content: '▴';
-  }
-
   &:hover {
     background: var(--sel-bg);
+  }
+}
+
+// At the right of the header, pointing down when closed and up when open.
+.chevron {
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  color: var(--ink-soft);
+  transition: transform var(--duration) ease;
+
+  &[data-open] {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 }
 
@@ -60,7 +186,7 @@
 .accordion {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 250ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   &[data-open] {
     grid-template-rows: 1fr;
@@ -126,4 +252,374 @@
   flex: none;
   font-size: 0.75rem;
   color: var(--ink-soft);
+}
+
+// Figures palette: just the drawings.
+// One column per number of people (2, 3, 4), each with its count on top.
+// The figures, side by side, wrapping onto as many lines as they need.
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+// Every figure in a tile of the same size, drawn at one scale.
+.figure {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  cursor: grab;
+  touch-action: none;
+  background: var(--surface);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius);
+
+  &:hover:not(:disabled) {
+    background: var(--sel-bg);
+  }
+
+  &[aria-pressed='true'] {
+    background: var(--sel-bg);
+    outline: 2px solid var(--accent);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.figureBlock {
+  fill: color-mix(in srgb, var(--accent) 14%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+
+// An empty hole of a space.
+.figureHole {
+  fill: none;
+  stroke: var(--ink-soft);
+  stroke-width: 1px;
+  stroke-dasharray: 2 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+// Spaces: one line each, like a piece of the repertoire.
+.spaces {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.space {
+  background: var(--surface);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius);
+}
+
+// The line itself: picked or dragged as a whole, with "Editar" at its end.
+.spaceHead {
+  display: flex;
+  align-items: stretch;
+}
+
+.spaceMain {
+  display: flex;
+  flex: 1;
+  gap: calc(var(--space-2) + 4px);
+  align-items: center;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  &:hover:not(:disabled) {
+    background: var(--sel-bg);
+  }
+
+  &[aria-pressed='true'] {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+  }
+}
+
+.spaceTile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.spaceText {
+  display: grid;
+  min-width: 0;
+}
+
+.spaceName {
+  font-weight: 700;
+}
+
+.spaceSummary {
+  overflow: hidden;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spaceEdit {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  padding: 0;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  svg {
+    transition: transform var(--duration) ease;
+  }
+
+  &[aria-expanded='true'] svg {
+    transform: rotate(180deg);
+  }
+
+  &:hover {
+    color: var(--ink);
+    background: var(--sel-bg);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    svg {
+      transition: none;
+    }
+  }
+}
+
+// How it comes out, folded away until "Editar" (the same sweep as the tray's blocks).
+.spaceFold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration) ease;
+
+  .space[data-open] & {
+    grid-template-rows: 1fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.spaceSetup {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 0 var(--space-2);
+  overflow: hidden;
+
+  // A little room under the line, so its hover does not touch the fields.
+  .space[data-open] & {
+    padding-top: 8px;
+    padding-bottom: var(--space-2);
+  }
+}
+
+.spaceFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+.spaceField {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+
+  input,
+  select {
+    width: 4.5em;
+    padding: 2px var(--space-1);
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: var(--border-width) solid var(--ctl);
+    border-radius: var(--radius);
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+    }
+  }
+}
+
+.spaceField select {
+  width: auto;
+  cursor: pointer;
+}
+
+// Two options side by side; the chosen one filled.
+.segmented {
+  display: inline-flex;
+  justify-self: start;
+  padding: 2px;
+  border: var(--border-width) solid var(--ctl);
+  border-radius: var(--radius);
+
+  button {
+    padding: 2px var(--space-2);
+    font: inherit;
+    font-size: 0.8125rem;
+    color: var(--ink-soft);
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: calc(var(--radius) - 2px);
+
+    &[aria-pressed='true'] {
+      color: var(--on-accent);
+      background: var(--accent);
+    }
+  }
+}
+
+.figureDot {
+  fill: var(--ink-soft);
+}
+
+// Settings of a figure: a panel beside it (right click on the palette).
+.settings {
+  @include mixins.popover;
+
+  position: fixed;
+  z-index: 35;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  outline: none;
+}
+
+.settingsTitle {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+// Live preview, with the audience below as on the stage.
+.preview {
+  display: grid;
+  justify-items: center;
+  padding: var(--space-2);
+  background: var(--floor);
+  border-radius: var(--radius);
+
+  svg {
+    width: 140px;
+    height: 140px;
+  }
+}
+
+.previewTurn {
+  display: grid;
+  transition: transform var(--duration) ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.audience {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+}
+
+.settingsRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+
+  // Compact buttons, so a row fits the panel.
+  button {
+    min-width: 40px;
+    padding-inline: var(--space-2);
+  }
+}
+
+.settingsLabel {
+  min-width: 3.5em;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.widthValue {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.settingsHint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.settingsActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+// Read out to screen readers only.
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

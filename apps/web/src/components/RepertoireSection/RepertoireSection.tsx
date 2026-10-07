@@ -1,8 +1,12 @@
 import {
   closestCenter,
   DndContext,
+  defaultDropAnimationSideEffects,
   type DragEndEvent,
+  type DropAnimation,
+  DragOverlay,
   type DragOverEvent,
+  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -10,27 +14,36 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { ChevronDown, GripVertical } from 'lucide-react';
 import {
+  type AnimateLayoutChanges,
   arrayMove,
+  defaultAnimateLayoutChanges,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { type Participant, PIECE_TYPE_LABELS, type PieceType } from '@cuadrocorrocalle/shared';
+import { MAX_INSTRUMENTS, PIECE_TYPE_LABELS, type PieceType } from '@cuadrocorrocalle/shared';
 import { type ReactNode, useMemo, useState } from 'react';
 
 import { formatClock } from '../../pieces/clock';
 import { draftError, emptyDraft, type PieceDraft } from '../../pieces/draft';
+import { STARTER_INSTRUMENTS } from '../../pieces/instruments';
+import {
+  missingPlaces,
+  repeatedPeople,
+  repeatedText,
+  undecidedPlaces,
+  undecidedText,
+} from '../../stage/pieceFigures';
 import { summarize } from '../../pieces/summary';
-import { formatDuration } from '../../performances/format';
 import { cleanText } from '../../performances/sanitize';
 import type { TrayPerson } from '../PeopleTray/PeopleTray';
-import { RoleToggles } from '../PersonFields/PersonFields';
-import { PersonChip } from '../ui/PersonChip/PersonChip';
 import { Button } from '../ui/Button/Button';
 import { Select } from '../ui/Select/Select';
+import { TagField } from '../ui/TagField/TagField';
 import { TextField } from '../ui/TextField/TextField';
 import styles from './RepertoireSection.module.scss';
 
@@ -39,6 +52,18 @@ const TYPE_OPTIONS = Object.entries(PIECE_TYPE_LABELS).map(([value, label]) => (
   label,
 }));
 
+// Every move while sorting and after dropping is animated, at the same pace.
+const SLIDE = { duration: 200, easing: 'ease' };
+// The piece stays hidden in the list until the copy has landed on it.
+const DROP: DropAnimation = {
+  ...SLIDE,
+  sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0' } } }),
+};
+// While sorting, dnd-kit moves the pieces itself; animating every other layout change too made
+// them flicker, so besides that only the change right after a drop is animated.
+const animateAlways: AnimateLayoutChanges = (args) =>
+  defaultAnimateLayoutChanges({ ...args, wasDragging: true });
+
 const cleanClock = (value: string) => value.replace(/[^\d:.,]/g, '').slice(0, 5);
 
 interface RepertoireSectionProps {
@@ -46,92 +71,50 @@ interface RepertoireSectionProps {
   onChange: (pieces: PieceDraft[]) => void;
   /** Most pieces allowed, as in the "Grupo de Prueba". */
   limit?: number;
-  /** Called after "Guardar" closes a piece, e.g. to store the repertoire. */
-  onSave?: () => void;
-  /** Called-up people; when given, each piece lists who takes part in it. */
+  /** Called-up people; when given, each piece shows how many take part in it. */
   people?: TrayPerson[];
-  /** Open piece, when someone else (e.g. the people tray) needs to know it. */
+  /** Piece entered (selected), when someone else (e.g. the stage and the tray) needs to know it. */
   openKey?: string | null;
   onOpenKeyChange?: (key: string | null) => void;
-  /** Time available for the performance, to compare the repertoire with. */
-  minMinutes?: number | null;
-  maxMinutes?: number | null;
+  /** The group's instruments, offered in each piece; a new one can be added to them. */
+  groupInstruments?: string[];
+  onAddToGroup?: (instruments: string[]) => void;
 }
 
 interface PieceRowProps {
   draft: PieceDraft;
   /** Shown before the title: 1, 2… in the repertoire, B1, B2… among the encores. */
   label: string;
+  /** Entered: its stage is the one shown; highlighted. */
+  selected: boolean;
+  /** Its fields are showing. */
   open: boolean;
+  onSelect: () => void;
   onToggle: () => void;
   onChange: (draft: PieceDraft) => void;
   onRemove: () => void;
-  onSave: () => void;
   people?: Map<string, TrayPerson>;
+  /** Instruments offered while typing: the group's (or a starter list) and the other pieces'. */
+  instruments?: string[];
+  /** The group's list; an instrument typed that is not in it can be added to it. */
+  groupInstruments?: string[];
+  onAddToGroup?: (instruments: string[]) => void;
 }
 
-interface ParticipantsProps {
-  participants: Participant[];
-  people: Map<string, TrayPerson>;
-  onChange: (participants: Participant[]) => void;
-}
-
-/** Who takes part in a piece and what each one does. */
-function Participants({ participants, people, onChange }: ParticipantsProps) {
-  const set = (personId: string, changes: Partial<Participant>) =>
-    onChange(
-      participants.map((participant) =>
-        participant.personId === personId ? { ...participant, ...changes } : participant,
-      ),
-    );
-
-  return (
-    <div className={styles.participants}>
-      <p className={styles.participantsTitle}>Quién sale ({participants.length})</p>
-      {participants.length === 0 && (
-        <p className={styles.hint}>Elige a las personas en la bandeja de personas.</p>
-      )}
-      <ul className={styles.participantList}>
-        {participants.map((participant) => {
-          const person = people.get(participant.personId);
-          if (!person) return null;
-          return (
-            <li key={participant.personId} className={styles.participant}>
-              <PersonChip name={person.name} color={person.mainColor} />
-              <RoleToggles
-                compact
-                label={`Qué hace ${person.name}`}
-                value={participant.roles}
-                onChange={(roles) => set(participant.personId, { roles })}
-              />
-              <button
-                type="button"
-                className={styles.removePerson}
-                aria-label={`Sacar a ${person.name} de la pieza`}
-                onClick={() =>
-                  onChange(participants.filter((item) => item.personId !== participant.personId))
-                }
-              >
-                ✕
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-/** One piece: a summary row that can be dragged, opening into its fields. */
+/** One piece: a summary row that can be dragged and entered; its chevron opens its fields. */
 function PieceRow({
   draft,
   label,
+  selected,
   open,
+  onSelect,
   onToggle,
   onChange,
   onRemove,
-  onSave,
   people,
+  instruments = [],
+  groupInstruments,
+  onAddToGroup,
 }: PieceRowProps) {
   const {
     attributes,
@@ -141,8 +124,12 @@ function PieceRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: draft.key });
+  } = useSortable({ id: draft.key, transition: SLIDE, animateLayoutChanges: animateAlways });
   const error = draftError(draft);
+  // Figures with nobody in some of their places (step 2.2).
+  const missing = missingPlaces(draft);
+  const repeated = repeatedPeople(draft).size;
+  const undecided = undecidedPlaces(draft);
   const set = (changes: Partial<PieceDraft>) => onChange({ ...draft, ...changes });
 
   return (
@@ -150,7 +137,9 @@ function PieceRow({
       ref={setNodeRef}
       className={styles.piece}
       data-dragging={isDragging ? '' : undefined}
+      data-selected={selected ? '' : undefined}
       data-invalid={error && !open ? '' : undefined}
+      data-incomplete={missing ? '' : undefined}
       style={{ transform: CSS.Translate.toString(transform), transition }}
     >
       <div className={styles.row}>
@@ -162,99 +151,164 @@ function PieceRow({
           {...attributes}
           {...listeners}
         >
-          ⠿
+          <GripVertical size={18} aria-hidden="true" />
         </button>
         <span className={styles.number}>{label}</span>
-        <button
-          type="button"
-          className={styles.summary}
-          aria-expanded={open}
-          aria-controls={`${draft.key}-fields`}
-          onClick={onToggle}
-        >
-          <span className={styles.name}>{draft.title.trim() || 'Sin título'}</span>
-          <span className={styles.meta}>
-            <span className={styles.type} data-type={draft.type}>
-              {PIECE_TYPE_LABELS[draft.type]}
-            </span>
-            {draft.optional && <span className={styles.optional}>Opcional</span>}
-            {people && (
-              <span className={styles.peopleCount}>
-                {draft.participants.length}{' '}
-                {draft.participants.length === 1 ? 'persona' : 'personas'}
-              </span>
-            )}
-            <span className={styles.duration}>{draft.duration || '—'}</span>
-          </span>
-        </button>
-      </div>
-      {open && (
-        <div id={`${draft.key}-fields`} className={styles.fields}>
-          <TextField
-            label="Título"
-            requiredMark
-            maxLength={120}
-            autoFocus={!draft.title}
-            value={draft.title}
-            onChange={(event) => set({ title: cleanText(event.target.value) })}
-            error={draft.title.trim() ? undefined : 'Ponle un título'}
-          />
-          <div className={styles.pair}>
-            <Select
-              label="Tipo"
-              options={TYPE_OPTIONS}
-              value={draft.type}
-              onValueChange={(type) => set({ type: type as PieceType })}
-            />
-            <TextField
-              label="Duración"
-              inputMode="decimal"
-              autoComplete="off"
-              placeholder="3:30"
-              value={draft.duration}
-              onChange={(event) => set({ duration: cleanClock(event.target.value) })}
-              hint="Minutos:segundos"
-              error={error && draft.title.trim() ? error : undefined}
-            />
-          </div>
-          <TextField
-            label="Estructura (opcional)"
-            maxLength={300}
-            placeholder="Entrada, 3 coplas con estribillo, salida"
-            value={draft.structure}
-            onChange={(event) => set({ structure: cleanText(event.target.value) })}
-          />
-          {people && (
-            <Participants
-              participants={draft.participants}
-              people={people}
-              onChange={(participants) => set({ participants })}
+        {/* Title on top and its details below; open, the title itself is the field. */}
+        <div className={styles.main}>
+          {open && (
+            <input
+              className={styles.nameInput}
+              aria-label="Título de la pieza"
+              aria-invalid={!draft.title.trim()}
+              aria-describedby={draft.title.trim() ? undefined : `${draft.key}-title-error`}
+              required
+              maxLength={120}
+              placeholder="Ponle un título"
+              autoFocus={!draft.title}
+              value={draft.title}
+              onChange={(event) => set({ title: cleanText(event.target.value) })}
             />
           )}
-          <div className={styles.footer}>
-            <label className={styles.check}>
-              <input
-                type="checkbox"
-                checked={draft.optional}
-                onChange={(event) => set({ optional: event.target.checked })}
+          <button
+            type="button"
+            className={styles.summary}
+            aria-current={selected ? 'true' : undefined}
+            aria-label={open ? `Entrar en «${draft.title.trim() || 'Sin título'}»` : undefined}
+            onClick={onSelect}
+          >
+            {!open && <span className={styles.name}>{draft.title.trim() || 'Sin título'}</span>}
+            <span className={styles.meta}>
+              <span className={styles.type} data-type={draft.type}>
+                {PIECE_TYPE_LABELS[draft.type]}
+              </span>
+              {draft.optional && <span className={styles.optional}>Opcional</span>}
+              {people && (
+                <span className={styles.peopleCount}>
+                  {draft.participants.length}{' '}
+                  {draft.participants.length === 1 ? 'persona' : 'personas'}
+                </span>
+              )}
+              {repeated > 0 && <span className={styles.repeated}>{repeatedText(repeated)}</span>}
+              {undecided > 0 && (
+                <span className={styles.missingPlaces}>{undecidedText(undecided)}</span>
+              )}
+              {missing > 0 && (
+                <span className={styles.missingPlaces}>
+                  {missing} {missing === 1 ? 'hueco vacío' : 'huecos vacíos'}
+                </span>
+              )}
+              {draft.duration && <span className={styles.duration}>{draft.duration}</span>}
+            </span>
+          </button>
+        </div>
+        {/* Its own strip at the right: opens and closes the fields, turning over. */}
+        <button
+          type="button"
+          className={styles.expand}
+          aria-expanded={open}
+          aria-controls={`${draft.key}-fields`}
+          aria-label={`${open ? 'Ocultar' : 'Mostrar'} los datos de «${draft.title.trim() || 'Sin título'}»`}
+          onClick={onToggle}
+        >
+          <ChevronDown
+            className={styles.chevron}
+            data-open={open ? '' : undefined}
+            aria-hidden="true"
+          />
+        </button>
+      </div>
+      {/* Always there, so it can slide open and shut like an accordion. */}
+      <div
+        id={`${draft.key}-fields`}
+        className={styles.accordion}
+        data-open={open ? '' : undefined}
+        inert={!open}
+      >
+        <div className={styles.pieceAccordionInner}>
+          <div className={styles.fields}>
+            {!draft.title.trim() && (
+              <p id={`${draft.key}-title-error`} className={styles.titleError}>
+                Ponle un título
+              </p>
+            )}
+            <div className={styles.pair}>
+              <Select
+                label="Tipo"
+                options={TYPE_OPTIONS}
+                value={draft.type}
+                onValueChange={(type) => set({ type: type as PieceType })}
               />
-              Opcional (se hace si sobra tiempo)
-            </label>
-            <div className={styles.buttons}>
-              {/* The same as dragging it to the other list. */}
-              <Button variant="ghost" onClick={() => set({ encore: !draft.encore })}>
-                {draft.encore ? 'Pasar al repertorio' : 'Pasar a bis'}
-              </Button>
-              <Button variant="danger" onClick={onRemove}>
-                Quitar
-              </Button>
-              <Button variant="primary" onClick={onSave} disabled={Boolean(error)}>
-                Guardar
-              </Button>
+              <TextField
+                label="Duración"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="3:30"
+                aria-description="Minutos y segundos"
+                value={draft.duration}
+                onChange={(event) => set({ duration: cleanClock(event.target.value) })}
+                error={error && draft.title.trim() ? error : undefined}
+              />
+            </div>
+            <TagField
+              label="Instrumentos"
+              values={draft.instruments}
+              onChange={(values) => set({ instruments: values })}
+              placeholder="Dulzaina, redoblante, castañuelas, canto…"
+              hint="Cada uno tiene su sitio en la zona de músicos. Añádelo con Enter o una coma; «2 dulzainas» o «Dulzaina x2» añade dos, y − y + cambian cuántos."
+              suggestions={instruments}
+              suggestionsTitle="Ejemplos: elige uno o escribe el tuyo"
+              counted
+              max={MAX_INSTRUMENTS}
+            />
+            {groupInstruments &&
+              onAddToGroup &&
+              (() => {
+                // New here: offer to keep it in the group's list for next time.
+                const known = new Set(groupInstruments.map((name) => name.toLocaleLowerCase('es')));
+                const fresh = [...new Set(draft.instruments)].filter(
+                  (name) => !known.has(name.toLocaleLowerCase('es')),
+                );
+                return fresh.length ? (
+                  <p className={styles.newInstruments}>
+                    {fresh.length === 1
+                      ? `«${fresh[0]}» no está en los instrumentos de Mi grupo.`
+                      : `${fresh.map((name) => `«${name}»`).join(', ')} no están en los instrumentos de Mi grupo.`}{' '}
+                    <Button variant="ghost" onClick={() => onAddToGroup(fresh)}>
+                      Añadir a Mi grupo
+                    </Button>
+                  </p>
+                ) : null;
+              })()}
+            <TextField
+              label="Estructura (opcional)"
+              maxLength={300}
+              placeholder="Entrada, 3 coplas con estribillo, salida"
+              value={draft.structure}
+              onChange={(event) => set({ structure: cleanText(event.target.value) })}
+            />
+            <div className={styles.footer}>
+              <label className={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={draft.optional}
+                  onChange={(event) => set({ optional: event.target.checked })}
+                />
+                Opcional (se hace si sobra tiempo)
+              </label>
+              <div className={styles.buttons}>
+                {/* The same as dragging it to the other list. */}
+                <Button variant="ghost" onClick={() => set({ encore: !draft.encore })}>
+                  {draft.encore ? 'Pasar al repertorio' : 'Pasar a bis'}
+                </Button>
+                <Button variant="danger" onClick={onRemove}>
+                  Quitar
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </li>
   );
 }
@@ -273,7 +327,9 @@ interface PieceListProps {
 
 /** One of the two lists; it also takes drops while empty. */
 function PieceList({ id, pieces, highlighted, droppable = true, children }: PieceListProps) {
-  const { setNodeRef } = useDroppable({ id, disabled: !droppable });
+  // Only an empty list takes drops itself; otherwise its pieces do, or the pointer would flicker
+  // between the list and the piece under it and the pieces would jump back and forth.
+  const { setNodeRef } = useDroppable({ id, disabled: !droppable || pieces.length > 0 });
   return (
     <SortableContext
       items={pieces.map((piece) => piece.key)}
@@ -300,22 +356,39 @@ export function RepertoireSection({
   pieces,
   onChange,
   limit,
-  onSave,
   people,
   openKey: controlledKey,
   onOpenKeyChange,
-  minMinutes = null,
-  maxMinutes = null,
+  groupInstruments,
+  onAddToGroup,
 }: RepertoireSectionProps) {
   const [ownKey, setOwnKey] = useState<string | null>(null);
+  // Pieces showing their fields, apart from the one entered.
+  const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(new Set());
+  const toggleOpen = (key: string) =>
+    setOpenKeys((keys) => {
+      const next = new Set(keys);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
   // List a piece is being dragged into, to highlight it.
   const [targetList, setTargetList] = useState<ListId | null>(null);
+  // Piece being dragged, drawn under the pointer; it glides into its new place on dropping.
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const active = pieces.find((piece) => piece.key === activeKey) ?? null;
   const openKey = controlledKey !== undefined ? controlledKey : ownKey;
   const setOpenKey = onOpenKeyChange ?? setOwnKey;
   const peopleById = useMemo(
     () => (people ? new Map(people.map((person) => [person.id, person])) : undefined),
     [people],
   );
+  // The group's instruments (a starter list until it has its own), and any the pieces use.
+  const instrumentSuggestions = [
+    ...new Set([
+      ...(groupInstruments?.length ? groupInstruments : STARTER_INSTRUMENTS),
+      ...pieces.flatMap((piece) => piece.instruments),
+    ]),
+  ];
   const updatePiece = (next: PieceDraft) =>
     onChange(pieces.map((piece) => (piece.key === next.key ? next : piece)));
   const sensors = useSensors(
@@ -324,9 +397,12 @@ export function RepertoireSection({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const full = limit !== undefined && pieces.length >= limit;
+  // At the limit, the add buttons say so instead, in red, and stay blocked.
+  const limitText = `El Grupo de Prueba admite hasta ${limit} piezas`;
   const main = pieces.filter((piece) => !piece.encore);
   const encores = pieces.filter((piece) => piece.encore);
-  const summary = summarize(pieces, minMinutes, maxMinutes);
+  // Encores are timed apart; the time available does not matter here.
+  const summary = summarize(pieces, null, null);
 
   const listOf = (id: string | number): ListId | null => {
     if (id === 'main' || id === 'encore') return id;
@@ -337,7 +413,9 @@ export function RepertoireSection({
   const add = (encore: boolean) => {
     const draft = { ...emptyDraft(), encore };
     onChange([...pieces, draft]);
+    // A new piece is entered and open, to give it a title.
     setOpenKey(draft.key);
+    setOpenKeys((keys) => new Set(keys).add(draft.key));
   };
 
   // While dragging into the other list it is only highlighted; the piece moves on dropping.
@@ -348,6 +426,7 @@ export function RepertoireSection({
 
   const drop = ({ active, over }: DragEndEvent) => {
     setTargetList(null);
+    setActiveKey(null);
     if (!over || active.id === over.id) return;
     const from = listOf(active.id);
     const to = listOf(over.id);
@@ -372,39 +451,43 @@ export function RepertoireSection({
       key={draft.key}
       draft={draft}
       label={label}
-      open={openKey === draft.key}
-      onToggle={() => setOpenKey(openKey === draft.key ? null : draft.key)}
+      selected={openKey === draft.key}
+      open={openKeys.has(draft.key)}
+      onSelect={() => setOpenKey(draft.key)}
+      onToggle={() => toggleOpen(draft.key)}
       onChange={updatePiece}
       people={peopleById}
-      onRemove={() => onChange(pieces.filter((piece) => piece.key !== draft.key))}
-      onSave={() => {
-        setOpenKey(null);
-        onSave?.();
+      instruments={instrumentSuggestions}
+      groupInstruments={groupInstruments}
+      onAddToGroup={onAddToGroup}
+      onRemove={() => {
+        if (openKey === draft.key) setOpenKey(null);
+        onChange(pieces.filter((piece) => piece.key !== draft.key));
       }}
     />
   );
 
   return (
     <div className={styles.root}>
-      <RepertoireSummaryView summary={summary} minMinutes={minMinutes} maxMinutes={maxMinutes} />
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        onDragStart={({ active: dragged }: DragStartEvent) => setActiveKey(String(dragged.id))}
         onDragOver={highlight}
         onDragEnd={drop}
-        onDragCancel={() => setTargetList(null)}
+        onDragCancel={() => {
+          setTargetList(null);
+          setActiveKey(null);
+        }}
       >
         <PieceList id="main" pieces={main} highlighted={targetList === 'main'}>
           {main.length === 0 && <li className={styles.emptyList}>Sin piezas todavía</li>}
           {main.map((draft, index) => row(draft, String(index + 1)))}
         </PieceList>
         <div className={styles.add}>
-          <Button onClick={() => add(false)} disabled={full}>
-            + Añadir pieza
+          <Button className={styles.addButton} onClick={() => add(false)} disabled={full}>
+            {full ? limitText : '+ Añadir pieza'}
           </Button>
-          {full && (
-            <span className={styles.limit}>El Grupo de Prueba admite hasta {limit} piezas</span>
-          )}
         </div>
 
         <EncoreSection
@@ -413,15 +496,29 @@ export function RepertoireSection({
           highlighted={targetList === 'encore'}
         >
           <PieceList id="encore" pieces={encores} highlighted={false} droppable={false}>
-            {encores.length === 0 && <li className={styles.emptyList}>Suelta aquí una pieza</li>}
             {encores.map((draft, index) => row(draft, `B${index + 1}`))}
           </PieceList>
           <div className={styles.add}>
-            <Button onClick={() => add(true)} disabled={full}>
-              + Añadir bis
+            <Button className={styles.addButton} onClick={() => add(true)} disabled={full}>
+              {full ? limitText : '+ Añadir bis'}
             </Button>
           </div>
         </EncoreSection>
+
+        {/* On dropping, the copy glides to where the piece ends up, also into the other list. */}
+        <DragOverlay dropAnimation={DROP}>
+          {active && (
+            <div className={styles.dragPreview}>
+              <span className={styles.handle} aria-hidden="true">
+                <GripVertical size={18} />
+              </span>
+              <span className={styles.name}>{active.title.trim() || 'Sin título'}</span>
+              <span className={styles.type} data-type={active.type}>
+                {PIECE_TYPE_LABELS[active.type]}
+              </span>
+            </div>
+          )}
+        </DragOverlay>
       </DndContext>
     </div>
   );
@@ -459,73 +556,27 @@ function EncoreSection({ count, seconds, highlighted, children }: EncoreSectionP
         >
           Bis ({count})
           {seconds > 0 && <span className={styles.encoresTime}>{formatClock(seconds)}</span>}
+          <ChevronDown
+            className={styles.encoresChevron}
+            data-open={open ? '' : undefined}
+            aria-hidden="true"
+          />
         </button>
       </h3>
+      {/* Only while a piece is dragged over the block: where it will land, growing into view. */}
+      <div className={styles.dropZone} data-open={highlighted ? '' : undefined} aria-hidden="true">
+        <div className={styles.dropZoneInner}>
+          <span>Suelta aquí una pieza</span>
+        </div>
+      </div>
       <div
         id="encores-body"
         className={styles.accordion}
         data-open={open ? '' : undefined}
         inert={!open}
       >
-        <div className={styles.accordionInner}>
-          <p className={styles.hint}>
-            Por si el público pide otra. No cuentan para el resumen; arrastra piezas aquí o desde
-            aquí.
-          </p>
-          {children}
-        </div>
+        <div className={styles.accordionInner}>{children}</div>
       </div>
     </section>
-  );
-}
-
-interface SummaryViewProps {
-  summary: ReturnType<typeof summarize>;
-  minMinutes: number | null;
-  maxMinutes: number | null;
-}
-
-/** Repertoire time against the time available for the performance (step 1.12). */
-function RepertoireSummaryView({ summary, minMinutes, maxMinutes }: SummaryViewProps) {
-  const available = formatDuration(minMinutes, maxMinutes);
-  const message = {
-    over: `Te pasas de la duración máxima en ${formatClock(summary.required - (maxMinutes ?? 0) * 60)}.`,
-    short: `Te faltan ${formatClock((minMinutes ?? 0) * 60 - summary.required - summary.optional)} para la duración mínima.`,
-    ok: 'Cabe en el tiempo de la actuación.',
-    unknown: 'Pon la duración mínima o máxima de la actuación para compararlo.',
-  }[summary.status];
-
-  // Without the time available, the note goes under the box, as a disclaimer.
-  const unknown = summary.status === 'unknown';
-  return (
-    <div className={styles.summaryBlock} aria-live="polite">
-      <div className={styles.overview} data-status={summary.status}>
-        <dl className={styles.figures}>
-          <div>
-            <dt>Repertorio</dt>
-            <dd>{formatClock(summary.required)}</dd>
-          </div>
-          {summary.optional > 0 && (
-            <div>
-              <dt>Opcionales</dt>
-              <dd>+{formatClock(summary.optional)}</dd>
-            </div>
-          )}
-          <div>
-            <dt>Disponible</dt>
-            <dd>{available ?? 'Sin indicar'}</dd>
-          </div>
-        </dl>
-        {!unknown && <p className={styles.verdict}>{message}</p>}
-        {summary.missingDurations > 0 && (
-          <p className={styles.hint}>
-            {summary.missingDurations === 1
-              ? '1 pieza no tiene duración y no cuenta.'
-              : `${summary.missingDurations} piezas no tienen duración y no cuentan.`}
-          </p>
-        )}
-      </div>
-      {unknown && <p className={styles.disclaimer}>{message}</p>}
-    </div>
   );
 }

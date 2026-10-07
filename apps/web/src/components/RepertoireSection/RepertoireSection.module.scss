@@ -33,23 +33,56 @@
   border: var(--border-width) solid var(--ctl);
   border-radius: var(--radius);
 
+  // Its place in the list while the copy under the pointer is dragged.
   &[data-dragging] {
-    z-index: 1;
+    border-style: dashed;
     border-color: var(--accent);
-    box-shadow: 4px 4px 0 var(--ink);
+    opacity: 0.4;
   }
 
   &[data-invalid] {
     border-color: var(--danger);
   }
+
+  // A figure with empty places: a warning, like the summary.
+  &[data-incomplete]:not([data-invalid]) {
+    border-color: var(--warn);
+  }
+
+  // The piece entered: highlighted in blue, like a selection.
+  &[data-selected]:not([data-dragging]) {
+    background: var(--sel-bg);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+}
+
+.missingPlaces {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--warn);
+}
+
+// Someone twice in the piece: it should never happen, so it shows in red.
+.repeated {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--danger);
 }
 
 .row {
+  position: relative;
   display: flex;
   gap: var(--space-2);
   align-items: center;
   min-height: 52px;
-  padding-right: var(--space-3);
+}
+
+// Title on top, details below.
+.main {
+  display: grid;
+  flex: 1;
+  min-width: 0;
 }
 
 // Large touch target; dragging starts here so the page still scrolls elsewhere.
@@ -82,12 +115,9 @@
 }
 
 .summary {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-2);
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
   min-width: 0;
   padding: var(--space-2) 0;
   font: inherit;
@@ -101,6 +131,44 @@
 .name {
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+// Open piece: its title is an inline field that reads as text until hovered or focused.
+.nameInput {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  margin: var(--space-1) 0 0 calc(-1 * var(--space-2));
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius);
+
+  &::placeholder {
+    color: var(--warn);
+  }
+
+  &:hover {
+    border-color: var(--ctl);
+  }
+
+  &:focus-visible {
+    background: var(--surface);
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  &[aria-invalid='true'] {
+    border-color: var(--warn);
+  }
+}
+
+.titleError {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--danger);
 }
 
 .meta {
@@ -123,15 +191,50 @@
 }
 
 .duration {
-  min-width: 3.5em;
   font-variant-numeric: tabular-nums;
-  text-align: right;
 }
 
+// A strip at the right of the row that opens the fields.
+.expand {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  width: 44px;
+  padding: 0;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+
+  &:hover {
+    color: var(--ink);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+}
+
+// Pointing down when closed and up when open.
+.chevron {
+  width: 20px;
+  height: 20px;
+  transition: transform var(--duration) ease;
+
+  &[data-open] {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Under a line that parts them from the preview of the piece.
 .fields {
   display: grid;
   gap: var(--space-3);
-  padding: 0 var(--space-3) var(--space-3);
+  padding: var(--space-3) 0;
+  margin: 0 var(--space-3);
+  border-top: var(--border-width) solid var(--line);
 }
 
 // Fields stay aligned to the top even when only one of them has a hint.
@@ -180,24 +283,28 @@
   align-items: center;
 }
 
-.limit {
-  color: var(--ink-soft);
+// "+ Añadir pieza" / "+ Añadir bis": a secondary action across the whole list, with a dashed
+// accent border so it stands apart from the pieces without competing with "Guardar".
+.addButton {
+  flex: 1 1 100%;
+  color: var(--accent);
+  border-style: dashed;
+  border-color: var(--accent);
+
+  &:hover:not(:disabled) {
+    background: var(--sel-bg);
+  }
+}
+
+// Blocked at the piece limit: the warning takes the place of the label (over the button default).
+.add .addButton:disabled {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 .peopleCount {
   font-size: 0.8125rem;
   color: var(--ink-soft);
-}
-
-.participants {
-  display: grid;
-  gap: var(--space-2);
-}
-
-.participantsTitle {
-  @include mixins.label;
-
-  margin: 0;
 }
 
 .hint {
@@ -206,45 +313,9 @@
   color: var(--ink-soft);
 }
 
-.participantList {
-  display: grid;
-  gap: var(--space-2);
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.participant {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  align-items: center;
-}
-
-.removePerson {
-  width: 32px;
-  height: 32px;
-  margin-left: auto;
-  font: inherit;
-  color: var(--ink-soft);
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius);
-
-  &:hover {
-    color: var(--danger);
-    background: var(--sel-bg);
-  }
-}
-
 .saveStatus {
   font-size: 0.875rem;
   color: var(--ink-soft);
-}
-
-.finish {
-  margin-left: auto;
 }
 
 // Repertoire and people tray side by side (60 / 40) when the column is wide enough,
@@ -258,8 +329,23 @@
   gap: var(--space-3);
   align-items: start;
 
+  // Side by side: the tray takes two fifths and the repertoire the rest. Folding the tray
+  // shrinks it to its icons (and the repertoire grows) with a sweep.
   @container (min-width: 500px) {
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-columns: minmax(0, 1fr) auto;
+
+    > [data-tray] {
+      width: calc((100cqw - var(--space-3)) * 0.4);
+      transition: width var(--duration) ease;
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
+    }
+
+    > [data-tray-collapsed] {
+      width: 46px;
+    }
   }
 }
 
@@ -268,11 +354,12 @@
   @include mixins.from-tablet {
     height: 100%;
 
-    .workspaceGrid {
-      height: 100%;
-    }
-
+    // Side by side only; stacked, the tray goes under the repertoire at its own height.
     @container (min-width: 500px) {
+      .workspaceGrid {
+        height: 100%;
+      }
+
       .workspaceGrid > * {
         height: 100%;
         max-height: none;
@@ -298,15 +385,59 @@
   border-radius: var(--radius);
 }
 
+// No room is kept for an empty encores list: the whole "Bis" block takes the drop.
+.list[aria-label='Bis'][data-empty] {
+  min-height: 0;
+}
+
+// Copy of the piece under the pointer while dragging.
+.dragPreview {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 52px;
+  padding-right: var(--space-3);
+  cursor: grabbing;
+  background: var(--surface);
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
 .encores {
   display: grid;
   padding-top: var(--space-2);
   border-top: var(--border-width) solid var(--line);
-  border-radius: var(--radius);
+}
 
-  &[data-over] {
-    outline: var(--border-width) dashed var(--accent);
-    outline-offset: 4px;
+// Drop zone of the encores: hidden, it grows in while a piece is dragged over the block.
+.dropZone {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration) ease;
+
+  &[data-open] {
+    grid-template-rows: 1fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.dropZoneInner {
+  overflow: hidden;
+
+  span {
+    display: grid;
+    place-items: center;
+    min-height: 72px;
+    margin: var(--space-2) 0;
+    font-size: 0.875rem;
+    color: var(--accent);
+    background: var(--sel-bg);
+    border: var(--border-width) dashed var(--accent);
+    border-radius: var(--radius);
   }
 }
 
@@ -330,15 +461,21 @@
   cursor: pointer;
   background: transparent;
   border: 0;
+}
 
-  &::after {
-    margin-left: auto;
-    font-size: 0.875rem;
-    content: '▾';
+.encoresChevron {
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  color: var(--ink-soft);
+  transition: transform var(--duration) ease;
+
+  &[data-open] {
+    transform: rotate(180deg);
   }
 
-  &[aria-expanded='true']::after {
-    content: '▴';
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 }
 
@@ -354,7 +491,7 @@
 .accordion {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 250ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   &[data-open] {
     grid-template-rows: 1fr;
@@ -376,57 +513,24 @@
   }
 }
 
-// Summary box: highlighted in blue when everything fits, yellow when there is any problem.
-.overview {
-  display: grid;
-  gap: var(--space-1);
-  padding: var(--space-3);
-  background: var(--sel-bg);
-  border: var(--border-width) solid var(--accent);
-  border-left-width: 6px;
-  border-radius: var(--radius);
-
-  &:not([data-status='ok']) {
-    background: var(--warn-bg);
-    border-color: var(--warn);
-  }
+// The fields of a piece, sliding open and shut.
+.pieceAccordionInner {
+  min-height: 0;
+  overflow: hidden;
 }
 
-.figures {
+// Under the open title, its details.
+.nameInput + .summary {
+  padding-top: 0;
+}
+
+// Instruments of a piece not yet in the group's list, with the button to add them.
+.newInstruments {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: 0;
-
-  dt {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--ink-soft);
-    text-transform: uppercase;
-  }
-
-  dd {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-}
-
-.summaryBlock {
-  display: grid;
   gap: var(--space-1);
-}
-
-// Note under the box when the performance has no duration to compare with.
-.disclaimer {
+  align-items: center;
   margin: 0;
   font-size: 0.875rem;
-  font-style: italic;
-  color: var(--warn);
-}
-
-.verdict {
-  margin: 0;
-  font-weight: 700;
+  color: var(--ink-soft);
 }

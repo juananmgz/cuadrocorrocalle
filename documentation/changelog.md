@@ -12,7 +12,31 @@ Qué commits entran en cada versión, con enlace a su pull request. Cada fase de
 
 Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 
-## v0.2.0 (en curso: fase 1)
+## v0.3.0 · [Release #47](https://github.com/juananmgz/cuadrocorrocalle/pull/47)
+
+Fase 2 (pasos 2.1 a 2.9); la revisión de accesibilidad del paso 2.10 irá en un parche.
+
+| PR                                                                | Commit                                                                    | Cambio                                                                                                |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [CCC-0036](https://github.com/juananmgz/cuadrocorrocalle/pull/36) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/36/commits) | ✨ Place people on the stage by dragging them (paso 2.1)                                              |
+| [CCC-0037](https://github.com/juananmgz/cuadrocorrocalle/pull/37) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/37/commits) | 💄 Open performances on a summary and save edits live                                                 |
+| [CCC-0038](https://github.com/juananmgz/cuadrocorrocalle/pull/38) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/38/commits) | ✨ Place simple figures on the stage (paso 2.2)                                                       |
+| [CCC-0039](https://github.com/juananmgz/cuadrocorrocalle/pull/39) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/39/commits) | ✨ Rows and rings of holes filled with figures (paso 2.3)                                             |
+| [CCC-0040](https://github.com/juananmgz/cuadrocorrocalle/pull/40) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/40/commits) | ✨ Free dance and spaces of any figure (paso 2.4)                                                     |
+| [CCC-0041](https://github.com/juananmgz/cuadrocorrocalle/pull/41) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/41/commits) | ✨ Diagonal trios and rows, and a tidier tray (paso 2.4)                                              |
+| [CCC-0042](https://github.com/juananmgz/cuadrocorrocalle/pull/42) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/42/commits) | ✨ Figure menu: mirror, duplicate and delete (paso 2.5)                                               |
+| [CCC-0043](https://github.com/juananmgz/cuadrocorrocalle/pull/43) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/43/commits) | ✨ The cross, a folding tray, the musicians' zone, instruments and Mi grupo in tabs (pasos 2.5 y 2.7) |
+| [CCC-0044](https://github.com/juananmgz/cuadrocorrocalle/pull/44) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/44/commits) | ✨ People out of figures, holes opened in spaces and repeated people in red (paso 2.6)                |
+| [CCC-0045](https://github.com/juananmgz/cuadrocorrocalle/pull/45) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/45/commits) | ✨ Candidates for an empty place, and tidier diagonal rows and instruments (paso 2.8)                 |
+| [CCC-0046](https://github.com/juananmgz/cuadrocorrocalle/pull/46) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/46/commits) | ✨ Animated home and summary, the dance centre, stage tools and zoom (paso 2.9)                       |
+
+## v0.2.1 · [Release #47](https://github.com/juananmgz/cuadrocorrocalle/pull/47)
+
+| PR                                                                | Commit                                                                    | Cambio                                                       |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [CCC-0035](https://github.com/juananmgz/cuadrocorrocalle/pull/35) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/35/commits) | 🐛 Generate the Prisma client explicitly in the Render build |
+
+## v0.2.0 · [Release #33](https://github.com/juananmgz/cuadrocorrocalle/pull/33)
 
 | PR                                                                | Commit                                                                    | Cambio                                                                                      |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |

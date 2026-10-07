@@ -5,7 +5,7 @@ import type { GridStage } from '../GridBackground/GridBackground';
 
 export interface GridSettings {
   leftInset?: number;
-  view?: 'perspective' | 'top';
+  view?: 'perspective' | 'angled' | 'top';
   stage?: GridStage | null;
   showCross?: boolean;
   label?: string | null;

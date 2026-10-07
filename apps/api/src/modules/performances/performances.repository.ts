@@ -6,6 +6,7 @@ export interface PerformanceRecord {
   title: string;
   place: string | null;
   date: Date | null;
+  time: string | null;
   minMinutes: number | null;
   maxMinutes: number | null;
   notes: string | null;
@@ -13,6 +14,9 @@ export interface PerformanceRecord {
   stageDepth: number | null;
   squareSize: number;
   edgeDistance: number;
+  musicSide: string | null;
+  musicDepth: number;
+  danceCentre: boolean;
   createdAt: Date;
 }
 
@@ -28,9 +32,10 @@ export interface PerformanceRepository {
   delete(id: string): Promise<void>;
 }
 
-/** Soonest first; performances without a date go last. */
+/** Soonest first (by day, then time); performances without a date go last. */
 const byDate = (a: PerformanceRecord, b: PerformanceRecord) =>
   (a.date?.getTime() ?? Infinity) - (b.date?.getTime() ?? Infinity) ||
+  (a.time ?? '99').localeCompare(b.time ?? '99') ||
   a.createdAt.getTime() - b.createdAt.getTime();
 
 const FIELDS = {
@@ -39,6 +44,7 @@ const FIELDS = {
   title: true,
   place: true,
   date: true,
+  time: true,
   minMinutes: true,
   maxMinutes: true,
   notes: true,
@@ -46,6 +52,9 @@ const FIELDS = {
   stageDepth: true,
   squareSize: true,
   edgeDistance: true,
+  musicSide: true,
+  musicDepth: true,
+  danceCentre: true,
   createdAt: true,
 } as const;
 

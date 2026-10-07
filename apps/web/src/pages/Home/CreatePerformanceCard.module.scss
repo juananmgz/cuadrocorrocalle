@@ -37,8 +37,17 @@
   font-size: 1.75rem;
 }
 
+// Title and summary of a block, with its chevron halfway down at the right.
+.head {
+  position: relative;
+  padding-right: 28px;
+}
+
 // The block title opens and closes it.
 .header {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
   width: 100%;
   padding: 0;
   font: inherit;
@@ -49,15 +58,25 @@
   cursor: pointer;
   background: transparent;
   border: 0;
+}
 
-  &::after {
-    float: right;
-    font-size: 1rem;
-    content: '▾';
+// Lucide's chevron at the right, turning over when the block opens (as in the tray).
+.chevron {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  color: var(--ink-soft);
+  transition: transform var(--duration) ease;
+
+  &[data-open] {
+    transform: rotate(180deg);
   }
 
-  &[aria-expanded='true']::after {
-    content: '▴';
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 }
 
@@ -65,6 +84,14 @@
   position: relative;
   display: grid;
   gap: var(--space-1);
+
+  // The title sits at the top edge of the scrolling column, which would clip a ring drawn
+  // outside it: here it is drawn just inside, around the title itself.
+  // It beats without growing, so the column edges do not cut it either.
+  > .heartbeat {
+    inset: 0;
+    animation-name: heartbeat-fade;
+  }
 }
 
 .titleRow {
@@ -102,7 +129,7 @@
 .editIcon {
   flex: none;
   color: var(--ink-soft);
-  transition: opacity 150ms;
+  transition: opacity var(--duration);
 
   .titleRow:hover &,
   .titleRow:focus-within & {
@@ -163,6 +190,35 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
+
+  // Fields lined up by their top, so a hint under one does not stretch the other.
+  &[data-top] {
+    align-items: start;
+  }
+}
+
+// Date, time and durations in one row while they fit: the date and time share what is left, the
+// durations only as wide as their titles; on a phone, one under another.
+.when {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-start;
+
+  > * {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  @include mixins.from-tablet {
+    > * {
+      flex: 1 1 150px;
+    }
+
+    > :nth-child(n + 3) {
+      flex: 0 1 9.5rem;
+    }
+  }
 }
 
 .stage {
@@ -172,6 +228,30 @@
   padding: 0;
   margin: 0;
   border: 0;
+}
+
+// A choice of the stage, ticked or not, with what it does under it.
+.check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--space-2);
+  align-items: center;
+  font-weight: 700;
+  cursor: pointer;
+
+  input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+}
+
+.checkHint {
+  grid-column: 2;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ink-soft);
 }
 
 .scaleNote {
@@ -202,7 +282,7 @@
 .accordion {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 250ms ease;
+  transition: grid-template-rows var(--duration) ease;
 
   &[data-open] {
     grid-template-rows: 1fr;
@@ -328,4 +408,16 @@
 .actions .create[aria-disabled='true'] {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+// "Guardando…" while an edit saves on its own; empty otherwise.
+.saveStatus {
+  min-height: 1lh;
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+
+  &:empty {
+    display: none;
+  }
 }

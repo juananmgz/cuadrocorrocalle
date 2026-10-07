@@ -1,0 +1,254 @@
+@use '../../../styles/mixins';
+
+.root {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  @include mixins.label;
+}
+
+// Looks like a text field, with the tags inside it before the cursor.
+.box {
+  @include mixins.control;
+
+  position: relative;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  cursor: text;
+
+  &:focus-within {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+}
+
+.tag {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  padding: 2px 2px 2px var(--space-2);
+  font-size: 0.875rem;
+  color: var(--on-accent);
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+// The × that takes a tag out: red, like every button that removes.
+.remove {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: var(--on-danger);
+  cursor: pointer;
+  background: var(--danger);
+  border: 0;
+  border-radius: 50%;
+
+  &:hover,
+  &:focus-visible {
+    outline: 2px solid var(--on-accent);
+    outline-offset: 1px;
+  }
+}
+
+.input {
+  flex: 1;
+  min-width: 8ch;
+  min-height: 32px;
+  padding: 0 var(--space-1);
+  font: inherit;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  outline: none;
+
+  &::placeholder {
+    color: var(--ctl);
+  }
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+// How many of a counted tag, with − and + round it.
+.count {
+  display: inline-flex;
+  gap: 1px;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+
+  button:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+}
+
+// The examples to pick from, under the field.
+.suggestions {
+  @include mixins.popover;
+
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 20;
+  max-height: 260px;
+  padding: var(--space-1);
+  overflow-y: auto;
+  cursor: default;
+
+  ul {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+}
+
+.suggestionsTitle {
+  padding: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.option {
+  @include mixins.option;
+
+  &:hover {
+    background: var(--sel-bg);
+  }
+
+  &[aria-selected='true'] {
+    color: var(--on-accent);
+    background: var(--accent);
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// Inline: only the text, underlined, like a name being written in place.
+.root[data-inline] {
+  .box {
+    min-height: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-bottom: var(--border-width) dashed var(--accent);
+    border-radius: 0;
+
+    &:focus-within {
+      outline: none;
+      border-bottom-style: solid;
+    }
+  }
+
+  .input {
+    min-height: 32px;
+    padding: 0;
+    font-weight: 700;
+  }
+
+  .suggestions {
+    right: auto;
+    min-width: 260px;
+  }
+}
+
+// Counted tags: a list under the field, one row each.
+.list {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius);
+}
+
+.rowName {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+// − 2 +: real buttons around the number.
+.stepper {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.step,
+.delete {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+  background: var(--surface);
+  border: var(--border-width) solid var(--ink-soft);
+  border-radius: var(--radius);
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    background: var(--sel-bg);
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+}
+
+.stepCount {
+  min-width: 2ch;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+// Taking it out: red, as it removes.
+.delete {
+  color: var(--danger);
+  border-color: var(--danger);
+
+  // As specific as the shared hover above, so it stays red.
+  &:hover:not(:disabled),
+  &:focus-visible {
+    color: var(--on-danger);
+    background: var(--danger);
+    border-color: var(--danger);
+  }
+}

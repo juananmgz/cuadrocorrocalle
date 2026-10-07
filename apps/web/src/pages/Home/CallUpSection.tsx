@@ -17,7 +17,7 @@ import { FilterMenu } from '../../components/ui/FilterMenu/FilterMenu';
 import { PersonChip } from '../../components/ui/PersonChip/PersonChip';
 import { FIGURE_LABELS, usePeople, usePeopleMutations } from '../../people/peopleApi';
 import styles from './CallUpSection.module.scss';
-import { ImportNamesDialog } from './ImportNamesDialog';
+import { type ImportedName, ImportNamesDialog } from './ImportNamesDialog';
 
 /** An imported name and who it is in the group; skipped rows are left out. */
 interface Row extends NameMatch {
@@ -78,16 +78,30 @@ export function CallUpSection({ groupId, initial, onChange }: CallUpSectionProps
       .map((row) => [row.personId!, row.original]),
   );
 
-  // Everyone found in the imported list comes.
-  const markAll = (ids: string[]) =>
+  // Everyone found in the imported list comes, or is still to be confirmed if marked with "?".
+  const [doubts, setDoubts] = useState<Set<string>>(new Set());
+  const markAll = (ids: string[], doubtful: (id: string) => boolean = () => false) =>
     setStatuses((current) => ({
       ...current,
-      ...Object.fromEntries(ids.map((id) => [id, 'yes' as const])),
+      ...Object.fromEntries(ids.map((id) => [id, doubtful(id) ? 'maybe' : ('yes' as const)])),
     }));
-  const importNames = (names: string[]) => {
-    const matches = matchNames(names, people).map((match) => ({ ...match, skipped: false }));
+  const importNames = (names: ImportedName[]) => {
+    const doubtfulNames = new Set(names.filter((item) => item.doubtful).map((item) => item.name));
+    setDoubts(doubtfulNames);
+    const matches = matchNames(
+      names.map((item) => item.name),
+      people,
+    ).map((match) => ({ ...match, skipped: false }));
     setRows(matches);
-    markAll(matches.flatMap((match) => (match.personId ? [match.personId] : [])));
+    const unsure = new Set(
+      matches.flatMap((match) =>
+        match.personId && doubtfulNames.has(match.original) ? [match.personId] : [],
+      ),
+    );
+    markAll(
+      matches.flatMap((match) => (match.personId ? [match.personId] : [])),
+      (id) => unsure.has(id),
+    );
   };
 
   // New people join the group as collaborators and come.
@@ -98,7 +112,10 @@ export function CallUpSection({ groupId, initial, onChange }: CallUpSectionProps
         return person && !row.personId ? { ...row, personId: person.id, state: 'matched' } : row;
       }),
     );
-    markAll(created.map((person) => person.id));
+    markAll(
+      created.map((person) => person.id),
+      (id) => doubts.has(created.find((person) => person.id === id)?.name ?? ''),
+    );
   };
   const createOne = (name: string) =>
     mutations.create.mutate({ name, membership: 'collaborator' }, { onSuccess: (p) => link([p]) });

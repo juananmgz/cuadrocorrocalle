@@ -1,9 +1,11 @@
 import {
   type CreatePerformanceInput,
+  groupStatsSchema,
   type Performance,
   PERFORMANCES_PATH,
   performanceListSchema,
   performanceSchema,
+  STATS_PATH,
   type UpdatePerformanceInput,
 } from '@cuadrocorrocalle/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -85,3 +87,12 @@ export function usePerformanceMutations() {
 }
 
 export type PerformanceMutations = ReturnType<typeof usePerformanceMutations>;
+
+/** The group's statistics, for the charts of "Mi grupo". */
+export function useGroupStats(groupId: string) {
+  return useQuery({
+    queryKey: ['stats', groupId],
+    queryFn: async () =>
+      groupStatsSchema.parse(await request(`${STATS_PATH}?grupo=${encodeURIComponent(groupId)}`)),
+  });
+}

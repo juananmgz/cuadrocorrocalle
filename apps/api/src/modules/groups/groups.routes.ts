@@ -3,6 +3,8 @@ import {
   deleteGroupSchema,
   type DeleteGroupError,
   GROUPS_PATH,
+  figureDefaultsInputSchema,
+  groupInstrumentsInputSchema,
   updateGroupSchema,
 } from '@cuadrocorrocalle/shared';
 import type { FastifyInstance } from 'fastify';
@@ -47,6 +49,46 @@ export async function groupRoutes(app: FastifyInstance, { auth, groups }: GroupR
     }
 
     const updated = await groups.update(user.id, request.params.id, input.data);
+    if (!updated) return reply.status(404).send({ message: 'Group not found' });
+
+    return updated;
+  });
+
+  // How each figure comes out when placed (step 2.2).
+  app.put<{ Params: { id: string } }>(`${GROUPS_PATH}/:id/figuras`, async (request, reply) => {
+    const user = await getSessionUser(auth, request);
+    if (!user) return reply.status(401).send({ message: 'Sign in first' });
+
+    const input = figureDefaultsInputSchema.safeParse(request.body);
+    if (!input.success) {
+      return reply
+        .status(400)
+        .send({ message: input.error.issues[0]?.message ?? 'Invalid figures' });
+    }
+
+    const updated = await groups.setFigureDefaults(
+      user.id,
+      request.params.id,
+      input.data.figureDefaults,
+    );
+    if (!updated) return reply.status(404).send({ message: 'Group not found' });
+
+    return updated;
+  });
+
+  // The instruments the group plays (step 2.7).
+  app.put<{ Params: { id: string } }>(`${GROUPS_PATH}/:id/instrumentos`, async (request, reply) => {
+    const user = await getSessionUser(auth, request);
+    if (!user) return reply.status(401).send({ message: 'Sign in first' });
+
+    const input = groupInstrumentsInputSchema.safeParse(request.body);
+    if (!input.success) {
+      return reply
+        .status(400)
+        .send({ message: input.error.issues[0]?.message ?? 'Invalid instruments' });
+    }
+
+    const updated = await groups.setInstruments(user.id, request.params.id, input.data.instruments);
     if (!updated) return reply.status(404).send({ message: 'Group not found' });
 
     return updated;

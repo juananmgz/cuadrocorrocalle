@@ -1,4 +1,13 @@
-import type { Piece, PieceType, PersonRole } from '@cuadrocorrocalle/shared';
+import type {
+  Arrangement,
+  Candidate,
+  FigureKind,
+  FigureRotation,
+  Piece,
+  PieceType,
+  PersonRole,
+  Spot,
+} from '@cuadrocorrocalle/shared';
 
 import type { PrismaClient } from '../../generated/prisma/client';
 
@@ -20,9 +29,34 @@ const FIELDS = {
   structure: true,
   optional: true,
   encore: true,
+  instruments: true,
   participations: {
-    select: { personId: true, roles: true },
+    select: { personId: true, roles: true, x: true, y: true, figureId: true, slot: true },
     orderBy: { personId: 'asc' },
+  },
+  figures: {
+    select: {
+      id: true,
+      kind: true,
+      x: true,
+      y: true,
+      rotation: true,
+      width: true,
+      depth: true,
+      arms: true,
+      instrument: true,
+      candidates: true,
+      arrangement: true,
+      gap: true,
+      aspect: true,
+      holeWidth: true,
+      areaWidth: true,
+      areaDepth: true,
+      spots: true,
+      spaceId: true,
+      hole: true,
+      angle: true,
+    },
   },
 } as const;
 
@@ -33,9 +67,18 @@ export function createPrismaPieceRepository(prisma: PrismaClient): PieceReposito
       orderBy: { position: 'asc' },
       select: FIELDS,
     });
-    return rows.map(({ participations, ...row }) => ({
+    return rows.map(({ participations, figures, ...row }) => ({
       ...row,
       type: row.type as PieceType,
+      figures: figures.map((figure) => ({
+        ...figure,
+        kind: figure.kind as FigureKind,
+        rotation: figure.rotation as FigureRotation,
+        arrangement: figure.arrangement as Arrangement | null,
+        spots: figure.spots as Spot[] | null,
+        candidates: figure.candidates as Candidate[] | null,
+        arms: figure.arms.length ? figure.arms : null,
+      })),
       participants: participations.map((participation) => ({
         ...participation,
         roles: participation.roles as PersonRole[],
@@ -49,11 +92,22 @@ export function createPrismaPieceRepository(prisma: PrismaClient): PieceReposito
       const kept = pieces.flatMap((piece) => (piece.id ? [piece.id] : []));
       await prisma.$transaction(async (tx) => {
         await tx.piece.deleteMany({ where: { performanceId, id: { notIn: kept } } });
-        for (const [position, { id, participants, ...data }] of pieces.entries()) {
+        for (const [position, { id, participants, figures, ...data }] of pieces.entries()) {
           const pieceId = id
             ? (await tx.piece.update({ where: { id }, data: { ...data, position } })).id
             : (await tx.piece.create({ data: { ...data, position, performanceId } })).id;
           await tx.participation.deleteMany({ where: { pieceId } });
+          // Figures go first, so members can point at them.
+          await tx.figure.deleteMany({ where: { pieceId } });
+          await tx.figure.createMany({
+            data: figures.map(({ spots, arms, candidates, ...figure }) => ({
+              ...figure,
+              pieceId,
+              ...(spots ? { spots } : {}),
+              ...(candidates?.length ? { candidates } : {}),
+              ...(arms ? { arms } : {}),
+            })),
+          });
           await tx.participation.createMany({
             data: participants.map((participant) => ({ ...participant, pieceId, performanceId })),
           });

@@ -16,6 +16,7 @@ interface TabsProps {
   /** Controlled tab, for when something else switches it. */
   value?: string;
   onValueChange?: (value: string) => void;
+  className?: string;
 }
 
 export function Tabs({
@@ -24,10 +25,11 @@ export function Tabs({
   defaultValue = items[0]?.value,
   value,
   onValueChange,
+  className,
 }: TabsProps) {
   return (
     <RadixTabs.Root
-      className={styles.root}
+      className={className ? `${styles.root} ${className}` : styles.root}
       defaultValue={defaultValue}
       value={value}
       onValueChange={onValueChange}

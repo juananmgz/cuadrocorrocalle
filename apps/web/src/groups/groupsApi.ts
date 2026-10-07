@@ -2,6 +2,9 @@ import {
   type CreateGroupInput,
   type DeleteGroupError,
   type DeleteGroupInput,
+  type FigureDefaults,
+  figureDefaultsPath,
+  groupInstrumentsPath,
   type Group,
   type GroupList,
   type UpdateGroupInput,
@@ -98,4 +101,48 @@ export function licenseQuotaText(groupsAvailable: number | null) {
   if (groupsAvailable === null) return 'Tus licencias cubren grupos ilimitados';
   if (groupsAvailable === 0) return 'No te quedan licencias para más grupos';
   return `Licencias disponibles para ${groupsAvailable} ${groupsAvailable === 1 ? 'grupo' : 'grupos'} más`;
+}
+
+/** Stores how each figure comes out when placed in this group (step 2.2). */
+export function useSaveFigureDefaults(groupId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (figureDefaults: FigureDefaults): Promise<Group> =>
+      groupSchema.parse(
+        await request(
+          { method: 'PUT', body: JSON.stringify({ figureDefaults }) },
+          figureDefaultsPath(groupId),
+        ),
+      ),
+    onSuccess: (group) => {
+      queryClient.setQueryData<GroupList>(GROUPS_KEY, (list) =>
+        list
+          ? { ...list, groups: list.groups.map((item) => (item.id === group.id ? group : item)) }
+          : list,
+      );
+    },
+  });
+}
+
+/** Stores the instruments the group plays, and shows them at once. */
+export function useSaveGroupInstruments(groupId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (instruments: string[]): Promise<Group> =>
+      groupSchema.parse(
+        await request(
+          { method: 'PUT', body: JSON.stringify({ instruments }) },
+          groupInstrumentsPath(groupId),
+        ),
+      ),
+    onSuccess: (group) => {
+      queryClient.setQueryData<GroupList>(GROUPS_KEY, (list) =>
+        list
+          ? { ...list, groups: list.groups.map((item) => (item.id === group.id ? group : item)) }
+          : list,
+      );
+    },
+  });
 }

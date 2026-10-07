@@ -19,6 +19,24 @@ Migraciones:
 - `20261004193000_participations` (paso 1.11): quién sale en cada pieza y qué hace.
 - `20261004210000_piece_encore` (paso 1.12): piezas de bis, aparte del repertorio.
 - `20261005090000_user_admin`: marca de administrador de la plataforma (`isAdmin`).
+- `20261005100000_participation_position` (paso 2.1): dónde está cada persona en cada pieza (`x_m`, `y_m`).
+- `20261005150000_figures` (paso 2.2): figuras de cada pieza, a qué figura y hueco pertenece cada participación y la configuración de figuras de cada grupo (`figure_defaults`).
+- `20261005220000_spaces` (paso 2.3): espacios (fila y corro) como figuras; cada figura simple puede ir en el hueco de un espacio (`space_id`, `hole`), con su disposición (`arrangement`) y un giro libre dentro de un corro (`angle`).
+- `20261005230000_space_gap` (paso 2.3): separación entre los huecos de un espacio, en metros (`gap_m`; 0,5 por defecto).
+- `20261006000000_ring_aspect` (paso 2.3): fondo entre ancho de un corro estirado en óvalo (`aspect`; 1 o vacío, un círculo).
+- `20261006100000_free_dance` (paso 2.4): el baile libre, con el área en casillas (`area_width`, `area_depth`) y el sitio de cada persona en ella (`spots`, JSON `[{ x, y }]` en casillas desde su esquina, sin girar).
+- `20261006110000_space_hole_width` (paso 2.3): ancho de las parejas que esperan los huecos vacíos de una fila o un corro estirados a lo ancho (`hole_width`), para que los huecos y las parejas nuevas salgan como las demás.
+- `20261006120000_figure_depth` (paso 2.4): fondo propio del trío en triángulo, en casillas (`depth`; vacío si es tan hondo como ancho).
+- `20261006130000_cross_arms` (paso 2.5): cuántas personas lleva cada brazo de una cruz (`arms`: delante, izquierda, derecha y detrás; vacío en las demás figuras).
+- `20261006140000_music_zone` (paso 2.7): zona de músicos de cada actuación (`music_side`: back, left o right, vacío sin zona; `music_rows`, filas de 1 m).
+- `20261006150000_music_depth` (paso 2.7): la zona de músicos se mide en metros desde el borde (`music_depth_m`, 1,5 por defecto) en vez de filas, y va atrás por defecto.
+- `20261006170000_music_back` (paso 2.7): las actuaciones que ya existían pasan a tener la zona de músicos atrás.
+- `20261006180000_instruments` (paso 2.7): instrumentos de cada pieza (`instruments`) y el instrumento del sitio de cada músico (`instrument` en sus figuras).
+- `20261006190000_group_instruments` (paso 2.7): instrumentos que toca cada grupo (`instruments`), que se ofrecen en sus piezas.
+- `20261006200000_person_instruments` (paso 2.7): instrumentos que toca cada persona (`instruments`); solo ocupa los sitios de esos instrumentos.
+- `20261007090000_hole_candidates` (paso 2.8): candidatos de los huecos vacíos de cada figura (`candidates`, JSON con el hueco y las personas).
+- `20261007100000_performance_time` (paso 2.8): hora de la actuación (`time`, «HH:MM», opcional); la fecha pasa a ser obligatoria al crearla.
+- `20261007140000_dance_centre` (paso 2.9): `dance_centre` (sí por defecto): con zona de músicos, la cruz del centro va al centro de la zona de baile, entre el borde de los músicos y el del público.
 
 Las tablas de Better Auth (`user`, `session`, `account`, `verification`) usan sus nombres por defecto, en singular y con columnas en camelCase, porque Better Auth comprueba el esquema al arrancar. El resto de tablas usa nombres en inglés y columnas en snake_case. Tras cambiar `schema.prisma`, ejecuta `pnpm --filter @cuadrocorrocalle/api db:migrate` y después `db:generate`.
 
@@ -67,6 +85,7 @@ erDiagram
     text name
     text grid_color "azul, granate, verde…"
     boolean is_trial "Grupo de Prueba"
+    jsonb figure_defaults "giro y ancho de cada figura"
     timestamp inactive_since
     timestamp created_at
   }
@@ -79,6 +98,7 @@ erDiagram
     text main_color "blue, red… (20)"
     text membership "member o collaborator"
     text_array roles "dance, music, singing…"
+    text_array instruments "los que toca"
     text notes
   }
   groups ||--o{ performances : "tiene"
@@ -88,6 +108,7 @@ erDiagram
     text title
     text place
     date date "solo el día"
+    text time "HH:MM, opcional"
     int min_minutes
     int max_minutes
     text notes
@@ -95,6 +116,9 @@ erDiagram
     float stage_depth_m
     float square_m "0,5 por defecto"
     float edge_distance_m "0,25 por defecto y mínimo"
+    text music_side "zona de músicos: back, left o right"
+    float music_depth_m "ancho de la zona desde el borde"
+    boolean dance_centre "centro en la zona de baile"
   }
   people ||--o{ call_ups : "convocada en"
   performances ||--o{ call_ups : "convoca"
@@ -122,6 +146,35 @@ erDiagram
     text person_id PK,FK
     text performance_id FK
     text_array roles "dance, music, singing"
+    float x_m "null sin colocar"
+    float y_m "null sin colocar"
+    text figure_id FK "null si va suelta"
+    int slot "hueco en la figura"
+  }
+  pieces ||--o{ figures : "en su escenario"
+  figures ||--o{ participations : "sus miembros"
+  figures ||--o{ figures : "sus huecos (espacios)"
+  figures {
+    text id PK "lo genera la web"
+    text piece_id FK
+    text kind "solo, pair, pair_diagonal, trio_line, trio_triangle, square, diamond, cross, trio_diagonal, row, row_diagonal, ring, free"
+    float x_m "centro"
+    float y_m "centro"
+    int rotation "0, 90, 180, 270"
+    float width "casillas, de media en media; en espacios, huecos"
+    float depth "trío en triángulo: fondo en casillas"
+    int_array arms "cruz: personas en cada brazo"
+    text arrangement "espacios: series o battery"
+    float gap_m "espacios: separación entre huecos"
+    float hole_width "fila y corro: ancho de sus huecos vacíos"
+    float aspect "corro: fondo entre ancho"
+    float area_width "baile libre: ancho del área, en casillas"
+    float area_depth "baile libre: fondo del área, en casillas"
+    jsonb spots "baile libre: sitio de cada persona"
+    jsonb candidates "huecos por decidir: hueco y personas"
+    text space_id "figura simple dentro de un espacio"
+    int hole "su hueco en el espacio"
+    float angle "giro libre en un corro, en grados"
   }
   verification {
     text id PK
@@ -277,6 +330,8 @@ erDiagram
     text person_id PK,FK
     text performance_id FK
     text_array roles "baila, toca, canta"
+    float x_m "persona suelta"
+    float y_m "persona suelta"
   }
   figures {
     text id PK

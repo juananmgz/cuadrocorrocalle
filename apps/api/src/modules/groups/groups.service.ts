@@ -1,5 +1,7 @@
 import {
   type CreateGroupInput,
+  type FigureDefaults,
+  figureDefaultsSchema,
   type Group,
   type LicenseQuota,
   TRIAL_GROUP_NAME,
@@ -8,11 +10,22 @@ import {
 
 import type { GroupRecord, GroupRepository } from './groups.repository';
 
-const toGroup = ({ id, name, gridColor, isTrial, createdAt }: GroupRecord): Group => ({
+const toGroup = ({
   id,
   name,
   gridColor,
   isTrial,
+  figureDefaults,
+  instruments,
+  createdAt,
+}: GroupRecord): Group => ({
+  id,
+  name,
+  gridColor,
+  isTrial,
+  // Anything unreadable falls back to the built-in defaults.
+  figureDefaults: figureDefaultsSchema.safeParse(figureDefaults).data ?? {},
+  instruments,
   createdAt: createdAt.toISOString(),
 });
 
@@ -47,6 +60,24 @@ export function createGroupService(repository: GroupRepository) {
     findOwned: (ownerId: string, id: string) => repository.findOwned(id, ownerId),
 
     delete: (id: string) => repository.delete(id),
+
+    async setFigureDefaults(
+      ownerId: string,
+      id: string,
+      figureDefaults: FigureDefaults,
+    ): Promise<Group | null> {
+      const updated = await repository.setFigureDefaults(id, ownerId, figureDefaults);
+      return updated ? toGroup(updated) : null;
+    },
+
+    async setInstruments(
+      ownerId: string,
+      id: string,
+      instruments: string[],
+    ): Promise<Group | null> {
+      const updated = await repository.setInstruments(id, ownerId, instruments);
+      return updated ? toGroup(updated) : null;
+    },
 
     async update(ownerId: string, id: string, input: UpdateGroupInput): Promise<Group | null> {
       const updated = await repository.update(id, ownerId, input);

@@ -4,6 +4,7 @@ import {
   peoplePath,
   PERFORMANCES_PATH,
   repertoirePath,
+  STATS_PATH,
 } from '@cuadrocorrocalle/shared';
 import { memoryAdapter } from 'better-auth/adapters/memory';
 import { expect, test } from 'vitest';
@@ -160,7 +161,7 @@ test('the "Grupo de Prueba" allows a single performance', async () => {
       method: 'POST',
       url: PERFORMANCES_PATH,
       headers: { cookie },
-      payload: { groupId: trial, title: 'Ensayo' },
+      payload: { groupId: trial, title: 'Ensayo', date: '2026-08-15' },
     });
 
   const first = await create();
@@ -187,16 +188,35 @@ test('validates durations and keeps performances private', async () => {
     method: 'POST',
     url: PERFORMANCES_PATH,
     headers: { cookie: owner.cookie },
-    payload: { groupId: owner.group, title: 'X', minMinutes: 90, maxMinutes: 30 },
+    payload: {
+      groupId: owner.group,
+      title: 'X',
+      date: '2026-08-15',
+      minMinutes: 90,
+      maxMinutes: 30,
+    },
   });
   expect(wrongDuration.statusCode).toBe(400);
   expect(wrongDuration.json().message).toBe('La duración mínima no puede ser mayor que la máxima');
+
+  // The date is required; the time is optional, as HH:MM.
+  const post = (payload: object) =>
+    app.inject({
+      method: 'POST',
+      url: PERFORMANCES_PATH,
+      headers: { cookie: owner.cookie },
+      payload: { groupId: owner.group, title: 'Con hora', ...payload },
+    });
+  expect((await post({})).statusCode).toBe(400);
+  expect((await post({ date: '2026-08-15', time: '25:00' })).statusCode).toBe(400);
+  const timed = await post({ date: '2026-08-15', time: '20:30' });
+  expect(timed.json()).toEqual(expect.objectContaining({ date: '2026-08-15', time: '20:30' }));
 
   const created = await app.inject({
     method: 'POST',
     url: PERFORMANCES_PATH,
     headers: { cookie: owner.cookie },
-    payload: { groupId: owner.group, title: 'Privada', minMinutes: 30 },
+    payload: { groupId: owner.group, title: 'Privada', date: '2026-08-15', minMinutes: 30 },
   });
   // Without stage measures the scale defaults to 0.5 m per square.
   expect(created.json()).toEqual(
@@ -267,7 +287,7 @@ test('saves the call-up of a performance and copies it when duplicating', async 
       method: 'POST',
       url: PERFORMANCES_PATH,
       headers: { cookie },
-      payload: { groupId: group, title: 'Pasarón' },
+      payload: { groupId: group, title: 'Pasarón', date: '2026-08-15' },
     })
   ).json();
 
@@ -335,7 +355,7 @@ test('saves the repertoire in order, keeps piece ids and copies it when duplicat
       method: 'POST',
       url: PERFORMANCES_PATH,
       headers: { cookie },
-      payload: { groupId: group, title: 'Pasarón de la Vera' },
+      payload: { groupId: group, title: 'Pasarón de la Vera', date: '2026-08-15' },
     })
   ).json();
   const save = (pieces: unknown[], headers = { cookie }) =>
@@ -406,7 +426,7 @@ test('the "Grupo de Prueba" allows up to 3 pieces', async () => {
       method: 'POST',
       url: PERFORMANCES_PATH,
       headers: { cookie },
-      payload: { groupId: trial, title: 'Ensayo' },
+      payload: { groupId: trial, title: 'Ensayo', date: '2026-08-15' },
     })
   ).json();
   const save = (count: number) =>
@@ -442,7 +462,7 @@ test('lets only people who come or may come take part in a piece', async () => {
       method: 'POST',
       url: PERFORMANCES_PATH,
       headers: { cookie },
-      payload: { groupId: group, title: 'Pasarón de la Vera' },
+      payload: { groupId: group, title: 'Pasarón de la Vera', date: '2026-08-15' },
     })
   ).json();
   await app.inject({
@@ -466,14 +486,104 @@ test('lets only people who come or may come take part in a piece', async () => {
     });
 
   const saved = await save([
-    { personId: julia.id, roles: ['dance'] },
+    { personId: julia.id, roles: ['dance'], x: -1.5, y: 0.5 },
     { personId: lucia.id, roles: ['music', 'singing'] },
   ]);
   expect(saved.statusCode).toBe(200);
   expect(saved.json().pieces[0].participants).toEqual([
-    { personId: julia.id, roles: ['dance'] },
-    { personId: lucia.id, roles: ['music', 'singing'] },
+    { personId: julia.id, roles: ['dance'], x: -1.5, y: 0.5, figureId: null, slot: null },
+    {
+      personId: lucia.id,
+      roles: ['music', 'singing'],
+      x: null,
+      y: null,
+      figureId: null,
+      slot: null,
+    },
   ]);
+
+  // Figures: members point at a figure of the piece and a free place in it.
+  const pair = { id: 'figure-pair-1', kind: 'pair', x: 0, y: 0, rotation: 90, width: 2 };
+  const withFigure = (participants: unknown[], figures: unknown[] = [pair]) =>
+    app.inject({
+      method: 'PUT',
+      url: repertoirePath(performance.id),
+      headers: { cookie },
+      payload: { pieces: [{ title: 'Jota', type: 'dance', participants, figures }] },
+    });
+  const figured = await withFigure([
+    { personId: julia.id, roles: ['dance'], x: 0, y: -0.25, figureId: pair.id, slot: 0 },
+  ]);
+  expect(figured.statusCode).toBe(200);
+  expect(figured.json().pieces[0].figures).toEqual([pair]);
+  expect(figured.json().pieces[0].participants[0]).toMatchObject({ figureId: pair.id, slot: 0 });
+  // A place the figure does not have, or a figure the piece does not have, is refused.
+  expect(
+    (await withFigure([{ personId: julia.id, roles: ['dance'], figureId: pair.id, slot: 2 }]))
+      .statusCode,
+  ).toBe(400);
+  expect(
+    (
+      await withFigure([
+        { personId: julia.id, roles: ['dance'], figureId: 'other-figure', slot: 0 },
+      ])
+    ).statusCode,
+  ).toBe(400);
+
+  // Spaces: a simple figure fills a hole the space has, once.
+  const row = { id: 'figure-row-1', kind: 'row', x: 0, y: 0, rotation: 0, width: 4 };
+  const inRow = { ...pair, spaceId: row.id, hole: 1 };
+  expect((await withFigure([], [row, inRow])).statusCode).toBe(200);
+  expect((await withFigure([], [row, { ...inRow, hole: 4 }])).statusCode).toBe(400);
+  expect((await withFigure([], [row, inRow, { ...inRow, id: 'figure-pair-2' }])).statusCode).toBe(
+    400,
+  );
+
+  // Candidates wait in an empty place, only people who come or may come.
+  const undecided = { ...pair, candidates: [{ slot: 1, people: [julia.id, lucia.id] }] };
+  const decided = await withFigure([], [undecided]);
+  expect(decided.statusCode).toBe(200);
+  expect(decided.json().pieces[0].figures[0].candidates).toEqual(undecided.candidates);
+  const taken = [
+    { personId: julia.id, roles: ['dance'], x: 0, y: 0.25, figureId: pair.id, slot: 1 },
+  ];
+  expect((await withFigure(taken, [undecided])).statusCode).toBe(400);
+  const notComing = { ...pair, candidates: [{ slot: 0, people: [julia.id, mario.id] }] };
+  expect((await withFigure([], [notComing])).statusCode).toBe(400);
+
+  // A free dance keeps its area and the spot of each of its people.
+  const free = {
+    id: 'figure-free-1',
+    kind: 'free',
+    x: 0,
+    y: 0,
+    rotation: 0,
+    width: 2,
+    areaWidth: 6,
+    areaDepth: 4,
+    spots: [
+      { x: 0.5, y: 0.5 },
+      { x: 2, y: 3.5 },
+    ],
+  };
+  const inFree = {
+    id: 'figure-solo-free',
+    kind: 'solo',
+    x: 0,
+    y: 0,
+    rotation: 0,
+    width: 1,
+    spaceId: free.id,
+    hole: 0,
+  };
+  expect((await withFigure([], [free, inFree])).statusCode).toBe(200);
+  expect((await withFigure([], [{ ...free, spots: [{ x: -1, y: 0 }] }])).statusCode).toBe(400);
+
+  // A place needs both coordinates, inside the largest stage.
+  expect((await save([{ personId: julia.id, roles: ['dance'], x: 1 }])).statusCode).toBe(400);
+  expect((await save([{ personId: julia.id, roles: ['dance'], x: 40, y: 0 }])).statusCode).toBe(
+    400,
+  );
 
   // Mario does not come, so he cannot take part; nor can the same person twice.
   expect((await save([{ personId: mario.id, roles: ['dance'] }])).statusCode).toBe(400);
@@ -485,5 +595,81 @@ test('lets only people who come or may come take part in a piece', async () => {
       ])
     ).statusCode,
   ).toBe(400);
+  await app.close();
+});
+
+test("counts each performance's call-up and length, and each person's attendance", async () => {
+  const app = buildTestApp();
+  const { cookie, group } = await signUp(app, 'stats@example.com');
+  const [julia, mario] = (
+    await app.inject({
+      method: 'POST',
+      url: `${peoplePath(group)}/lista`,
+      headers: { cookie },
+      payload: { names: ['Julia', 'Mario'] },
+    })
+  ).json().people;
+  const performance = (
+    await app.inject({
+      method: 'POST',
+      url: PERFORMANCES_PATH,
+      headers: { cookie },
+      payload: { groupId: group, title: 'Garganta la Olla', date: '2026-08-15' },
+    })
+  ).json();
+  await app.inject({
+    method: 'PUT',
+    url: callUpPath(performance.id),
+    headers: { cookie },
+    payload: {
+      entries: [
+        { personId: julia.id, status: 'yes' },
+        { personId: mario.id, status: 'no' },
+      ],
+    },
+  });
+  await app.inject({
+    method: 'PUT',
+    url: repertoirePath(performance.id),
+    headers: { cookie },
+    payload: {
+      pieces: [
+        {
+          title: 'Jota',
+          type: 'dance',
+          durationSeconds: 180,
+          participants: [{ personId: julia.id, roles: ['dance'] }],
+        },
+        { title: 'Ronda', type: 'song', durationSeconds: 90 },
+      ],
+    },
+  });
+
+  const stats = await app.inject({
+    method: 'GET',
+    url: `${STATS_PATH}?grupo=${group}`,
+    headers: { cookie },
+  });
+  expect(stats.json()).toEqual({
+    performances: [
+      {
+        id: performance.id,
+        title: 'Garganta la Olla',
+        date: '2026-08-15',
+        minutes: 4.5,
+        yes: 1,
+        maybe: 0,
+        no: 1,
+      },
+    ],
+    people: expect.arrayContaining([
+      { personId: julia.id, calledUp: 1, yes: 1, pieces: 1, possiblePieces: 2 },
+      { personId: mario.id, calledUp: 1, yes: 0, pieces: 0, possiblePieces: 0 },
+    ]),
+  });
+  expect(
+    (await app.inject({ method: 'GET', url: `${STATS_PATH}?grupo=nope`, headers: { cookie } }))
+      .statusCode,
+  ).toBe(404);
   await app.close();
 });

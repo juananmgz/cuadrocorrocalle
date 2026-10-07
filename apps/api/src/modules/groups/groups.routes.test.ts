@@ -223,3 +223,28 @@ test('blocks deleting after 5 wrong confirmations', async () => {
   expect(blocked.json().code).toBe('TOO_MANY_ATTEMPTS');
   await app.close();
 });
+
+test('stores how each figure comes out when placed', async () => {
+  const app = buildTestApp();
+  const owner = await signUp(app, 'figures-owner@example.com');
+  const [trial] = (
+    await app.inject({ method: 'GET', url: GROUPS_PATH, headers: { cookie: owner } })
+  ).json().groups;
+  expect(trial.figureDefaults).toEqual({});
+
+  const save = (figureDefaults: unknown) =>
+    app.inject({
+      method: 'PUT',
+      url: `${GROUPS_PATH}/${trial.id}/figuras`,
+      headers: { cookie: owner },
+      payload: { figureDefaults },
+    });
+
+  const saved = await save({ pair: { rotation: 90, width: 2.5 } });
+  expect(saved.statusCode).toBe(200);
+  expect(saved.json().figureDefaults).toEqual({ pair: { rotation: 90, width: 2.5 } });
+  // Widths go in half squares and turns in quarters.
+  expect((await save({ pair: { rotation: 45, width: 2 } })).statusCode).toBe(400);
+  expect((await save({ pair: { rotation: 0, width: 2.3 } })).statusCode).toBe(400);
+  await app.close();
+});

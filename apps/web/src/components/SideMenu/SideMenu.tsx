@@ -1,4 +1,5 @@
 import { Dialog } from 'radix-ui';
+import { X } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink } from 'react-router';
 
@@ -42,7 +43,7 @@ export function SideMenu({ groupName, onGroupClick, userName, userEmail }: SideM
               </span>
             </div>
             <Dialog.Close className={styles.close} aria-label="Cerrar menú">
-              ✕
+              <X size={20} aria-hidden="true" />
             </Dialog.Close>
           </div>
 

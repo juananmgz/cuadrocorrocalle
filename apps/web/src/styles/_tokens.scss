@@ -80,6 +80,13 @@ $cta-colors: (
 }
 
 @mixin tiza-base {
+  // Every change of state (hover, selected, open, danger…) eases over this time.
+  --duration: 0.2s;
+  --state-transition:
+    color var(--duration) ease, background-color var(--duration) ease,
+    border-color var(--duration) ease, outline-color var(--duration) ease,
+    box-shadow var(--duration) ease, opacity var(--duration) ease;
+
   --font-heading: 'Barlow Condensed', system-ui, sans-serif;
   --font-body: 'Atkinson Hyperlegible Next Variable', system-ui, sans-serif;
   --font-mono: 'Atkinson Hyperlegible Mono Variable', ui-monospace, monospace;
@@ -103,6 +110,9 @@ $cta-colors: (
 @mixin tiza-light {
   --bg: #eceef1;
   --surface: #fff;
+
+  // Quiet footers, e.g. the tray's button to hide it.
+  --footer: #ebe5d9;
   --ink: #16181b;
   --ink-soft: #4e555e;
   --ctl: #737b85;
@@ -192,6 +202,7 @@ $cta-colors: (
 @mixin tiza-dark {
   --bg: #15171a;
   --surface: #1f2124;
+  --footer: #141518;
   --ink: #f2efe9;
   --ink-soft: #aaa49b;
   --ctl: #80878f;

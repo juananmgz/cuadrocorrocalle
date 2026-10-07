@@ -6,7 +6,7 @@ La web habla solo con su propia dirección: en producción, una Pages Function r
 
 ```mermaid
 flowchart LR
-  U["Navegador: móvil, tablet, PC"] --> W["apps/web<br>Vite, React 19, React Router<br>tokens Tiza claro y oscuro (0.2)<br>componentes base sobre Radix (0.7)<br>selector de tema y 20 colores de persona (0.8)<br>reordenar arrastrando con dnd-kit (1.10)"]
+  U["Navegador: móvil, tablet, PC"] --> W["apps/web<br>Vite, React 19, React Router<br>tokens Tiza claro y oscuro (0.2)<br>componentes base sobre Radix (0.7)<br>selector de tema y 20 colores de persona (0.8)<br>reordenar arrastrando con dnd-kit (1.10)<br>gráficas con Recharts (2.7)"]
   W -->|"/api (Pages Function en producción, proxy de Vite en local)"| A["apps/api<br>Fastify, puerto 3000<br>GET /api/health: API y base de datos<br>/api/auth/*: Better Auth con email y contraseña (1.2)<br>confirmar correo y recuperar contraseña (1.3)<br>entrar con Google (1.4)<br>/api/cuentas/grupos: listar, crear y editar grupos (1.5), borrarlos (1.6)<br>…/:groupId/personas: personas del grupo (1.7)<br>/api/actuaciones: actuaciones (1.8), convocatoria (1.9) y repertorio (1.10)<br>personas y actuaciones (fase 1)"]
   A --> D[("PostgreSQL en Neon<br>Prisma 7 con adaptador pg<br>rama dev para desarrollo (0.4)")]
   W -.->|"solo si se aceptan las cookies (1.1)"| GA["Google Analytics 4"]
@@ -16,6 +16,10 @@ flowchart LR
   S["packages/shared<br>Zod: healthResponseSchema"] -.-> W
   S -.-> A
 ```
+
+**Quitar en rojo:** todo botón que quita, borra o elimina va en rojo (`variant="danger"` en `Button`, `danger` en los menús, o el color `--danger` en los botones de icono: la × de las etiquetas, la papelera de los instrumentos, el − de quitar un hueco, la franja de soltar para quitar). Los que solo cierran (la × de diálogos y avisos) no.
+
+**Transiciones:** todo cambio de estado (hover, seleccionado, abierto, eliminar…) dura 0,2 s: el token `--duration` y `--state-transition` (color, fondo, borde, contorno, sombra y opacidad) en `styles/_tokens.scss`. Los controles (botones, enlaces, campos, pestañas, opciones) lo llevan de serie desde `styles/global.scss`, y los pliegues y flechas de la app usan la misma duración. Con «reducir movimiento» en el sistema es 0 s.
 
 **Acceso a la API:** solo a través de la web. El proxy añade la clave `PROXY_SECRET` y la IP del visitante; la API rechaza lo demás salvo `/api/health`.
 

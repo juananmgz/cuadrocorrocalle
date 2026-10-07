@@ -27,6 +27,16 @@ export const MIN_STAGE_DEPTH = 2;
 export const MAX_STAGE_WIDTH = 32;
 export const MAX_STAGE_DEPTH = 20;
 
+// The musicians' zone (step 2.7): a band along the back (by default) or one side of the stage,
+// kept for them in every piece, as wide as chosen from the stage edge in (1,5 m by default).
+export const MUSIC_SIDES = ['back', 'left', 'right'] as const;
+export const musicSideSchema = z.enum(MUSIC_SIDES);
+export type MusicSide = z.infer<typeof musicSideSchema>;
+export const DEFAULT_MUSIC_SIDE: MusicSide = 'back';
+export const DEFAULT_MUSIC_DEPTH = 1.5;
+export const MIN_MUSIC_DEPTH = 0.5;
+export const MAX_MUSIC_DEPTH = 6;
+
 const metres = (min: number, max: number) =>
   z
     .number()
@@ -39,8 +49,13 @@ const metres = (min: number, max: number) =>
 const baseSchema = z.object({
   title: z.string().trim().min(1, 'Ponle un título').max(120, 'Máximo 120 caracteres'),
   place: optionalText(120),
-  // Day only, as YYYY-MM-DD.
-  date: z.iso.date('Fecha no válida').nullable().optional(),
+  // Day only, as YYYY-MM-DD (required when creating it), and an optional time, as HH:MM.
+  date: z.iso.date('Pon la fecha').nullable().optional(),
+  time: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora no válida')
+    .nullable()
+    .optional(),
   minMinutes: minutes,
   maxMinutes: minutes,
   notes: optionalText(2000),
@@ -51,7 +66,17 @@ const baseSchema = z.object({
     .number()
     .min(MIN_EDGE_DISTANCE, 'Mínimo 0,25 m')
     .max(MAX_EDGE_DISTANCE, 'Máximo 2 m')
+    .refine((value) => Number.isInteger(value * 4), 'El borde va de 0,25 en 0,25 m')
     .optional(),
+  /** Where the musicians play; none without a zone. */
+  musicSide: musicSideSchema.nullable().optional(),
+  musicDepth: z
+    .number()
+    .min(MIN_MUSIC_DEPTH, 'Mínimo 0,5 m')
+    .max(MAX_MUSIC_DEPTH, `Máximo ${MAX_MUSIC_DEPTH} m`)
+    .optional(),
+  /** The centre cross in the middle of the room for dancing, without the musicians' zone. */
+  danceCentre: z.boolean().optional(),
 });
 
 const durationOrder = (input: { minMinutes?: number | null; maxMinutes?: number | null }) =>
@@ -62,12 +87,17 @@ const durationMessage = {
   path: ['minMinutes'],
 };
 
+// A new performance needs its date (step 2.8); its time is optional.
 export const createPerformanceSchema = baseSchema
-  .extend({ groupId: z.string().min(1) })
+  .extend({ groupId: z.string().min(1), date: z.iso.date('Pon la fecha') })
   .refine(durationOrder, durationMessage);
 export type CreatePerformanceInput = z.infer<typeof createPerformanceSchema>;
 
-export const updatePerformanceSchema = baseSchema.partial().refine(durationOrder, durationMessage);
+// The date can change but not go away.
+export const updatePerformanceSchema = baseSchema
+  .extend({ date: z.iso.date('Pon la fecha').optional() })
+  .partial()
+  .refine(durationOrder, durationMessage);
 export type UpdatePerformanceInput = z.infer<typeof updatePerformanceSchema>;
 
 export const performanceSchema = z.object({
@@ -76,6 +106,7 @@ export const performanceSchema = z.object({
   title: z.string(),
   place: z.string().nullable(),
   date: z.string().nullable(),
+  time: z.string().nullable(),
   minMinutes: z.number().nullable(),
   maxMinutes: z.number().nullable(),
   notes: z.string().nullable(),
@@ -83,6 +114,9 @@ export const performanceSchema = z.object({
   stageDepth: z.number().nullable(),
   squareSize: z.number(),
   edgeDistance: z.number(),
+  musicSide: musicSideSchema.nullable(),
+  musicDepth: z.number(),
+  danceCentre: z.boolean(),
   createdAt: z.string(),
 });
 export type Performance = z.infer<typeof performanceSchema>;

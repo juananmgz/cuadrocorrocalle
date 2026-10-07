@@ -14,10 +14,60 @@
   }
 }
 
+// "← Inicio" over the switch.
+.header {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+
+  .switch,
+  .titleSlot {
+    justify-self: stretch;
+  }
+}
+
+// The title of the performance, the same field in "Actuación" and "Piezas".
+.titleSlot {
+  min-width: 0;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.home {
+  @include mixins.heading;
+
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  font-size: 1rem;
+  color: var(--ink);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  &:hover {
+    background: var(--sel-bg);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--accent);
+  }
+}
+
 // "Actuación" / "Piezas", like two halves of one button.
 .switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
+
+  &[hidden] {
+    display: none;
+  }
+
   border: var(--border-width) solid var(--ink);
   border-radius: var(--radius);
 }
@@ -94,15 +144,7 @@
   gap: var(--space-3);
 
   @include mixins.from-tablet {
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     height: 100%;
   }
-}
-
-.title {
-  @include mixins.heading;
-
-  margin: 0;
-  font-size: 2rem;
-  overflow-wrap: anywhere;
 }

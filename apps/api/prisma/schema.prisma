@@ -85,19 +85,23 @@ model Verification {
 
 // Folk group directed by one user (step 1.5). Licences arrive in phase 5.
 model Group {
-  id            String        @id @default(cuid())
-  ownerId       String        @map("owner_id")
-  owner         User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  name          String
-  gridColor     String        @map("grid_color")
+  id             String        @id @default(cuid())
+  ownerId        String        @map("owner_id")
+  owner          User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name           String
+  gridColor      String        @map("grid_color")
   // The prebuilt "Grupo de Prueba" every account gets.
-  isTrial       Boolean       @default(false) @map("is_trial")
+  isTrial        Boolean       @default(false) @map("is_trial")
   // Set when a licence migrates away; the group is deleted a month later unless recovered.
-  inactiveSince DateTime?     @map("inactive_since")
-  people        Person[]
-  performances  Performance[]
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  inactiveSince  DateTime?     @map("inactive_since")
+  // How each figure comes out when placed: { pair: { rotation, width }, … } (step 2.2).
+  figureDefaults Json          @default("{}") @map("figure_defaults")
+  // Instruments the group plays (step 2.7), offered in its pieces.
+  instruments    String[]      @default([])
+  people         Person[]
+  performances   Performance[]
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
 
   @@index([ownerId])
   @@map("groups")
@@ -117,6 +121,8 @@ model Person {
   membership String   @default("member")
   // "dance", "music", "singing"… (more may come).
   roles      String[] @default([])
+  // Instruments they play (step 2.7), from the group's list.
+  instruments String[] @default([])
   notes      String?
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -134,8 +140,9 @@ model Performance {
   group        Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
   title        String
   place        String?
-  // Day of the performance, without time zone.
+  // Day of the performance, without time zone, and its time if known ("20:30").
   date         DateTime? @db.Date
+  time         String?
   minMinutes   Int?      @map("min_minutes")
   maxMinutes   Int?      @map("max_minutes")
   // Stage size in metres and how many metres one grid square represents.
@@ -144,6 +151,13 @@ model Performance {
   squareSize   Float     @default(0.5) @map("square_m")
   // Safety distance kept clear inside the stage edge, in metres.
   edgeDistance Float     @default(0.25) @map("edge_distance_m")
+  // Musicians' zone (step 2.7): "back", "left" or "right" (none when null), and how wide it is in
+  // metres from the stage edge.
+  musicSide    String?   @default("back") @map("music_side")
+  musicDepth   Float     @default(1.5) @map("music_depth_m")
+  // Whether the centre cross goes to the middle of the room left for dancing (without the
+  // musicians' zone) instead of the middle of the stage.
+  danceCentre  Boolean   @default(true) @map("dance_centre")
   notes        String?
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
@@ -182,9 +196,12 @@ model Piece {
   optional        Boolean         @default(false)
   // Encore ("bis"): kept ready in case the audience asks for more; not counted in the summary.
   encore          Boolean         @default(false)
+  // Instruments the piece needs (step 2.7), each with a seat in the musicians' zone.
+  instruments     String[]        @default([])
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
   participations  Participation[]
+  figures         Figure[]
 
   @@index([performanceId, position])
   @@map("pieces")
@@ -200,8 +217,60 @@ model Participation {
   callUp        CallUp   @relation(fields: [performanceId, personId], references: [performanceId, personId], onDelete: Cascade)
   // "dance", "music", "singing"…
   roles         String[] @default([])
+  // Place on the stage in this piece, in metres from its centre (x across, y away from the
+  // audience); null while not placed (step 2.1).
+  x             Float?   @map("x_m")
+  y             Float?   @map("y_m")
+  // Figure and place in it (step 2.2); x and y then follow the figure.
+  figureId      String?  @map("figure_id")
+  figure        Figure?  @relation(fields: [figureId], references: [id], onDelete: SetNull)
+  slot          Int?
 
   @@id([pieceId, personId])
   @@index([performanceId, personId])
+  @@index([figureId])
   @@map("participations")
+}
+
+// A simple figure on the stage of a piece (step 2.2): its centre in metres from the stage centre,
+// quarter turns and width in grid squares. Ids come from the web.
+model Figure {
+  id             String          @id
+  pieceId        String          @map("piece_id")
+  piece          Piece           @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+  // Simple: "solo", "pair", "pair_diagonal", "trio_line", "trio_triangle", "square" or "diamond".
+  // Spaces (step 2.3): "row" or "ring", whose width is their number of holes; "free" (step 2.4).
+  kind           String
+  x              Float           @map("x_m")
+  y              Float           @map("y_m")
+  rotation       Int             @default(0)
+  width          Float
+  // Musicians' seats (step 2.7): the instrument played in this solo.
+  instrument     String?
+  // Candidates for its empty places (step 2.8): [{ slot, people: [personId…] }].
+  candidates     Json?
+  // Crosses (step 2.5): people along each arm (front, left, right, back); empty for others.
+  arms           Int[]           @default([])
+  // Trios in a triangle (step 2.4): their depth in squares, when not as deep as wide.
+  depth          Float?
+  // Spaces: "series" or "battery", and the room between holes in metres.
+  arrangement    String?
+  gap            Float?          @map("gap_m")
+  // Rows and rings: width of the pairs their empty holes wait for, once stretched across.
+  holeWidth      Float?          @map("hole_width")
+  // Rings: depth over width (an oval when not 1).
+  aspect         Float?
+  // Free dances (step 2.4): the area in squares and its spots ([{ x, y }] from its corner).
+  areaWidth      Float?          @map("area_width")
+  areaDepth      Float?          @map("area_depth")
+  spots          Json?
+  // Simple figures in a space: the space and the hole they fill.
+  spaceId        String?         @map("space_id")
+  hole           Int?
+  // Free turn in degrees, for figures in a ring.
+  angle          Float?
+  participations Participation[]
+
+  @@index([pieceId])
+  @@map("figures")
 }
