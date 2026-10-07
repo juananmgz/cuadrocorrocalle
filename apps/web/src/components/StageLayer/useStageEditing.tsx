@@ -40,6 +40,7 @@ import {
   emptySlots,
   putFigure,
   repeatedPeople,
+  setCandidates,
   standingPoint,
   removeFigure,
   reorderInSpace,
@@ -1623,7 +1624,6 @@ export function useStageEditing({
             blocksBut(selected.figure.id),
           )
         : null;
-  // Where the held figure would land; refused places are drawn in red.
   // Refused, a space keeps its own shape (a diagonal row its slanted band) where it was held.
   const heldShape =
     held?.result && !held.result.fill
@@ -1642,6 +1642,7 @@ export function useStageEditing({
             }
           : undefined
       : undefined;
+  // Where the held figure would land; refused places are drawn in red.
   const ghost: FigureGhost | null = held?.result
     ? {
         kind: held.shape.kind,
@@ -1917,6 +1918,30 @@ export function useStageEditing({
       canTakeOut: (personId: string) => {
         const figure = figures.find((item) => item.id === memberOf(personId)?.figureId);
         return Boolean(figure && !isLoneSolo(figure));
+      },
+      candidatePeople: [...people.values()].sort((a, b) => a.name.localeCompare(b.name, 'es')),
+      onSetCandidates: (figureId: string, slot: number, chosen: string[]) => {
+        if (content) onChange(setCandidates(content, figureId, slot, chosen));
+      },
+      // One of the candidates takes the place; the others are no longer needed there.
+      onChooseCandidate: (figureId: string, slot: number, personId: string) => {
+        const view = figureViews.find((item) => item.figure.id === figureId);
+        const person = people.get(personId);
+        if (!content || !view || !person || !pieceType) return;
+        const decided = setCandidates(content, figureId, slot, []);
+        onChange({
+          figures: withoutOwnSolo(decided.figures, personId),
+          participants: placeParticipant(
+            decided.participants,
+            person,
+            pieceType,
+            view.places[slot]!,
+            {
+              figureId,
+              slot,
+            },
+          ),
+        });
       },
       onRemovePerson: (personId: string) => {
         setSelectedPersonId(null);

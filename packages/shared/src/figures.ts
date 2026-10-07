@@ -125,6 +125,14 @@ const widthSchema = z
   .max(MAX_FIGURE_WIDTH)
   .refine((width) => Number.isInteger(width * 2), 'El ancho va de media en media casilla');
 
+// Candidates for an empty place (step 2.8): "Mario / Miguel", until one is chosen.
+export const MAX_CANDIDATES = 6;
+export const candidateSchema = z.object({
+  slot: z.number().int().min(0),
+  people: z.array(z.string().min(1)).min(2).max(MAX_CANDIDATES),
+});
+export type Candidate = z.infer<typeof candidateSchema>;
+
 /**
  * A figure on the stage of a piece: kind, centre in metres from the stage centre, quarter turns
  * and width in grid squares (what it takes up across; for spaces, how many holes). Ids come from
@@ -144,6 +152,12 @@ export const stageFigureSchema = z.object({
     .max(MAX_STAGE_DEPTH / 2),
   rotation: rotationSchema,
   width: widthSchema,
+  /** Empty places with two or more people in mind for them, still to be decided. */
+  candidates: z
+    .array(candidateSchema)
+    .max(MAX_FIGURE_WIDTH * 4)
+    .nullable()
+    .optional(),
   /** A musician's seat (a solo in the musicians' zone): the instrument played there. */
   instrument: z.string().trim().min(1).max(40).nullable().optional(),
   /** Crosses: how many people go along each arm (front, left, right, back). */

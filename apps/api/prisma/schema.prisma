@@ -243,6 +243,8 @@ model Figure {
   width          Float
   // Musicians' seats (step 2.7): the instrument played in this solo.
   instrument     String?
+  // Candidates for its empty places (step 2.8): [{ slot, people: [personId…] }].
+  candidates     Json?
   // Crosses (step 2.5): people along each arm (front, left, right, back); empty for others.
   arms           Int[]           @default([])
   // Trios in a triangle (step 2.4): their depth in squares, when not as deep as wide.

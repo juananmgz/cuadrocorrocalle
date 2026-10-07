@@ -1,5 +1,6 @@
 import type {
   Arrangement,
+  Candidate,
   FigureKind,
   FigureRotation,
   Piece,
@@ -44,6 +45,7 @@ const FIELDS = {
       depth: true,
       arms: true,
       instrument: true,
+      candidates: true,
       arrangement: true,
       gap: true,
       aspect: true,
@@ -74,6 +76,7 @@ export function createPrismaPieceRepository(prisma: PrismaClient): PieceReposito
         rotation: figure.rotation as FigureRotation,
         arrangement: figure.arrangement as Arrangement | null,
         spots: figure.spots as Spot[] | null,
+        candidates: figure.candidates as Candidate[] | null,
         arms: figure.arms.length ? figure.arms : null,
       })),
       participants: participations.map((participation) => ({
@@ -97,10 +100,11 @@ export function createPrismaPieceRepository(prisma: PrismaClient): PieceReposito
           // Figures go first, so members can point at them.
           await tx.figure.deleteMany({ where: { pieceId } });
           await tx.figure.createMany({
-            data: figures.map(({ spots, arms, ...figure }) => ({
+            data: figures.map(({ spots, arms, candidates, ...figure }) => ({
               ...figure,
               pieceId,
               ...(spots ? { spots } : {}),
+              ...(candidates?.length ? { candidates } : {}),
               ...(arms ? { arms } : {}),
             })),
           });
