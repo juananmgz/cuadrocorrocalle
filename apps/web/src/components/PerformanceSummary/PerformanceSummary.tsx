@@ -106,7 +106,12 @@ export function PerformanceSummary({
 
   // Clicking a piece previews what it has on the stage, as saved; "Editar" opens it.
   const [previewKey, setPreviewKey] = useState<string | null>(null);
-  const preview = pieces.find((piece) => piece.key === previewKey) ?? null;
+  // The first piece shows on the stage until another is picked.
+  const preview =
+    pieces.find((piece) => piece.key === previewKey) ??
+    pieces.find((piece) => !piece.encore) ??
+    pieces[0] ??
+    null;
   const wide = useMediaQuery(FROM_TABLET);
   const stageView = useStageView();
   const previewLabel = active && preview ? preview.title : null;
@@ -197,8 +202,8 @@ export function PerformanceSummary({
                 <button
                   type="button"
                   className={styles.piece}
-                  aria-pressed={piece.key === previewKey}
-                  onClick={() => setPreviewKey(piece.key === previewKey ? null : piece.key)}
+                  aria-pressed={piece.key === preview?.key}
+                  onClick={() => setPreviewKey(piece.key)}
                 >
                   <span className={styles.number}>{numberOf(piece)}</span>
                   <span className={styles.pieceTitle}>{piece.title}</span>
