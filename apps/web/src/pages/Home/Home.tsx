@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import type { Performance } from '@cuadrocorrocalle/shared';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 
 import { authClient, authErrorMessage, VERIFIED_CALLBACK } from '../../auth/authClient';
@@ -8,11 +9,22 @@ import { Button } from '../../components/ui/Button/Button';
 import { useToast } from '../../components/ui/Toast/toastContext';
 import { formatDay, formatDuration } from '../../performances/format';
 import { usePerformances } from '../../performances/performancesApi';
+import { gridStageOf, stageSizeOf } from '../../performances/stageOf';
+import type { PieceDraft } from '../../pieces/draft';
+import { FROM_TABLET, useMediaQuery } from '../../hooks';
+import { PiecePreview } from '../../components/PiecePreview/PiecePreview';
+import { StageMeasures } from '../../components/StageMeasures/StageMeasures';
+import { StageTools } from '../../components/StageTools/StageTools';
+import { useMeasuresOn } from '../../stage/stagePrefs';
 import type { CreateFromOnboarding } from '../Onboarding/Onboarding';
 import { PerformanceActions } from './PerformanceActions';
+import { PieceCycle } from './PieceCycle';
 import { PerformanceEditor } from './PerformanceEditor';
 import { useColumnInset } from './useColumnInset';
 import styles from './Home.module.scss';
+
+// How long the pointer rests on a performance before it is shown big, in ms.
+const HOVER_DELAY = 250;
 
 // How many other performances float under the featured one.
 const RECENT_COUNT = 4;
@@ -47,15 +59,54 @@ export function Home() {
   const upcoming = performances?.find((item) => item.date && item.date >= today);
   const featured = upcoming ?? performances?.at(-1);
   const others = (performances ?? []).filter((item) => item !== featured).slice(0, RECENT_COUNT);
+  const shown = featured ? [featured, ...others] : others;
+  // The one shown big, with its pieces taking turns on the stage: the featured one until another
+  // is hovered or clicked (without opening it).
+  const [chosenId, setChosenId] = useState<string | null>(null);
+  const selected = shown.find((item) => item.id === chosenId) ?? featured;
+  // The piece on the stage and its performance. Choosing another keeps the stage until its
+  // first piece comes, which then fades in where the last one fades out.
+  const [onShow, setOnShow] = useState<{ performance: Performance; piece: PieceDraft } | null>(
+    null,
+  );
+  const selectedRef = useRef(selected);
+  useEffect(() => {
+    selectedRef.current = selected;
+  });
+  const showPiece = useCallback((piece: PieceDraft | null) => {
+    const performance = selectedRef.current;
+    setOnShow(piece && performance ? { performance, piece } : null);
+  }, []);
+  // The piece on show fading out at the end of its turn.
+  const [ending, setEnding] = useState(false);
+  const hoverTimer = useRef<number | undefined>(undefined);
+  const choose = (id: string) => {
+    window.clearTimeout(hoverTimer.current);
+    if (id === selected?.id) return;
+    setChosenId(id);
+  };
+  // Resting on one for a moment chooses it, so passing over the list does not jump around.
+  const hoverIntent = (id: string) => {
+    window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(() => choose(id), HOVER_DELAY);
+  };
+  const wide = useMediaQuery(FROM_TABLET);
+  const measuresOn = useMeasuresOn();
+  const showStage = onShow ? stageSizeOf(onShow.performance) : null;
+  const showGrid = onShow ? gridStageOf(onShow.performance) : null;
 
   // On tablets and PCs the grid centres on the space right of the list.
   const inset = useColumnInset(columnRef);
 
-  // Creating moves the camera above the floor and previews the stage.
+  // Creating moves the camera above the floor and previews the stage; the list shows, seen from
+  // the angle of the world, the stage of the performance shown big with its piece and title.
+  const listPiece = mode === 'list' && wide && showGrid && onShow ? onShow.piece : null;
   useEffect(() => {
     setGrid(
       mode === 'list'
-        ? { leftInset: inset }
+        ? listPiece
+          ? { leftInset: inset, view: 'angled', stage: showGrid, label: listPiece.title }
+          : { leftInset: inset }
         : {
             leftInset: inset,
             view: 'top',
@@ -63,13 +114,15 @@ export function Home() {
             label: pieceLabel,
           },
     );
-  }, [mode, inset, previewStage, setGrid, pieceLabel]);
+    // The grid stage is rebuilt each render; its performance and piece are what matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, inset, previewStage, setGrid, pieceLabel, listPiece, onShow?.performance.id]);
   useEffect(() => () => setGrid({}), [setGrid]);
 
   const unverified = Boolean(session && !session.user.emailVerified);
   // The email notice, when shown, slides out first.
   const offset = unverified ? 1 : 0;
-  const listCount = offset + (featured ? 1 : 0) + others.length;
+  const listCount = offset + shown.length;
   const startCreating = () => {
     setMode('leaving');
     window.setTimeout(() => setMode('create'), listCount * STAGGER + SLIDE);
@@ -123,6 +176,21 @@ export function Home() {
     >
       <h1 className={styles.srOnly}>Inicio</h1>
 
+      {listPiece && onShow && showStage && (
+        <PiecePreview
+          fadeKey={`${onShow.performance.id}:${listPiece.key}`}
+          groupId={onShow.performance.groupId}
+          performanceId={onShow.performance.id}
+          piece={listPiece}
+          stage={showStage}
+          perspective
+          fadingOut={ending}
+        />
+      )}
+      {listPiece && showStage && <StageMeasures stage={showStage} shown={measuresOn} perspective />}
+      {/* The editor brings its own while creating. */}
+      {wide && mode === 'list' && <StageTools />}
+
       {mode === 'create' && activeGroup && (
         <PerformanceEditor
           groupId={activeGroup.id}
@@ -147,52 +215,69 @@ export function Home() {
             </section>
           )}
 
-          {featured && (
-            <section
-              className={`${styles.panel} ${styles.withActions}`}
-              aria-labelledby="featured-title"
-              {...slide(offset)}
-            >
-              <PerformanceActions performance={featured} />
-              <p className={styles.eyebrow}>
-                {upcoming ? 'Próxima actuación' : 'Última actuación'}
-              </p>
-              <h2 id="featured-title" className={styles.featuredTitle}>
-                {featured.title}
-              </h2>
-              <p className={styles.details}>
-                {[
-                  formatDay(featured.date),
-                  featured.place,
-                  formatDuration(featured.minMinutes, featured.maxMinutes),
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || 'Sin fecha ni lugar todavía'}
-              </p>
-              <Link to={`/actuaciones/${featured.id}`} className={styles.open}>
-                Abrir
-              </Link>
-            </section>
-          )}
-
-          {others.length > 0 && (
-            <ul className={styles.others} aria-label="Otras actuaciones">
-              {others.map((performance, index) => (
-                <li
-                  key={performance.id}
-                  className={styles.withActions}
-                  {...slide(offset + index + (featured ? 1 : 0))}
+          {shown.map((performance, index) =>
+            performance === selected ? (
+              <section
+                key={performance.id}
+                className={`${styles.panel} ${styles.withActions}`}
+                aria-labelledby="featured-title"
+                {...slide(offset + index)}
+              >
+                <PerformanceActions performance={performance} />
+                <p className={styles.eyebrow}>
+                  {performance !== featured
+                    ? 'Actuación'
+                    : upcoming
+                      ? 'Próxima actuación'
+                      : 'Última actuación'}
+                </p>
+                <h2 id="featured-title" className={styles.featuredTitle}>
+                  {performance.title}
+                </h2>
+                <p className={styles.details}>
+                  {[
+                    formatDay(performance.date, performance.time),
+                    performance.place,
+                    formatDuration(performance.minMinutes, performance.maxMinutes),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'Sin fecha ni lugar todavía'}
+                </p>
+                {/* Its pieces take turns on the stage (on tablets and PCs, where it is seen). */}
+                {wide && stageSizeOf(performance) && (
+                  <PieceCycle
+                    key={performance.id}
+                    performanceId={performance.id}
+                    onPiece={showPiece}
+                    onEnding={setEnding}
+                  />
+                )}
+                <Link to={`/actuaciones/${performance.id}`} className={styles.open}>
+                  Abrir
+                </Link>
+              </section>
+            ) : (
+              <div
+                key={performance.id}
+                className={`${styles.withActions} ${styles.compact}`}
+                {...slide(offset + index)}
+              >
+                <PerformanceActions performance={performance} />
+                {/* Clicking (or resting on it) shows it big; "Abrir" there opens it. */}
+                <button
+                  type="button"
+                  className={styles.item}
+                  onClick={() => choose(performance.id)}
+                  onPointerEnter={() => hoverIntent(performance.id)}
+                  onPointerLeave={() => window.clearTimeout(hoverTimer.current)}
                 >
-                  <PerformanceActions performance={performance} />
-                  <Link to={`/actuaciones/${performance.id}`} className={styles.item}>
-                    <span className={styles.itemTitle}>{performance.title}</span>
-                    <span className={styles.itemDate}>
-                      {formatDay(performance.date) ?? 'Sin fecha'}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+                  <span className={styles.itemTitle}>{performance.title}</span>
+                  <span className={styles.itemDate}>
+                    {formatDay(performance.date, performance.time) ?? 'Sin fecha'}
+                  </span>
+                </button>
+              </div>
+            ),
           )}
 
           {performances?.length === 0 && (

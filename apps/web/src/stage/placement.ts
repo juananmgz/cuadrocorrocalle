@@ -9,6 +9,8 @@ export interface StageSize {
   /** The musicians' zone: along the back or a side, and how wide from the edge, in metres. */
   musicSide?: MusicSide | null;
   musicDepth?: number;
+  /** The centre cross in the middle of the room for dancing, without the musicians' zone. */
+  danceCentre?: boolean;
 }
 
 /** The musicians' zone, in metres from the stage centre: a band from its edge in. None without a side. */

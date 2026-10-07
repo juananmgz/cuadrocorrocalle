@@ -1,6 +1,7 @@
 import type { Performance } from '@cuadrocorrocalle/shared';
 import { Ellipsis } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import { Button } from '../../components/ui/Button/Button';
 import { Dialog, DialogClose } from '../../components/ui/Dialog/Dialog';
@@ -9,11 +10,12 @@ import { useToast } from '../../components/ui/Toast/toastContext';
 import { usePerformanceMutations } from '../../performances/performancesApi';
 import styles from './Home.module.scss';
 
-/** "⋯" menu of a performance in the list: duplicate it, or delete it after confirming. */
+/** "⋯" menu of a performance in the list: edit or duplicate it, or delete it after confirming. */
 export function PerformanceActions({ performance }: { performance: Performance }) {
   const toast = useToast();
   const mutations = usePerformanceMutations();
   const [confirming, setConfirming] = useState(false);
+  const navigate = useNavigate();
 
   const duplicate = () =>
     mutations.duplicate.mutate(performance.id, {
@@ -43,6 +45,11 @@ export function PerformanceActions({ performance }: { performance: Performance }
           </button>
         }
         items={[
+          // Opens the performance being edited, on its general information.
+          {
+            label: 'Editar',
+            onSelect: () => navigate(`/actuaciones/${performance.id}?vista=editar`),
+          },
           { label: 'Duplicar', onSelect: duplicate, disabled: mutations.duplicate.isPending },
           { label: 'Borrar', onSelect: () => setConfirming(true), danger: true },
         ]}

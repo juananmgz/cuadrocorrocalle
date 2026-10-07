@@ -44,6 +44,7 @@ function toChanges(input: UpdatePerformanceInput): PerformanceChanges {
     title: input.title,
     place: blankToNull(input.place),
     date: toDate(input.date),
+    time: input.time === undefined ? undefined : input.time || null,
     minMinutes: input.minMinutes,
     maxMinutes: input.maxMinutes,
     notes: blankToNull(input.notes),
@@ -53,6 +54,7 @@ function toChanges(input: UpdatePerformanceInput): PerformanceChanges {
     edgeDistance: input.edgeDistance,
     musicSide: input.musicSide,
     musicDepth: input.musicDepth,
+    danceCentre: input.danceCentre,
   };
   return Object.fromEntries(
     Object.entries(changes).filter(([, value]) => value !== undefined),
@@ -163,6 +165,7 @@ export function createPerformanceService(
       const created = await repository.create({
         place: null,
         date: null,
+        time: null,
         minMinutes: null,
         maxMinutes: null,
         notes: null,
@@ -172,6 +175,7 @@ export function createPerformanceService(
         edgeDistance: MIN_EDGE_DISTANCE,
         musicSide: DEFAULT_MUSIC_SIDE,
         musicDepth: DEFAULT_MUSIC_DEPTH,
+        danceCentre: true,
         ...toChanges(input),
         title: input.title,
         groupId: input.groupId,
@@ -202,13 +206,15 @@ export function createPerformanceService(
         return { ok: false, error: 'TRIAL_LIMIT' };
       }
 
-      const { groupId, place, date, minMinutes, maxMinutes, notes } = performance;
+      const { groupId, place, date, time, minMinutes, maxMinutes, notes } = performance;
       const { stageWidth, stageDepth, squareSize, edgeDistance, musicSide, musicDepth } =
         performance;
+      const { danceCentre } = performance;
       const copy = await repository.create({
         groupId,
         place,
         date,
+        time,
         minMinutes,
         maxMinutes,
         notes,
@@ -218,6 +224,7 @@ export function createPerformanceService(
         edgeDistance,
         musicSide,
         musicDepth,
+        danceCentre,
         title: `Copia de ${performance.title}`.slice(0, 120),
       });
       await callUps.replace(copy.id, await callUps.list(performance.id));

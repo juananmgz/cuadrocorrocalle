@@ -8,6 +8,42 @@
   pointer-events: none;
 }
 
+// Previews change with a fade: the one going fades out, then the next fades in.
+.root[data-fade='in'] {
+  animation: layer-in 300ms ease both;
+}
+
+.root[data-fade='after'] {
+  animation: layer-in 300ms ease 300ms both;
+}
+
+// A keyframes of its own: turning the fade in round would not start it again, only jump.
+.root[data-fade='out'] {
+  animation: layer-out 300ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root[data-fade] {
+    animation: none;
+  }
+
+  .root[data-fade='out'] {
+    opacity: 0;
+  }
+}
+
+@keyframes layer-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes layer-in {
+  from {
+    opacity: 0;
+  }
+}
+
 // While a figure of a space is moved inside it, the others glide to make room.
 .root[data-shifting] {
   .block,
@@ -16,7 +52,9 @@
   .hole {
     transition:
       left 200ms ease,
-      top 200ms ease;
+      top 200ms ease,
+      width 200ms ease,
+      height 200ms ease;
 
     @media (prefers-reduced-motion: reduce) {
       transition: none;
@@ -188,6 +226,21 @@
   }
 }
 
+// "Sin bordes": figures, spaces and their empty holes stay where they are (and can still be
+// dragged) but are not drawn; a figure being edited or with its menu open still shows.
+.root[data-no-outlines] {
+  .block:not([data-selected], [data-targeted]),
+  .hole {
+    background: transparent;
+    border-color: transparent;
+
+    .blockShape path {
+      fill: transparent;
+      stroke: transparent;
+    }
+  }
+}
+
 // An empty place of a figure, waiting for someone.
 // A space: a lighter dashed band or disc under the figures in its holes.
 .block[data-space] {
@@ -353,8 +406,10 @@
 }
 
 // Under a musician's seat, the instrument played there.
+// Above the people and the musicians' zone, so it always reads.
 .seatLabel {
   position: absolute;
+  z-index: 2;
   max-width: 96px;
   padding: 0 6px;
   overflow: hidden;
@@ -631,4 +686,10 @@
   left: calc(-1 * var(--space-3));
   width: var(--space-3);
   content: '';
+}
+
+// A figure carried where it cannot stand: red, like the preview was.
+.block[data-refused] {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  border-color: var(--danger);
 }

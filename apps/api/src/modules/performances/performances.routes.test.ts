@@ -161,7 +161,7 @@ test('the "Grupo de Prueba" allows a single performance', async () => {
       method: 'POST',
       url: PERFORMANCES_PATH,
       headers: { cookie },
-      payload: { groupId: trial, title: 'Ensayo' },
+      payload: { groupId: trial, title: 'Ensayo', date: '2026-08-15' },
     });
 
   const first = await create();
@@ -188,16 +188,35 @@ test('validates durations and keeps performances private', async () => {
     method: 'POST',
     url: PERFORMANCES_PATH,
     headers: { cookie: owner.cookie },
-    payload: { groupId: owner.group, title: 'X', minMinutes: 90, maxMinutes: 30 },
+    payload: {
+      groupId: owner.group,
+      title: 'X',
+      date: '2026-08-15',
+      minMinutes: 90,
+      maxMinutes: 30,
+    },
   });
   expect(wrongDuration.statusCode).toBe(400);
   expect(wrongDuration.json().message).toBe('La duración mínima no puede ser mayor que la máxima');
+
+  // The date is required; the time is optional, as HH:MM.
+  const post = (payload: object) =>
+    app.inject({
+      method: 'POST',
+      url: PERFORMANCES_PATH,
+      headers: { cookie: owner.cookie },
+      payload: { groupId: owner.group, title: 'Con hora', ...payload },
+    });
+  expect((await post({})).statusCode).toBe(400);
+  expect((await post({ date: '2026-08-15', time: '25:00' })).statusCode).toBe(400);
+  const timed = await post({ date: '2026-08-15', time: '20:30' });
+  expect(timed.json()).toEqual(expect.objectContaining({ date: '2026-08-15', time: '20:30' }));
 
   const created = await app.inject({
     method: 'POST',
     url: PERFORMANCES_PATH,
     headers: { cookie: owner.cookie },
-    payload: { groupId: owner.group, title: 'Privada', minMinutes: 30 },
+    payload: { groupId: owner.group, title: 'Privada', date: '2026-08-15', minMinutes: 30 },
   });
   // Without stage measures the scale defaults to 0.5 m per square.
   expect(created.json()).toEqual(
@@ -268,7 +287,7 @@ test('saves the call-up of a performance and copies it when duplicating', async 
       method: 'POST',
       url: PERFORMANCES_PATH,
       headers: { cookie },
-      payload: { groupId: group, title: 'Pasarón' },
+      payload: { groupId: group, title: 'Pasarón', date: '2026-08-15' },
     })
   ).json();
 
@@ -336,7 +355,7 @@ test('saves the repertoire in order, keeps piece ids and copies it when duplicat
       method: 'POST',
       url: PERFORMANCES_PATH,
       headers: { cookie },
-      payload: { groupId: group, title: 'Pasarón de la Vera' },
+      payload: { groupId: group, title: 'Pasarón de la Vera', date: '2026-08-15' },
     })
   ).json();
   const save = (pieces: unknown[], headers = { cookie }) =>
@@ -407,7 +426,7 @@ test('the "Grupo de Prueba" allows up to 3 pieces', async () => {
       method: 'POST',
       url: PERFORMANCES_PATH,
       headers: { cookie },
-      payload: { groupId: trial, title: 'Ensayo' },
+      payload: { groupId: trial, title: 'Ensayo', date: '2026-08-15' },
     })
   ).json();
   const save = (count: number) =>
@@ -443,7 +462,7 @@ test('lets only people who come or may come take part in a piece', async () => {
       method: 'POST',
       url: PERFORMANCES_PATH,
       headers: { cookie },
-      payload: { groupId: group, title: 'Pasarón de la Vera' },
+      payload: { groupId: group, title: 'Pasarón de la Vera', date: '2026-08-15' },
     })
   ).json();
   await app.inject({

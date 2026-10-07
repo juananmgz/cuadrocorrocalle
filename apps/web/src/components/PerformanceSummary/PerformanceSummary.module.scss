@@ -170,6 +170,49 @@
   margin: 0;
 }
 
+// Its filters and "Editar", first inside the block, under the title.
+.foldActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.check {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 36px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+  }
+}
+
+// Split by gender: boys and girls side by side, anyone without one under them.
+.genders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+
+.peopleGroup {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: 1rem;
+}
+
 .foldToggle {
   @include mixins.heading;
 

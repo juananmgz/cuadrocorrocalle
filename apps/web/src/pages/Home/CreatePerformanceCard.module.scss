@@ -197,6 +197,30 @@
   }
 }
 
+// Date, time and durations in one row while they fit: the date and time share what is left, the
+// durations only as wide as their titles; on a phone, one under another.
+.when {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-start;
+
+  > * {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  @include mixins.from-tablet {
+    > * {
+      flex: 1 1 150px;
+    }
+
+    > :nth-child(n + 3) {
+      flex: 0 1 9.5rem;
+    }
+  }
+}
+
 .stage {
   display: grid;
   gap: var(--space-2);
@@ -204,6 +228,30 @@
   padding: 0;
   margin: 0;
   border: 0;
+}
+
+// A choice of the stage, ticked or not, with what it does under it.
+.check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--space-2);
+  align-items: center;
+  font-weight: 700;
+  cursor: pointer;
+
+  input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+}
+
+.checkHint {
+  grid-column: 2;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ink-soft);
 }
 
 .scaleNote {

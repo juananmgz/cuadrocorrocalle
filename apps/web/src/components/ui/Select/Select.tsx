@@ -2,6 +2,7 @@ import { Label, Select as RadixSelect } from 'radix-ui';
 import { Check, ChevronDown } from 'lucide-react';
 import { useId } from 'react';
 
+import { LabelText } from '../LabelText/LabelText';
 import styles from './Select.module.scss';
 
 export interface SelectOption {
@@ -29,7 +30,7 @@ export function Select({
   return (
     <div className={styles.root}>
       <Label.Root className={styles.label} htmlFor={id}>
-        {label}
+        <LabelText text={label} />
       </Label.Root>
       <RadixSelect.Root {...props}>
         <RadixSelect.Trigger id={id} className={styles.trigger}>

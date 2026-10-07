@@ -49,8 +49,13 @@ const metres = (min: number, max: number) =>
 const baseSchema = z.object({
   title: z.string().trim().min(1, 'Ponle un título').max(120, 'Máximo 120 caracteres'),
   place: optionalText(120),
-  // Day only, as YYYY-MM-DD.
-  date: z.iso.date('Fecha no válida').nullable().optional(),
+  // Day only, as YYYY-MM-DD (required when creating it), and an optional time, as HH:MM.
+  date: z.iso.date('Pon la fecha').nullable().optional(),
+  time: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora no válida')
+    .nullable()
+    .optional(),
   minMinutes: minutes,
   maxMinutes: minutes,
   notes: optionalText(2000),
@@ -70,6 +75,8 @@ const baseSchema = z.object({
     .min(MIN_MUSIC_DEPTH, 'Mínimo 0,5 m')
     .max(MAX_MUSIC_DEPTH, `Máximo ${MAX_MUSIC_DEPTH} m`)
     .optional(),
+  /** The centre cross in the middle of the room for dancing, without the musicians' zone. */
+  danceCentre: z.boolean().optional(),
 });
 
 const durationOrder = (input: { minMinutes?: number | null; maxMinutes?: number | null }) =>
@@ -80,12 +87,17 @@ const durationMessage = {
   path: ['minMinutes'],
 };
 
+// A new performance needs its date (step 2.8); its time is optional.
 export const createPerformanceSchema = baseSchema
-  .extend({ groupId: z.string().min(1) })
+  .extend({ groupId: z.string().min(1), date: z.iso.date('Pon la fecha') })
   .refine(durationOrder, durationMessage);
 export type CreatePerformanceInput = z.infer<typeof createPerformanceSchema>;
 
-export const updatePerformanceSchema = baseSchema.partial().refine(durationOrder, durationMessage);
+// The date can change but not go away.
+export const updatePerformanceSchema = baseSchema
+  .extend({ date: z.iso.date('Pon la fecha').optional() })
+  .partial()
+  .refine(durationOrder, durationMessage);
 export type UpdatePerformanceInput = z.infer<typeof updatePerformanceSchema>;
 
 export const performanceSchema = z.object({
@@ -94,6 +106,7 @@ export const performanceSchema = z.object({
   title: z.string(),
   place: z.string().nullable(),
   date: z.string().nullable(),
+  time: z.string().nullable(),
   minMinutes: z.number().nullable(),
   maxMinutes: z.number().nullable(),
   notes: z.string().nullable(),
@@ -103,6 +116,7 @@ export const performanceSchema = z.object({
   edgeDistance: z.number(),
   musicSide: musicSideSchema.nullable(),
   musicDepth: z.number(),
+  danceCentre: z.boolean(),
   createdAt: z.string(),
 });
 export type Performance = z.infer<typeof performanceSchema>;

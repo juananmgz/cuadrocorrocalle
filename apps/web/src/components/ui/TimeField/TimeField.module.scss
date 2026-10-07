@@ -1,0 +1,156 @@
+@use '../../../styles/mixins';
+
+.root {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.label {
+  @include mixins.label;
+}
+
+// Looks like a text field, with the clock button inside it at the end.
+.box {
+  @include mixins.control;
+
+  gap: var(--space-1);
+  padding-right: var(--space-1);
+
+  &:focus-within {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  outline: none;
+
+  &::placeholder {
+    color: var(--ctl);
+  }
+
+  &[aria-invalid='true'] {
+    color: var(--danger);
+  }
+}
+
+.trigger {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--ink);
+    background: var(--sel-bg);
+    outline: none;
+  }
+}
+
+.popover {
+  @include mixins.popover;
+
+  z-index: 60;
+  display: grid;
+  gap: var(--space-3);
+  justify-items: center;
+  padding: var(--space-3);
+}
+
+// 20 : 30, big, each part opening its side of the clock.
+.readout {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  font-family: var(--font-heading);
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.part {
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+
+  &[aria-pressed='true'] {
+    color: var(--on-accent);
+    background: var(--accent);
+  }
+
+  &:hover:not([aria-pressed='true']),
+  &:focus-visible {
+    color: var(--ink);
+    background: var(--sel-bg);
+    outline: none;
+  }
+}
+
+.dial {
+  touch-action: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.face {
+  fill: var(--sel-bg);
+}
+
+.hand {
+  fill: var(--accent);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.handEnd {
+  fill: var(--accent);
+}
+
+.number {
+  font-size: 15px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  fill: var(--ink);
+
+  // The inner ring (13 to 00) is smaller and softer.
+  &[data-small] {
+    font-size: 12px;
+    fill: var(--ink-soft);
+  }
+
+  // Under the hand: on the accent.
+  &[data-on] {
+    fill: var(--on-accent);
+  }
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+  width: 100%;
+}

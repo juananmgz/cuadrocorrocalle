@@ -1,7 +1,14 @@
 import { useEffect, useRef } from 'react';
 
 import styles from './GridBackground.module.scss';
-import { setStageView } from './stageView';
+import { onZoom, zoomBy, zoomLevel } from '../../stage/stagePrefs';
+import {
+  homography,
+  isLabelLifted,
+  onLabelLift,
+  setPerspectiveView,
+  setStageView,
+} from './stageView';
 
 /*
  * One scene for both views: a slightly curved floor grid seen from an angle. Going to the view
@@ -14,6 +21,10 @@ import { setStageView } from './stageView';
 // Squares are half a metre by default, so the curved view already shows them that small.
 const FOV = (56 * Math.PI) / 180;
 const TILT = (26 * Math.PI) / 180;
+// The same view leaning further over a stage previewed on it, so it reads better.
+const PREVIEW_TILT = (65 * Math.PI) / 180;
+// How long it takes to lean over, as a share of DURATION.
+const LEAN_SHARE = 0.5;
 const HOME_DISTANCE = 28;
 const BEND = 0.001;
 // View from above: camera so far away that the projection is practically flat.
@@ -24,15 +35,29 @@ const FOG_START = 16;
 const FOG_END = 68;
 const FOG_LEVELS = 6;
 
-// View from above: smallest square in pixels and squares of margin around the stage.
+// View from above: smallest square in pixels, how many times the curved view it may zoom in, and
+// room kept round the stage for its measures, in px.
 const MIN_CELL = 3;
-const MARGIN_SQUARES = 1;
+const MAX_ZOOM = 2.5;
+const SIDE_ROOM = 80;
+// The most of the free area the stage takes, across and up, so it looks the same on any screen.
+const FILL_WIDTH = 0.55;
+const FILL_HEIGHT = 0.6;
 const TOP_BAR = 56;
 // Room kept under the stage for "PÚBLICO".
 const BOTTOM_ROOM = 48;
+// How far the sign over the stage moves up while the measures are drawn, in px.
+const LABEL_LIFT = 48;
+// How long it takes to move, in ms (eased in and out).
+const LIFT_DURATION = 200;
+const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+
 // Room kept above the stage for the label of the piece being edited.
 const LABEL_ROOM = 44;
 const DURATION = 1200;
+// Where the curved floor fades into the sky, as shares of the screen height.
+const HORIZON_FROM = 0.18;
+const HORIZON_TO = 0.45;
 const STAGE_DURATION = 350;
 const RESIZE_DURATION = 450;
 // Cross-fade when the grid colour or the theme changes.
@@ -46,6 +71,8 @@ export interface GridStage {
   edge?: number;
   /** The musicians' zone: along the back or a side, this many squares deep (strip included). */
   music?: { side: 'back' | 'left' | 'right'; deep: number } | null;
+  /** Where the centre cross goes, in squares from the stage centre (its middle by default). */
+  centre?: { x: number; y: number };
 }
 
 interface Frame {
@@ -54,6 +81,10 @@ interface Frame {
   leftInset: number;
   /** 0 = curved floor seen from an angle, 1 = flat floor seen from above. */
   view: number;
+  /** How far the angled view leans over a previewed stage: 0 = not at all, 1 = fully. */
+  lean: number;
+  /** Zoom set by hand over what fits (eased): 1 is none. */
+  zoom: number;
   /** Pixels per square in the view from above (eased towards the fitting size). */
   cell: number;
   stage: GridStage | null;
@@ -65,8 +96,12 @@ interface Frame {
   /** Edge distance in squares, eased towards the stage's. */
   edge: number;
   showCross: boolean;
+  /** Where the centre cross is drawn, in squares from the stage centre (eased). */
+  centre: { x: number; y: number };
   /** Shown on a sign above the stage, e.g. the piece being edited. */
   label: string | null;
+  /** How far the sign has moved up out of the way of the stage's measures: 0 to 1. */
+  lift: number;
 }
 
 interface Camera {
@@ -150,22 +185,25 @@ function homeCell(height: number) {
 }
 
 /**
- * Pixels per square seen from above: the same as in the curved view, so the move has no zoom.
- * It only zooms out when the stage, plus a margin, would not fit.
+ * Pixels per square seen from above: the stage fills the free area, with room round it for its
+ * measures and labels, so the camera zooms in (or out) on it while it moves above the floor.
  */
 function fittingCell(frame: Pick<Frame, 'width' | 'height' | 'leftInset' | 'stage' | 'label'>) {
   const base = homeCell(frame.height);
   if (!frame.stage) return base;
   const { areaWidth, centerY } = freeArea(frame);
   const halfRows = frame.stage.rows / 2;
-  // The centre sits above the middle, so each half is fitted on its own: the top keeps the
-  // same margin as the sides and the bottom leaves room for "PÚBLICO".
+  // The centre sits above the middle, so each half is fitted on its own: the top keeps room for
+  // the sign (raised over the width measure) and the bottom for "PÚBLICO".
+  const top = (frame.label ? LABEL_ROOM + LABEL_LIFT : 0) + SIDE_ROOM / 2;
   const fit = Math.min(
-    areaWidth / (frame.stage.cols + MARGIN_SQUARES * 2),
-    (centerY - TOP_BAR - (frame.label ? LABEL_ROOM : 0)) / (halfRows + MARGIN_SQUARES),
+    (areaWidth * FILL_WIDTH) / frame.stage.cols,
+    ((frame.height - TOP_BAR) * FILL_HEIGHT) / frame.stage.rows,
+    (areaWidth - SIDE_ROOM * 2) / frame.stage.cols,
+    (centerY - TOP_BAR - top) / halfRows,
     (frame.height - centerY - BOTTOM_ROOM) / halfRows,
   );
-  return Math.max(MIN_CELL, Math.min(base, fit));
+  return Math.max(MIN_CELL, Math.min(base * MAX_ZOOM, fit));
 }
 
 /** Camera for a point of the transition (t already eased). */
@@ -173,10 +211,10 @@ function cameraFor(frame: Frame, t: number): Camera {
   const { centerX, centerY } = freeArea(frame);
   const home = homeCell(frame.height);
   return {
-    scale: logLerp(home, frame.cell, t),
+    scale: logLerp(home * frame.zoom, frame.cell, t),
     // Backing away faster at the end keeps the perspective until the camera is almost on top.
     distance: logLerp(HOME_DISTANCE, TOP_DISTANCE, t ** 1.6),
-    tilt: lerp(TILT, Math.PI / 2, t),
+    tilt: lerp(lerp(TILT, PREVIEW_TILT, ease(frame.lean)), Math.PI / 2, t),
     bend: lerp(BEND, 0, t),
     centerX,
     centerY,
@@ -230,7 +268,7 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  const { width, height, stage, showCross } = frame;
+  const { width, height, stage, showCross, centre } = frame;
   // Resizing the bitmap is costly, so it only happens when the size changes.
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const pixelWidth = Math.round(width * dpr);
@@ -327,9 +365,14 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
   // It grows a little while it fades in.
   const shown = ease(frame.stageShown);
   let drawLabels: (() => void) | null = null;
+  // Where the name of the musicians' zone goes, drawn with the labels.
+  let musicName: { x: number; y: number; size: number } | null = null;
   // A patch of floor colour behind a label, fading at its edges, so no line crosses it.
   const drawHalo = (x: number, y: number, halfWidth: number, halfHeight: number) => {
     ctx.save();
+    // As faint as the floor under it, so no patch shows past the edge with the sky.
+    const k = Math.min(1, Math.max(0, (y / height - HORIZON_FROM) / (HORIZON_TO - HORIZON_FROM)));
+    ctx.globalAlpha *= lerp(t, 1, k);
     ctx.translate(x, y);
     ctx.scale(1, halfHeight / halfWidth);
     const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, halfWidth);
@@ -402,22 +445,26 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
           ctx.strokeStyle = colors['--stage-edge'];
           ctx.stroke();
           ctx.setLineDash([]);
+          // Its name goes with the other labels, over the lines and with their halo.
           const name = project((x0 + x1) / 2, (y0 + y1) / 2);
-          if (name) {
-            ctx.font = `700 ${Math.max(11, Math.min(16, camera.scale * 0.45))}px ${colors['--font-heading']}`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.letterSpacing = '0.2em';
-            ctx.fillStyle = colors['--ink-soft'];
-            ctx.fillText('MÚSICOS', name.x, name.y);
-            ctx.letterSpacing = '0px';
-          }
+          if (name) musicName = { ...name, size: Math.max(11, Math.min(16, camera.scale * 0.45)) };
         }
       }
 
       // Labels go on top of the cross, drawn after it.
       drawLabels = () => {
         ctx.globalAlpha = shown;
+        if (musicName) {
+          const { x, y, size } = musicName;
+          ctx.font = `700 ${size}px ${colors['--font-heading']}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.letterSpacing = '0.2em';
+          drawHalo(x, y, ctx.measureText('MÚSICOS').width / 2 + size * 2.2, size * 1.4);
+          ctx.fillStyle = colors['--ink-soft'];
+          ctx.fillText('MÚSICOS', x, y);
+          ctx.letterSpacing = '0px';
+        }
         const label = project(0, -halfY - 0.6);
         if (label) {
           const size = Math.max(12, Math.min(20, camera.scale * 0.6));
@@ -437,7 +484,8 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
         }
 
         // Sign above the stage with the piece being edited.
-        const sign = frame.label ? project(0, halfY + 0.4) : null;
+        const raised = frame.label ? project(0, halfY + 0.4) : null;
+        const sign = raised && { x: raised.x, y: raised.y - frame.lift * LABEL_LIFT };
         if (sign && frame.label) {
           ctx.font = `700 18px ${colors['--font-heading']}`;
           const text = frame.label.toUpperCase();
@@ -468,29 +516,33 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
   // Centre cross through the middle point, which is also the stage centre.
   if (showCross) {
     const cross: number[][] = Array.from({ length: FOG_LEVELS }, () => []);
-    addLine(0, true, cross);
-    addLine(0, false, cross);
+    addLine(centre.x, true, cross);
+    addLine(centre.y, false, cross);
     strokeLevels(cross, colors['--grid-major'], 2);
   }
-  drawLabels?.();
 
   // Soft edge where the curved floor meets the sky; it fades out as the camera looks down.
   if (t < 1) {
     ctx.globalCompositeOperation = 'destination-in';
-    const fade = ctx.createLinearGradient(0, height * 0.18, 0, height * 0.45);
+    const fade = ctx.createLinearGradient(0, height * HORIZON_FROM, 0, height * HORIZON_TO);
     fade.addColorStop(0, `rgb(0 0 0 / ${t})`);
     fade.addColorStop(1, 'rgb(0 0 0 / 1)');
     ctx.fillStyle = fade;
     ctx.fillRect(0, 0, width, height);
     ctx.globalCompositeOperation = 'source-over';
   }
+  // Labels go over that edge, so the sign over the stage always reads well.
+  drawLabels?.();
 }
 
 interface GridBackgroundProps {
   /** Width in px covered on the left (the performances list); the grid centres on the rest. */
   leftInset?: number;
-  /** "top" moves the camera above the floor, e.g. while creating a performance. */
-  view?: 'perspective' | 'top';
+  /**
+   * "top" moves the camera above the floor, e.g. while creating a performance; "angled" leans the
+   * curved view further over the stage, e.g. to preview a piece on it.
+   */
+  view?: 'perspective' | 'angled' | 'top';
   /**
    * Stage previewed in the top view; the camera zooms out if it does not fit. A new stage appears
    * once the camera has settled, and a removed one fades out before the camera moves.
@@ -515,6 +567,8 @@ export function GridBackground({
   // Animated values survive re-renders; props only move their targets.
   const animation = useRef({
     view: view === 'top' ? 1 : 0,
+    lean: view === 'angled' ? 1 : 0,
+    zoom: zoomLevel(),
     cell: 40,
     stageShown: stage ? 1 : 0,
     previous: null as GridStage | null,
@@ -524,6 +578,8 @@ export function GridBackground({
     inset: leftInset,
     // Last stage shown, kept to fade it out after the prop is cleared.
     stage: stage as GridStage | null,
+    lift: isLabelLifted() ? 1 : 0,
+    centre: stage?.centre ?? { x: 0, y: 0 },
     frame: 0,
   });
 
@@ -532,6 +588,7 @@ export function GridBackground({
     if (!canvas) return;
     const state = animation.current;
     const targetView = view === 'top' ? 1 : 0;
+    const targetLean = view === 'angled' ? 1 : 0;
     const targetShown = stage ? 1 : 0;
     // A visible stage that changes size animates from its previous size.
     const resizing =
@@ -545,6 +602,9 @@ export function GridBackground({
     }
     if (stage) state.stage = stage;
     const targetEdge = state.stage?.edge ?? 0;
+    // The cross stays where it is while a stage goes and the next one comes (e.g. between
+    // screens), and only goes back to the middle once no stage is left.
+    const centreTarget = () => (stage ?? state.stage)?.centre ?? { x: 0, y: 0 };
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     let colors = readColors();
 
@@ -553,6 +613,8 @@ export function GridBackground({
       height: canvas.clientHeight,
       leftInset: state.inset,
       view: state.view,
+      lean: state.lean,
+      zoom: state.zoom,
       cell: state.cell,
       stage: state.stage,
       stageShown: state.stageShown,
@@ -560,24 +622,29 @@ export function GridBackground({
       resized: state.resized,
       edge: state.edge,
       showCross,
+      centre: state.centre,
       label,
+      lift: easeInOut(state.lift),
     });
 
     let last = performance.now();
     const tick = (now: number) => {
       const step = Math.min(1, (now - last) / DURATION);
       last = now;
-      const targetCell = fittingCell(currentFrame());
+      const targetCell = fittingCell(currentFrame()) * zoomLevel();
 
       const toward = (value: number, target: number, amount: number) =>
         value + Math.sign(target - value) * Math.min(amount, Math.abs(target - value));
 
       if (reduceMotion) {
         state.view = targetView;
+        state.lean = targetLean;
+        state.zoom = zoomLevel();
         state.cell = targetCell;
         state.stageShown = targetShown;
         state.resized = 1;
         state.edge = targetEdge;
+        state.centre = centreTarget();
         state.inset = leftInset;
       } else if (state.stageShown > targetShown) {
         // One thing at a time: the stage leaves before the camera moves...
@@ -597,7 +664,13 @@ export function GridBackground({
         );
       }
       if (!reduceMotion) {
+        // Going above the floor starts from the lean it has, without leaning back first; from
+        // above the lean no longer shows, so it is set there.
+        if (targetView === 0) state.lean = toward(state.lean, targetLean, step / LEAN_SHARE);
+        else if (state.view === 1) state.lean = targetLean;
         state.cell += (targetCell - state.cell) * Math.min(1, step * 8);
+        state.zoom += (zoomLevel() - state.zoom) * Math.min(1, step * 8);
+        if (Math.abs(zoomLevel() - state.zoom) < 0.001) state.zoom = zoomLevel();
         if (Math.abs(targetCell - state.cell) < 0.05) state.cell = targetCell;
       }
 
@@ -613,25 +686,85 @@ export function GridBackground({
         state.resized = Math.min(1, state.resized + (step * DURATION) / RESIZE_DURATION);
         state.edge += (targetEdge - state.edge) * Math.min(1, step * 8);
         if (Math.abs(targetEdge - state.edge) < 0.001) state.edge = targetEdge;
+        // The centre cross slides to the middle of the room for dancing.
+        const slide = (value: number, target: number) => {
+          const next = value + (target - value) * Math.min(1, step * 8);
+          return Math.abs(target - next) < 0.001 ? target : next;
+        };
+        state.centre = {
+          x: slide(state.centre.x, centreTarget().x),
+          y: slide(state.centre.y, centreTarget().y),
+        };
       }
       if (state.resized === 1) state.previous = null;
+      const targetLift = isLabelLifted() ? 1 : 0;
+      state.lift = reduceMotion
+        ? targetLift
+        : toward(state.lift, targetLift, (step * DURATION) / LIFT_DURATION);
+      // Zooming by hand moves the stage, but the layers over it follow it as it goes.
+      const zooming = state.cell !== targetCell || state.zoom !== zoomLevel();
       const moving =
+        zooming ||
         state.view !== targetView ||
-        state.cell !== targetCell ||
+        state.lean !== targetLean ||
         state.stageShown !== targetShown ||
         state.resized !== 1 ||
         state.inset !== leftInset ||
-        state.edge !== targetEdge;
-      publishStageView(currentFrame(), moving);
-      state.frame = moving ? requestAnimationFrame(tick) : 0;
+        state.edge !== targetEdge ||
+        state.centre.x !== centreTarget().x ||
+        state.centre.y !== centreTarget().y;
+      // The sign rising does not move the stage, so the layers over it stay.
+      const camera =
+        state.view !== targetView ||
+        state.lean !== targetLean ||
+        state.stageShown !== targetShown ||
+        state.resized !== 1;
+      publishStageView(currentFrame(), moving && (camera || !zooming));
+      state.frame = moving || state.lift !== targetLift ? requestAnimationFrame(tick) : 0;
     };
 
     // Layers over the grid (the people on the stage) follow it once it stands still from above.
     const publishStageView = (frame: Frame, moving: boolean) => {
+      publishPerspective(frame, moving);
       if (moving || !frame.stage || frame.view !== 1 || frame.stageShown !== 1)
         return setStageView(null);
       const { centerX, centerY } = freeArea(frame);
       setStageView({ originX: centerX, originY: centerY, cell: frame.cell, left: frame.leftInset });
+    };
+
+    // Previews on the stage seen from an angle: laid out from above, then put onto the floor.
+    const publishPerspective = (frame: Frame, moving: boolean) => {
+      if (moving || !frame.stage || frame.view !== 0 || frame.stageShown !== 1)
+        return setPerspectiveView(null);
+      const camera = cameraFor(frame, 0);
+      const project = projector(camera);
+      const [halfX, halfY] = [frame.stage.cols / 2, frame.stage.rows / 2];
+      const corners = [
+        [-halfX, -halfY],
+        [halfX, -halfY],
+        [halfX, halfY],
+        [-halfX, halfY],
+      ] as const;
+      const to = corners.map(([x, y]) => project(x, y));
+      if (!to.every(Boolean)) return setPerspectiveView(null);
+      const from = corners.map(([x, y]) => ({
+        x: camera.centerX + x * camera.scale,
+        y: camera.centerY - y * camera.scale,
+      }));
+      const transform = homography(from, to as { x: number; y: number }[]);
+      setPerspectiveView(
+        transform
+          ? {
+              view: {
+                originX: camera.centerX,
+                originY: camera.centerY,
+                cell: camera.scale,
+                left: frame.leftInset,
+              },
+              transform,
+            }
+          : null,
+      );
     };
 
     const redraw = () => {
@@ -641,6 +774,9 @@ export function GridBackground({
       }
     };
     redraw();
+
+    const stopLift = onLabelLift(redraw);
+    const stopZoom = onZoom(redraw);
 
     // Redraw on resize and whenever the theme or the group's grid colour changes.
     const resize = new ResizeObserver(redraw);
@@ -673,18 +809,73 @@ export function GridBackground({
     return () => {
       cancelAnimationFrame(state.frame);
       state.frame = 0;
-      setStageView(null);
+      stopLift();
+      stopZoom();
       resize.disconnect();
       theme.disconnect();
       scheme?.removeEventListener('change', recolor);
     };
   }, [leftInset, view, stage, showCross, label]);
+  // The wheel (or two fingers on a touchpad) and a pinch on a touch screen zoom the stage in and
+  // out, over the floor or what is on the stage, not over the panels.
+  useEffect(() => {
+    const onStage = (target: EventTarget | null) =>
+      target instanceof Element && Boolean(target.closest('[data-grid-floor], [data-stage-layer]'));
+    const onWheel = (event: WheelEvent) => {
+      if (!onStage(event.target)) return;
+      event.preventDefault();
+      // A pinch on a touchpad comes as the wheel with Ctrl, in smaller steps.
+      zoomBy(Math.exp(-event.deltaY * (event.ctrlKey ? 0.01 : 0.0015)));
+    };
+    let pinch: number | null = null;
+    const spread = (touches: TouchList) =>
+      Math.hypot(
+        touches[0]!.clientX - touches[1]!.clientX,
+        touches[0]!.clientY - touches[1]!.clientY,
+      );
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length === 2 && onStage(event.target)) pinch = spread(event.touches);
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (pinch == null || event.touches.length !== 2) return;
+      event.preventDefault();
+      const next = spread(event.touches);
+      zoomBy(next / pinch);
+      pinch = next;
+    };
+    const onTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length < 2) pinch = null;
+    };
+    window.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchEnd);
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, []);
+
+  // Layers over the stage only go when the grid does: a change of its props (a new label, say)
+  // keeps them, so their animations do not start again.
+  useEffect(
+    () => () => {
+      setStageView(null);
+      setPerspectiveView(null);
+    },
+    [],
+  );
 
   return (
     // A click on the floor clears any text left selected in the panels.
     <div
       className={styles.root}
       aria-hidden="true"
+      data-grid-floor=""
       onPointerDown={() => window.getSelection()?.removeAllRanges()}
     >
       <canvas ref={canvasRef} className={styles.floor} />

@@ -42,6 +42,7 @@ import {
   squaresUnder,
 } from '../../stage/placement';
 import type { MirrorWay } from '../../stage/mirror';
+import { useOutlinesHidden } from '../../stage/stagePrefs';
 import { stageProjection } from '../../stage/projection';
 import type { StageView } from '../GridBackground/stageView';
 import type { TrayPerson } from '../PeopleTray/PeopleTray';
@@ -205,6 +206,8 @@ interface BlockProps {
    * figure inside a space that is.
    */
   targeted?: 'figure' | 'space' | 'inside' | null;
+  /** Carried where it cannot stand. */
+  refused?: boolean;
   onSelect?: () => void;
 }
 
@@ -218,6 +221,7 @@ function Block({
   hidden,
   space,
   targeted,
+  refused,
   onSelect,
 }: BlockProps) {
   const { attributes, listeners, setNodeRef } = useDraggable({
@@ -248,6 +252,7 @@ function Block({
       data-selected={selected ? '' : undefined}
       data-targeted={targeted ?? undefined}
       data-hidden={hidden ? '' : undefined}
+      data-refused={refused ? '' : undefined}
       data-incomplete={view.empty.length ? '' : undefined}
       data-shape={outline ? '' : undefined}
       style={style}
@@ -772,6 +777,13 @@ interface StageLayerProps {
   dragged?: TrayPerson | null;
   /** Only to look at: nothing can be dragged (a preview). */
   readOnly?: boolean;
+  /** CSS transform laying the whole layer onto the floor, e.g. seen from an angle. */
+  transform?: string;
+  /**
+   * Fades the whole layer in when it appears (`after` once the one before it has gone) or out
+   * when it goes, e.g. between previews.
+   */
+  fade?: 'in' | 'after' | 'out';
   figures?: FigureView[];
   selectedFigureId?: string | null;
   onSelectFigure?: (figureId: string | null) => void;
@@ -789,6 +801,9 @@ interface StageLayerProps {
   onMirror?: ((figureId: string, way: MirrorWay) => void) | null;
   /** Puts an empty copy of a figure (a space with its figures) on free ground beside it. */
   onDuplicate?: ((figureId: string) => void) | null;
+  /** A figure of a space turned a quarter where it stands, when it can be. */
+  onTurnInSpace?: ((figureId: string) => void) | null;
+  canTurnInSpace?: ((figureId: string) => boolean) | null;
   /** A cross being edited: one of its arms (front, left, right, back) a person longer or shorter. */
   onCrossArm?: ((figureId: string, arm: number, change: 1 | -1) => void) | null;
   /** Takes a figure off the stage, with its people (a figure of a space, with its hole). */
@@ -817,6 +832,8 @@ interface StageLayerProps {
   trash?: { hot: boolean; near: number; top: number } | null;
   /** Figure being moved, faded in its old place. */
   movingFigureId?: string | null;
+  /** The figure moved is carried itself (with its people) to where it would land. */
+  carrying?: boolean;
   ghost?: FigureGhost | null;
   /** While placing a figure by clicks: pointer moves and clicks over the stage. */
   capture?: {
@@ -836,6 +853,8 @@ export function StageLayer({
   drag = null,
   dragged = null,
   readOnly = false,
+  transform,
+  fade,
   figures = [],
   selectedFigureId = null,
   onSelectFigure,
@@ -844,6 +863,8 @@ export function StageLayer({
   onShuffle = null,
   onMirror = null,
   onDuplicate = null,
+  onTurnInSpace = null,
+  canTurnInSpace = null,
   onDelete = null,
   childHandles = null,
   selectedPersonId = null,
@@ -862,6 +883,7 @@ export function StageLayer({
   shifting = false,
   trash = null,
   movingFigureId = null,
+  carrying = false,
   ghost = null,
   capture = null,
   bottomTools,
@@ -1206,8 +1228,52 @@ export function StageLayer({
       window.clearTimeout(done);
     };
   }, [waiting]);
-  // Extra style for an element of a spinning figure, turning around the figure's centre.
+  // A figure being moved is drawn itself, with its people, labels and empty places, where it
+  // would land (red where it cannot); only a turn while carrying it falls back to the preview.
+  const carried =
+    carrying && movingFigureId && ghost && !ghost.spaceId
+      ? figures.find((item) => item.figure.id === movingFigureId)
+      : undefined;
+  const carriedIds = new Set(
+    carried
+      ? [
+          carried.figure.id,
+          ...figures
+            .filter((item) => item.figure.spaceId === carried.figure.id)
+            .map((item) => item.figure.id),
+        ]
+      : [],
+  );
+  const centroid = (points: StagePoint[]) =>
+    toScreen({
+      x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+      y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
+    });
+  const carryOffset = (() => {
+    if (!carried || !ghost) return null;
+    if (ghost.shape) {
+      if (ghost.shape.rotation !== carried.figure.rotation) return null;
+      const to = toScreen(ghost.shape);
+      const from = toScreen(carried.figure);
+      return { x: to.x - from.x, y: to.y - from.y };
+    }
+    if (!ghost.places.length || ghost.places.length !== carried.places.length) return null;
+    const to = centroid(ghost.places);
+    const from = centroid(carried.places);
+    return { x: to.x - from.x, y: to.y - from.y };
+  })();
+  const carriedHere = (figureId: string | null | undefined) =>
+    Boolean(carryOffset && figureId && carriedIds.has(figureId));
+
+  // Extra style for an element of a spinning figure, turning around the figure's centre; one of
+  // the figure being carried, moved with it.
   const spinning = (figureId: string | null | undefined, box: CSSProperties): CSSProperties => {
+    if (carryOffset && figureId && carriedIds.has(figureId))
+      return {
+        ...box,
+        transform: `translate(${carryOffset.x}px, ${carryOffset.y}px) ${box.transform ?? ''}`,
+        transition: 'none',
+      };
     const spin = figureId ? spins[figureId] : undefined;
     const item = figureId ? figures.find((view) => view.figure.id === figureId) : undefined;
     if (!spin || !item) return box;
@@ -1223,6 +1289,8 @@ export function StageLayer({
   // The hole of a space under the pointer (its figure, people, empty outline or chip), whose
   // chip shows; it lingers a moment so the pointer can reach it.
   const [hoveredHole, setHoveredHole] = useState<string | null>(null);
+  // "Sin bordes": only the people show, without the outlines of figures and spaces.
+  const outlinesHidden = useOutlinesHidden();
   useEffect(() => {
     if (readOnly) return;
     let timer: number | undefined;
@@ -1467,7 +1535,14 @@ export function StageLayer({
   }, [selectedFigureId, onSelectFigure]);
 
   return createPortal(
-    <div className={styles.root} data-shifting={shifting ? '' : undefined}>
+    <div
+      className={styles.root}
+      data-shifting={shifting ? '' : undefined}
+      data-fade={fade}
+      data-no-outlines={outlinesHidden ? '' : undefined}
+      data-stage-layer=""
+      style={transform ? { transform, transformOrigin: '0 0' } : undefined}
+    >
       {capture && (
         // Only right of the column, so the panels stay usable while placing.
         <div
@@ -1480,8 +1555,9 @@ export function StageLayer({
       {[...warned].map(([key, centre]) => (
         <span key={key} className={styles.warn} style={at(centre, square)} />
       ))}
+      {/* A preview shows only the figures, not the outlines of their spaces or empty holes. */}
       {figures
-        .filter((item) => item.layout)
+        .filter((item) => item.layout && !readOnly)
         .map((item) => (
           <Fragment key={item.figure.id}>
             <Block
@@ -1490,7 +1566,8 @@ export function StageLayer({
               readOnly={readOnly}
               selected={item.figure.id === selectedFigureId}
               targeted={item.figure.id === figureMenu?.figureId ? 'space' : null}
-              hidden={item.figure.id === movingFigureId}
+              hidden={item.figure.id === movingFigureId && !carriedHere(item.figure.id)}
+              refused={carriedHere(item.figure.id) && !ghost?.ok}
               space
               onSelect={() => onSelectFigure?.(item.figure.id)}
             />
@@ -1506,8 +1583,12 @@ export function StageLayer({
                   className={styles.hole}
                   data-hole={`${item.figure.id}:${place.hole}`}
                   data-figure-member={item.figure.id}
-                  data-hidden={item.figure.id === movingFigureId ? '' : undefined}
-                  style={holeStyle(item.figure, place)}
+                  data-hidden={
+                    item.figure.id === movingFigureId && !carriedHere(item.figure.id)
+                      ? ''
+                      : undefined
+                  }
+                  style={spinning(item.figure.id, holeStyle(item.figure, place))}
                 />
               ))}
           </Fragment>
@@ -1517,7 +1598,10 @@ export function StageLayer({
         .map((item) => {
           const open = item.figure.id === selectedFigureId;
           const moving =
-            item.figure.id === movingFigureId || item.figure.spaceId === movingFigureId;
+            // Saved figures say spaceId: null, so nothing moving must not match them.
+            movingFigureId != null &&
+            (item.figure.id === movingFigureId || item.figure.spaceId === movingFigureId) &&
+            !carriedHere(item.figure.id);
           const block = blockStyle(item.figure.kind, item.places, item.figure);
           return (
             <Fragment key={item.figure.id}>
@@ -1535,6 +1619,7 @@ export function StageLayer({
                       : null
                 }
                 hidden={moving}
+                refused={carriedHere(item.figure.id) && !ghost?.ok}
                 onSelect={() => onSelectFigure?.(item.figure.id)}
               />
               {item.figure.instrument && (
@@ -1542,10 +1627,12 @@ export function StageLayer({
                 <span
                   className={styles.seatLabel}
                   data-hidden={moving ? '' : undefined}
-                  style={{
+                  style={spinning(item.figure.id, {
                     left: Number(block.left) + Number(block.width) / 2,
                     top: Number(block.top) + Number(block.height) + 2,
-                  }}
+                    // Centred under the seat (kept when it is carried).
+                    transform: 'translateX(-50%)',
+                  })}
                 >
                   {item.figure.instrument}
                 </span>
@@ -1562,16 +1649,19 @@ export function StageLayer({
               <span
                 className={styles.placeholder}
                 data-candidates={candidates ? '' : undefined}
-                data-hidden={item.figure.id === movingFigureId ? '' : undefined}
+                data-hidden={
+                  item.figure.id === movingFigureId && !carriedHere(item.figure.id) ? '' : undefined
+                }
                 style={spinning(item.figure.id, at(place, token))}
               />
-              {candidates && item.figure.id !== movingFigureId && (
+              {candidates && (item.figure.id !== movingFigureId || carriedHere(item.figure.id)) && (
                 <span
                   className={styles.candidates}
-                  style={{
+                  style={spinning(item.figure.id, {
                     left: toScreen(place).x,
                     top: toScreen(place).y + token / 2 + 2,
-                  }}
+                    transform: 'translateX(-50%)',
+                  })}
                 >
                   {candidateNames(candidates.people, candidatePeople)}
                 </span>
@@ -1580,7 +1670,7 @@ export function StageLayer({
           );
         }),
       )}
-      {ghost && (
+      {ghost && !carryOffset && (
         // Turned in the preview: it spins there, so the figure just lands when let go.
         <div className={styles.ghostLayer} style={ghostTurnStyle}>
           {/* Filling a space, only where its new people would stand. */}
@@ -1782,18 +1872,21 @@ export function StageLayer({
               data-hole-tools={key}
               style={{ left: x, top: y }}
             >
-              {child && onTurnChild && selected.figure.kind === 'free' && (
-                <button
-                  type="button"
-                  className={styles.moveHole}
-                  data-figure-handle=""
-                  aria-label={`Girar ${FIGURE_LABELS[child.figure.kind].toLowerCase()}`}
-                  title="Girar (45°)"
-                  onClick={() => onTurnChild(child.figure.id)}
-                >
-                  <RotateCw aria-hidden="true" />
-                </button>
-              )}
+              {child &&
+                onTurnChild &&
+                selected.figure.kind === 'free' &&
+                child.figure.kind !== 'solo' && (
+                  <button
+                    type="button"
+                    className={styles.moveHole}
+                    data-figure-handle=""
+                    aria-label={`Girar ${FIGURE_LABELS[child.figure.kind].toLowerCase()}`}
+                    title="Girar (45°)"
+                    onClick={() => onTurnChild(child.figure.id)}
+                  >
+                    <RotateCw aria-hidden="true" />
+                  </button>
+                )}
               {canRemove && (
                 <button
                   type="button"
@@ -1846,6 +1939,8 @@ export function StageLayer({
           handles={editHandles}
           toStage={(x, y) => stageProjection(view, stage).toStage(x, y)}
           squareSize={stage.squareSize}
+          // Someone on their own looks the same however turned.
+          turnable={selected.figure.kind !== 'solo'}
         />
       )}
       {trash && (
@@ -1880,6 +1975,19 @@ export function StageLayer({
         >
           {/* What it works on: the figure alone (also inside a space) or the whole space. */}
           <p className={styles.figureMenuTitle}>{menuTitle(figureMenu.figureId)}</p>
+          {onTurnInSpace && canTurnInSpace?.(figureMenu.figureId) && (
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.figureMenuItem}
+              onClick={() => {
+                onTurnInSpace(figureMenu.figureId);
+                setFigureMenu(null);
+              }}
+            >
+              Girar
+            </button>
+          )}
           {MIRRORS.map(({ way, label }) => (
             <button
               key={way}

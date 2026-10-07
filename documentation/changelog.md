@@ -12,7 +12,9 @@ Qué commits entran en cada versión, con enlace a su pull request. Cada fase de
 
 Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 
-## v0.3.0 (en curso: fase 2)
+## v0.3.0 · [Release #47](https://github.com/juananmgz/cuadrocorrocalle/pull/47)
+
+Fase 2 (pasos 2.1 a 2.9); la revisión de accesibilidad del paso 2.10 irá en un parche.
 
 | PR                                                                | Commit                                                                    | Cambio                                                                                                |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -26,8 +28,9 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0043](https://github.com/juananmgz/cuadrocorrocalle/pull/43) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/43/commits) | ✨ The cross, a folding tray, the musicians' zone, instruments and Mi grupo in tabs (pasos 2.5 y 2.7) |
 | [CCC-0044](https://github.com/juananmgz/cuadrocorrocalle/pull/44) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/44/commits) | ✨ People out of figures, holes opened in spaces and repeated people in red (paso 2.6)                |
 | [CCC-0045](https://github.com/juananmgz/cuadrocorrocalle/pull/45) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/45/commits) | ✨ Candidates for an empty place, and tidier diagonal rows and instruments (paso 2.8)                 |
+| [CCC-0046](https://github.com/juananmgz/cuadrocorrocalle/pull/46) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/46/commits) | ✨ Animated home and summary, the dance centre, stage tools and zoom (paso 2.9)                       |
 
-## v0.2.1 (en curso)
+## v0.2.1 · [Release #47](https://github.com/juananmgz/cuadrocorrocalle/pull/47)
 
 | PR                                                                | Commit                                                                    | Cambio                                                       |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |

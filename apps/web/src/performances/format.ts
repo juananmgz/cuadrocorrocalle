@@ -1,7 +1,8 @@
-/** "15 de agosto de 2026" from "2026-08-15". */
-export function formatDay(day: string | null) {
+/** "15 de agosto de 2026" from "2026-08-15", with ", 20:30" when its time is known. */
+export function formatDay(day: string | null, time: string | null = null) {
   if (!day) return null;
-  return new Date(`${day}T00:00:00`).toLocaleDateString('es-ES', { dateStyle: 'long' });
+  const date = new Date(`${day}T00:00:00`).toLocaleDateString('es-ES', { dateStyle: 'long' });
+  return time ? `${date}, ${time}` : date;
 }
 
 /** "45–60 min", "desde 45 min" or "hasta 60 min". */

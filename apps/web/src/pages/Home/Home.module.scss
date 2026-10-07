@@ -191,3 +191,15 @@
     transform: translateX(-120%);
   }
 }
+
+// A performance that is not the one shown big: just its title and date, smaller.
+.compact {
+  display: grid;
+}
+
+.compact .item {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
