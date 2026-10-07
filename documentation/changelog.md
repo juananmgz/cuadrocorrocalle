@@ -24,6 +24,7 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | [CCC-0041](https://github.com/juananmgz/cuadrocorrocalle/pull/41) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/41/commits) | ✨ Diagonal trios and rows, and a tidier tray (paso 2.4)                                              |
 | [CCC-0042](https://github.com/juananmgz/cuadrocorrocalle/pull/42) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/42/commits) | ✨ Figure menu: mirror, duplicate and delete (paso 2.5)                                               |
 | [CCC-0043](https://github.com/juananmgz/cuadrocorrocalle/pull/43) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/43/commits) | ✨ The cross, a folding tray, the musicians' zone, instruments and Mi grupo in tabs (pasos 2.5 y 2.7) |
+| [CCC-0044](https://github.com/juananmgz/cuadrocorrocalle/pull/44) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/44/commits) | ✨ People out of figures, holes opened in spaces and repeated people in red (paso 2.6)                |
 
 ## v0.2.1 (en curso)
 
