@@ -39,6 +39,8 @@ import {
   absorbed,
   emptySlots,
   putFigure,
+  repeatedPeople,
+  standingPoint,
   removeFigure,
   reorderInSpace,
   stretchArm,
@@ -258,28 +260,10 @@ export function useStageEditing({
   const placedOf = (shown: StageContent | null): PlacedPerson[] =>
     (shown?.participants ?? []).flatMap((participant) => {
       const person = people.get(participant.personId);
-      return person && participant.x != null && participant.y != null
-        ? [
-            {
-              person,
-              point: { x: participant.x, y: participant.y },
-              figureId: participant.figureId ?? null,
-            },
-          ]
-        : [];
+      const point = shown && standingPoint(shown, participant, stage);
+      return person && point ? [{ person, point, figureId: participant.figureId ?? null }] : [];
     });
-  const placed: PlacedPerson[] = participants.flatMap((participant) => {
-    const person = people.get(participant.personId);
-    return person && participant.x != null && participant.y != null
-      ? [
-          {
-            person,
-            point: { x: participant.x, y: participant.y },
-            figureId: participant.figureId ?? null,
-          },
-        ]
-      : [];
-  });
+  const placed: PlacedPerson[] = placedOf(content);
   const viewsOf = (shown: StageContent | null): FigureView[] =>
     stage && shown
       ? shown.figures.map((figure) => ({

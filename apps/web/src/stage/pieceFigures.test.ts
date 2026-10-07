@@ -1,7 +1,14 @@
 import { expect, test } from 'vitest';
 
 import { slotPositions } from './figures';
-import { absorbed, missingPlaces, putFigure, removeFigure } from './pieceFigures';
+import {
+  absorbed,
+  missingPlaces,
+  putFigure,
+  removeFigure,
+  repeatedPeople,
+  standingPoint,
+} from './pieceFigures';
 
 const stage = { width: 8, depth: 4, squareSize: 0.5, edgeDistance: 1 };
 const pair = { id: 'pair-1', kind: 'pair' as const, x: 0, y: 0, rotation: 0 as const, width: 2 };
@@ -64,4 +71,31 @@ test('takes in people from solo figures, which go', () => {
   const placed = putFigure(content, pair, places, joining);
   expect(placed.figures.map(({ id }) => id)).toEqual(['pair-1']);
   expect(placed.participants[0]).toMatchObject({ figureId: 'pair-1', slot: 1 });
+});
+
+test('finds who is twice in a piece or shares a place with someone', () => {
+  const inPair = (personId: string, slot: number) => ({
+    ...person(personId, 0, 0),
+    figureId: 'pair-1',
+    slot,
+  });
+  const fine = { figures: [pair], participants: [inPair('julia', 0), inPair('mario', 1)] };
+  expect(repeatedPeople(fine).size).toBe(0);
+  const twice = {
+    figures: [pair],
+    participants: [
+      inPair('julia', 0),
+      inPair('mario', 0),
+      person('ana', 1, 1),
+      person('ana', 2, 1),
+    ],
+  };
+  expect([...repeatedPeople(twice)].sort()).toEqual(['ana', 'julia', 'mario']);
+});
+
+test('draws someone in a figure right on its place, even if their saved point drifted', () => {
+  const drifted = { ...person('julia', 0.3, 0.1), figureId: 'pair-1', slot: 0 };
+  const content = { figures: [pair], participants: [drifted] };
+  expect(standingPoint(content, drifted, stage)).toEqual(places[0]);
+  expect(standingPoint(content, person('ana', 1, 2), stage)).toEqual({ x: 1, y: 2 });
 });
