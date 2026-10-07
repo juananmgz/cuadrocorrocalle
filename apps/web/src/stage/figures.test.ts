@@ -6,6 +6,7 @@ import {
   fitWidth,
   minWidth,
   outlineOf,
+  outlinesOf,
   reachOf,
   slantedBlock,
   slotAt,
@@ -87,6 +88,16 @@ test('lets figures touch but not overlap', () => {
     ok: false,
     reason: 'close',
   });
+});
+
+test('lets a figure stand between the arms of a cross', () => {
+  const cross = { kind: 'cross' as const, x: 0, y: 0, rotation: 0 as const, width: 3 };
+  const arms = outlinesOf('cross', slotPositions(cross, stage), stage);
+  expect(arms).toHaveLength(4);
+  const solo = { kind: 'solo' as const, x: 0, y: 0, rotation: 0 as const, width: 1 };
+  // In the corner between two arms: inside its box, clear of its arms.
+  expect(checkFigureDrop(solo, { x: 0.5, y: 0.5 }, stage, [], arms).ok).toBe(true);
+  expect(checkFigureDrop(solo, { x: 0.5, y: 0.25 }, stage, [], arms).ok).toBe(false);
 });
 
 test('lays out the diagonal pair and the diamond, with people 0.5 m apart', () => {

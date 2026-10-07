@@ -308,15 +308,8 @@ export function widthForReach(kind: FigureKind, reach: number) {
  */
 export function outlineOf(kind: FigureKind, places: StagePoint[], stage: StageSize): Outline {
   const half = stage.squareSize / 2;
-  if (isSlanted(kind))
-    return hull(
-      places.flatMap((place) =>
-        Array.from({ length: ROUND_STEPS }, (_, step) => {
-          const angle = (step / ROUND_STEPS) * 2 * Math.PI;
-          return { x: place.x + half * Math.cos(angle), y: place.y + half * Math.sin(angle) };
-        }),
-      ),
-    );
+  // A trio in a triangle is drawn rounded round its people, not as a box.
+  if (isSlanted(kind) || kind === 'trio_triangle') return roundedHull(places, half);
   const xs = places.map((place) => place.x);
   const ys = places.map((place) => place.y);
   const [left, right] = [Math.min(...xs) - half, Math.max(...xs) + half];
@@ -327,6 +320,35 @@ export function outlineOf(kind: FigureKind, places: StagePoint[], stage: StageSi
     { x: right, y: top },
     { x: left, y: top },
   ];
+}
+
+/** The convex outline round some points at `radius`, its corners rounded. */
+function roundedHull(places: StagePoint[], radius: number): Outline {
+  return hull(
+    places.flatMap((place) =>
+      Array.from({ length: ROUND_STEPS }, (_, step) => {
+        const angle = (step / ROUND_STEPS) * 2 * Math.PI;
+        return { x: place.x + radius * Math.cos(angle), y: place.y + radius * Math.sin(angle) };
+      }),
+    ),
+  );
+}
+
+/**
+ * The block of a figure as convex pieces, so blocks can be checked for overlap: one for most
+ * figures, a bar along each arm for a cross (the corners between its arms stay free).
+ */
+export function outlinesOf(kind: FigureKind, places: StagePoint[], stage: StageSize): Outline[] {
+  if (kind !== 'cross' || places.length < 2) return [outlineOf(kind, places, stage)];
+  // The middle person comes first; the others go along the arms.
+  const [middle, ...rest] = places as [StagePoint, ...StagePoint[]];
+  const arms = new Map<string, StagePoint[]>();
+  for (const place of rest) {
+    const length = Math.hypot(place.x - middle.x, place.y - middle.y) || 1;
+    const way = `${((place.x - middle.x) / length).toFixed(3)},${((place.y - middle.y) / length).toFixed(3)}`;
+    arms.set(way, [...(arms.get(way) ?? []), place]);
+  }
+  return [...arms.values()].map((arm) => roundedHull([middle, ...arm], stage.squareSize / 2));
 }
 
 /** Whether two blocks overlap (separating axis test); side by side (touching) is fine. */
@@ -377,7 +399,9 @@ export function checkFigureDrop<
   if (!isOnStage(point, stage)) return { ok: false, reason: 'off', places };
   const clashes = (candidate: StagePoint[]) =>
     candidate.some((place) => isTooClose(place, others)) ||
-    blocks.some((block) => overlaps(outlineOf(figure.kind, candidate, stage), block));
+    outlinesOf(figure.kind, candidate, stage).some((part) =>
+      blocks.some((block) => overlaps(part, block)),
+    );
   if (fitsOnStage(places, stage)) {
     return clashes(places)
       ? { ok: false, reason: 'close', places }

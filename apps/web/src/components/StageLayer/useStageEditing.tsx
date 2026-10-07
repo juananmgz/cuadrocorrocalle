@@ -28,6 +28,7 @@ import {
   newFigureId,
   nextRotation,
   outlineOf,
+  outlinesOf,
   overlaps,
   reachOf,
   slotAt,
@@ -45,6 +46,7 @@ import {
   removeFigure,
   reorderInSpace,
   stretchArm,
+  relayoutSpace,
   takeOutOfSpace,
   type StageContent,
 } from '../../stage/pieceFigures';
@@ -81,7 +83,9 @@ import {
   insertionAt,
   nearestHole,
   layoutSpace,
+  keepsTurn,
   placeChildren,
+  turnInHole,
   rowAxes,
   snapSpace,
   spotSizes,
@@ -95,6 +99,9 @@ import type { TrayPerson } from '../PeopleTray/PeopleTray';
 import { Button } from '../ui/Button/Button';
 import { useToast } from '../ui/Toast/toastContext';
 import type { EditHandles, FigureGhost, FigureView, PlacedPerson, StageDrag } from './StageLayer';
+
+// Ids of the held figure while it is previewed in the space it will go into.
+const HELD_PREVIEW = 'held-preview-';
 
 // Least height of the trash strip at the bottom of the screen, in px.
 const MIN_TRASH = 60;
@@ -123,7 +130,25 @@ interface FigureMove {
   id: string | null;
   grab: StagePoint;
   result: MoveResult | null;
+  /** Stage point where the shown result last changed, so it does not flicker back and forth. */
+  anchor?: StagePoint;
 }
+
+// How far the pointer must go, in squares, from where the preview last changed to change it again.
+const STEADY = 0.3;
+
+/** What a result shows, to tell whether two of them look the same. */
+const resultKey = (result: MoveResult | null) =>
+  result
+    ? JSON.stringify([
+        result.ok,
+        result.places.map((place) => [place.x.toFixed(3), place.y.toFixed(3)]),
+        result.fill?.spaceId,
+        result.fill?.holes,
+        result.fill?.insertAt,
+        result.shift?.to,
+      ])
+    : '';
 
 /** A change of shape from the handles; a row may also widen the figures in its holes. */
 type Reshape = Partial<Shape> & { childWidth?: number };
@@ -223,6 +248,8 @@ export function useStageEditing({
   // Figure in edit mode (handles shown) and its reshape while a handle is held.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Someone picked on the stage (a click, or the start of a drag): drawn as selected.
+  // A musician held with their seat: the seat moves while they stay in the zone.
+  const [seatMove, setSeatMove] = useState<FigureMove | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [reshaping, setReshaping] = useState<Reshape | null>(null);
   // Figure copied with Ctrl+C, pasted beside itself with Ctrl+V.
@@ -275,23 +302,86 @@ export function useStageEditing({
   const placed: PlacedPerson[] = placedOf(content);
   const viewsOf = (shown: StageContent | null): FigureView[] =>
     stage && shown
-      ? shown.figures.map((figure) => ({
-          figure,
-          places: slotPositions(figure, stage),
-          empty: emptySlots(shown, figure),
-          layout: isSpace(figure.kind)
-            ? layoutSpace(figure, childrenOf(shown.figures, figure.id), stage)
-            : undefined,
-        }))
+      ? shown.figures
+          .filter((figure) => !figure.id.startsWith(HELD_PREVIEW))
+          .map((figure) => ({
+            figure,
+            places: slotPositions(figure, stage),
+            empty: emptySlots(shown, figure),
+            // The held figure counts in the space it will go into, though only its ghost shows.
+            layout: isSpace(figure.kind)
+              ? layoutSpace(figure, childrenOf(shown.figures, figure.id), stage)
+              : undefined,
+          }))
       : [];
+  /**
+   * A space with a figure like `shape` in some of its holes (opening one first if full), the
+   * space and its figures laid out again. A figure moved there leaves its old place.
+   */
+  const filled = (
+    from: StageContent,
+    shape: Shape,
+    space: Shape,
+    { spaceId, holes, insertAt }: Fill,
+    idOf: (index: number) => string,
+  ): StageContent => {
+    const ids = holes.map((_, index) => idOf(index));
+    const opened =
+      insertAt == null
+        ? from.figures
+        : from.figures.map((figure) =>
+            figure.spaceId === spaceId && figure.hole != null && figure.hole >= insertAt
+              ? { ...figure, hole: figure.hole + 1 }
+              : figure,
+          );
+    const added = holes.map((hole, index) => ({
+      ...shape,
+      id: ids[index]!,
+      spaceId,
+      hole,
+      angle: null,
+    }));
+    let next: StageContent = {
+      ...from,
+      figures: [
+        ...opened.filter((figure) => figure.id !== spaceId && !ids.includes(figure.id)),
+        { ...from.figures.find((figure) => figure.id === spaceId)!, ...space, id: spaceId },
+        ...added,
+      ],
+    };
+    const placed = next.figures.find((figure) => figure.id === spaceId)!;
+    for (const child of placeChildren(placed, next.figures, stage!))
+      next = putFigure(next, child, slotPositions(child, stage!));
+    return next;
+  };
+
   const figureViews = viewsOf(content);
-  // While a figure of a space is moved inside it, the others already make room for it.
-  const heldShift = (figureMove ?? carried)?.result?.shift;
+  // While a figure of a space is moved, the others already make room for it inside the space, or
+  // close up behind it once it leaves; a figure held over a full space opens its hole. They glide
+  // there, so dropping it changes nothing more.
+  const heldResult = (figureMove ?? carried)?.result;
+  const heldShift = heldResult?.shift;
   const heldId = (figureMove ?? carried)?.id;
+  const heldFigure = heldId ? figures.find((figure) => figure.id === heldId) : undefined;
+  const holding = figureMove ?? carried;
+  const opening = heldResult?.ok ? heldResult.fill : undefined;
   const shown =
-    content && stage && heldShift?.to != null && heldId
-      ? reorderInSpace(content, heldId, heldShift.to, stage)
-      : content;
+    !content || !stage
+      ? content
+      : heldShift?.to != null && heldId
+        ? reorderInSpace(content, heldId, heldShift.to, stage)
+        : heldShift && heldFigure
+          ? takeOutOfSpace(content, heldFigure, stage)
+          : opening && holding && heldResult?.ok
+            ? filled(
+                content,
+                holding.shape,
+                heldResult.figure,
+                opening,
+                (index) => `${HELD_PREVIEW}${index}`,
+              )
+            : content;
+  const shifting = Boolean(heldShift || opening);
   const selected = figureViews.find((item) => item.figure.id === selectedId) ?? null;
 
   const warn = (reason: 'off' | 'close' | 'full', what: 'person' | 'figure') => {
@@ -344,12 +434,23 @@ export function useStageEditing({
           !(figureId && figure.spaceId === figureId) &&
           !(figure.kind === 'solo' && takenIn.has(figure.id)),
       )
-      .map((figure) => blockOutline(figure))
+      .flatMap((figure) => blockOutlines(figure))
       .concat(zoneOutline && !musician ? [zoneOutline] : []);
   };
 
   // The musicians' zone as a block, kept for them.
   const zone = stage ? musicZone(stage) : null;
+  /** A musician's seat: it never merges into another figure's place. */
+  const isSeat = (figureId: string) =>
+    Boolean(figures.find((figure) => figure.id === figureId)?.instrument);
+  const inZone = (point: StagePoint) =>
+    Boolean(
+      zone &&
+      point.x >= zone.left &&
+      point.x <= zone.right &&
+      point.y >= zone.bottom &&
+      point.y <= zone.top,
+    );
   const zoneOutline = zone
     ? [
         { x: zone.left, y: zone.bottom },
@@ -375,14 +476,17 @@ export function useStageEditing({
     return figure?.kind === 'solo' && !figure.spaceId && member ? plays(member.personId) : false;
   };
 
-  /** The block a figure takes up: its own, or the band or disc of a space. */
-  const blockOutline = (figure: StageFigure) => {
-    if (!isSpace(figure.kind)) return outlineOf(figure.kind, slotPositions(figure, stage!), stage!);
+  /** The block a figure takes up, in convex pieces: its own, or the band or disc of a space. */
+  const blockOutlines = (figure: StageFigure) => {
+    if (!isSpace(figure.kind))
+      return outlinesOf(figure.kind, slotPositions(figure, stage!), stage!);
     const children = childrenOf(figures, figure.id);
     const layout = layoutSpace(figure, children, stage!);
-    return figure.kind === 'row_diagonal'
-      ? diagonalOutline(figure, layout, children)
-      : spaceOutline(figure, layout, stage!);
+    return [
+      figure.kind === 'row_diagonal'
+        ? diagonalOutline(figure, layout, children)
+        : spaceOutline(figure, layout, stage!),
+    ];
   };
 
   /**
@@ -590,7 +694,9 @@ export function useStageEditing({
     // Show where the new figures' people would stand.
     const places = layout.holes
       .filter(({ hole }) => fill.holes.includes(hole))
-      .flatMap((place) => slotPositions({ ...shape, ...place }, stage));
+      .flatMap((place) =>
+        slotPositions({ ...shape, ...place, rotation: turnInHole(space, shape, place) }, stage),
+      );
     return check.ok
       ? { ok: true, figure: check.figure, places, fill }
       : { ok: false, reason: check.reason, places, fill };
@@ -670,7 +776,9 @@ export function useStageEditing({
     if (fill) return fillResult(move.shape, move.id, fill);
     // Someone in a solo dropped on an empty place of another figure takes it.
     const seat =
-      move.id && move.shape.kind === 'solo' ? seatAt(centre, move.id, memberIn(move.id)) : null;
+      move.id && move.shape.kind === 'solo' && !isSeat(move.id)
+        ? seatAt(centre, move.id, memberIn(move.id))
+        : null;
     if (seat)
       return {
         ok: true,
@@ -687,6 +795,23 @@ export function useStageEditing({
     );
   };
 
+  /**
+   * The move with its result at `pointer`. A new result only shows once the pointer is clearly past
+   * where the last one did, so the preview does not jump back and forth round an edge (a free
+   * dance, where figures stand anywhere, follows the pointer).
+   */
+  const steadied = (move: FigureMove, pointer: StagePoint): FigureMove => {
+    const next = figureResult(move, pointer);
+    const point = toStage(pointer);
+    if (!point || !stage) return { ...move, result: next };
+    const changed = resultKey(next) !== resultKey(move.result);
+    const near =
+      move.anchor &&
+      Math.hypot(point.x - move.anchor.x, point.y - move.anchor.y) < STEADY * stage.squareSize;
+    if (changed && near && move.result && next && !move.result.respot && !next.respot) return move;
+    return { ...move, result: next, anchor: changed || !move.anchor ? point : move.anchor };
+  };
+
   /** Puts the figure where it was dropped, taking in anyone standing under its places. */
   const landFigure = (move: FigureMove, result: MoveResult | null) => {
     if (!content || !stage || !result) return;
@@ -699,41 +824,15 @@ export function useStageEditing({
           : takeOutOfSpace(content, { ...result.figure, id: move.id } as StageFigure, stage),
       );
     }
-    if (result.fill) {
-      // Into the holes of a space: the figure (or copies of a new one) and the space, laid out again.
-      const { spaceId, holes, insertAt } = result.fill;
-      // A full space opens a hole there: the figures from it on move one along.
-      const opened =
-        insertAt == null
-          ? figures
-          : figures.map((figure) =>
-              figure.spaceId === spaceId && figure.hole != null && figure.hole >= insertAt
-                ? { ...figure, hole: figure.hole + 1 }
-                : figure,
-            );
-      const added = holes.map((hole, index) => ({
-        ...move.shape,
-        id: index === 0 && move.id ? move.id : newFigureId(),
-        spaceId,
-        hole,
-        angle: null,
-      }));
-      let next: StageContent = {
-        ...content,
-        figures: [
-          ...opened.filter((figure) => figure.id !== spaceId && figure.id !== move.id),
-          { ...figures.find((figure) => figure.id === spaceId)!, ...result.figure, id: spaceId },
-          ...added,
-        ],
-      };
-      const space = next.figures.find((figure) => figure.id === spaceId)!;
-      for (const child of placeChildren(space, next.figures, stage))
-        next = putFigure(next, child, slotPositions(child, stage));
-      return onChange(next);
-    }
+    if (result.fill)
+      return onChange(
+        filled(content, move.shape, result.figure, result.fill, (index) =>
+          index === 0 && move.id ? move.id : newFigureId(),
+        ),
+      );
     // A solo landing on an empty place of another figure: its person joins that one.
     const seat =
-      move.id && move.shape.kind === 'solo'
+      move.id && move.shape.kind === 'solo' && !isSeat(move.id)
         ? seatAt(result.places[0]!, move.id, memberIn(move.id))
         : null;
     if (seat) {
@@ -868,19 +967,25 @@ export function useStageEditing({
   ) => {
     const person = people.get(personId);
     if (!content || !person || !pieceType) return;
-    // Whoever stood there stays in the piece, waiting for a place.
-    const freed = participants.map((participant) =>
-      participant.personId === replaces
-        ? { ...participant, x: null, y: null, figureId: null, slot: null }
-        : participant,
-    );
+    // Someone already on the stage swaps places with whoever stood there (if they can take
+    // that place); someone brought from the tray leaves them out of the piece.
+    const from = replaces ? memberOf(personId) : undefined;
+    const fromFigure = from && figures.find((figure) => figure.id === from.figureId);
+    const swaps = Boolean(from && fromFigure && fitsSeat(replaces ?? undefined, fromFigure));
+    const freed = swaps
+      ? participants.map((participant) =>
+          participant.personId === replaces
+            ? { ...participant, x: from!.x, y: from!.y, figureId: from!.figureId, slot: from!.slot }
+            : participant,
+        )
+      : participants.filter((participant) => participant.personId !== replaces);
     onChange({
-      figures: withoutOwnSolo(figures, personId),
+      // Their own solo stays for the one they swap with.
+      figures: swaps ? figures : withoutOwnSolo(figures, personId),
       participants: placeParticipant(freed, person, pieceType, point, seat),
     });
-    const left = replaces ? people.get(replaces) : null;
-    if (left)
-      toast.show({ title: `${left.name} se queda sin posición en esta pieza`, tone: 'info' });
+    const left = replaces && !swaps ? people.get(replaces) : null;
+    if (left) toast.show({ title: `${left.name} sale de esta pieza`, tone: 'info' });
   };
 
   /**
@@ -1260,6 +1365,31 @@ export function useStageEditing({
   };
 
   /**
+   * Turns a figure of a space a quarter where it stands: in a free dance if it still fits, in a row
+   * one that keeps its own turn (the row lays itself out again round it).
+   */
+  const canTurnInSpace = (figureId: string) => {
+    const child = figures.find((figure) => figure.id === figureId);
+    const space = child?.spaceId ? figures.find((figure) => figure.id === child.spaceId) : null;
+    // Someone on their own looks the same however turned.
+    if (!child || child.kind === 'solo') return false;
+    return space?.kind === 'free' || (space?.kind === 'row' && keepsTurn(child.kind));
+  };
+  const turnInSpace = (figureId: string) => {
+    const child = figures.find((figure) => figure.id === figureId);
+    if (!content || !stage || !child?.spaceId || !canTurnInSpace(figureId)) return;
+    if (figures.find((figure) => figure.id === child.spaceId)?.kind === 'free')
+      return turnInFreeDance(figureId);
+    const turned = {
+      ...content,
+      figures: content.figures.map((figure) =>
+        figure.id === figureId ? { ...figure, rotation: nextRotation(figure.rotation) } : figure,
+      ),
+    };
+    onChange(relayoutSpace(turned, child.spaceId, stage));
+  };
+
+  /**
    * Puts an empty copy of a figure on the nearest free ground beside it: a space with copies of
    * its figures, a figure of a space on its own. The copy is left with its handles.
    */
@@ -1404,6 +1534,20 @@ export function useStageEditing({
       setPersonDrag({ personId, pointer, check: null });
       return;
     }
+    // A musician in their seat: inside the musicians' zone the seat goes with them; out of it
+    // they leave the seat (which stays for someone else).
+    const point = toStage(pointer);
+    if (figure?.instrument && point) {
+      startFigureMove(figure, pointer);
+      setSeatMove({
+        shape: figure,
+        id: figure.id,
+        grab: { x: point.x - figure.x, y: point.y - figure.y },
+        result: null,
+      });
+      setPersonDrag({ personId, pointer, check: null });
+      return;
+    }
     setSelectedId(null);
     setPersonDrag({ personId, pointer, check: null });
   };
@@ -1411,14 +1555,34 @@ export function useStageEditing({
   const onDragMove = (event: DragMoveEvent) => {
     const pointer = pointerOf(event);
     setDragPointer(pointer);
-    if (figureMove) {
-      setFigureMove({ ...figureMove, result: figureResult(figureMove, pointer) });
+    if (seatMove) {
+      // Inside the zone it is the seat being moved; outside it, the musician alone.
+      const point = toStage(pointer);
+      if (point && inZone(point)) {
+        setFigureMove(steadied(figureMove ?? seatMove, pointer));
+        return;
+      }
+      setFigureMove(null);
+    } else if (figureMove) {
+      setFigureMove(steadied(figureMove, pointer));
       return;
     }
     if (personDrag) {
       const result = personResult(personDrag.personId, pointer);
       setPersonDrag({ ...personDrag, pointer, check: result?.check ?? null });
     }
+  };
+
+  /**
+   * A figure dropped on the trash or the tray goes, with its people. One from a space takes its
+   * hole with it and the rest close up, as they already did while it was carried out.
+   */
+  const discardFigure = (figureId: string) => {
+    const figure = figures.find((item) => item.id === figureId);
+    if (!content || !stage || !figure) return;
+    const out = figure.spaceId ? takeOutOfSpace(content, figure, stage) : content;
+    onChange(removeFigure(out, figureId));
+    setSelectedId(null);
   };
 
   const onDragEnd = (event: DragEndEvent) => {
@@ -1428,26 +1592,23 @@ export function useStageEditing({
     const move = figureMove;
     const person = personDrag;
     setFigureMove(null);
+    setSeatMove(null);
     setPersonDrag(null);
     setDragPointer(null);
 
     // Dropped on the trash strip: a figure goes, someone on their own leaves the stage.
     if (inTrash(pointer)) {
-      if (move?.id && content) {
-        onChange(removeFigure(content, move.id));
-        setSelectedId(null);
-      } else if (person && id.startsWith('stage:')) removePerson(person.personId);
+      if (move?.id) discardFigure(move.id);
+      else if (person && id.startsWith('stage:')) removePerson(person.personId);
       return;
     }
 
     if (move) {
-      if (!toTray) return landFigure(move, figureResult(move, pointer));
+      // It lands where its preview showed it.
+      if (!toTray) return landFigure(move, move.result ?? figureResult(move, pointer));
       // A member dropped on the tray leaves its figure; a figure dropped there goes.
       if (id.startsWith('stage:') && person) return removePerson(person.personId);
-      if (move.id && content) {
-        onChange(removeFigure(content, move.id));
-        setSelectedId(null);
-      }
+      if (move.id) discardFigure(move.id);
       return;
     }
     if (!person) return;
@@ -1483,6 +1644,7 @@ export function useStageEditing({
 
   const onDragCancel = () => {
     setFigureMove(null);
+    setSeatMove(null);
     setPersonDrag(null);
     setDragPointer(null);
   };
@@ -1528,6 +1690,8 @@ export function useStageEditing({
 
   // Turning shows at once where it would land, without waiting for the pointer to move.
   const turnHeld = () => {
+    // Someone on their own looks the same however turned.
+    if ((figureMove ?? carried)?.shape.kind === 'solo') return;
     if (figureMove) {
       const turned = {
         ...figureMove,
@@ -1625,21 +1789,32 @@ export function useStageEditing({
           )
         : null;
   // Refused, a space keeps its own shape (a diagonal row its slanted band) where it was held.
+  /**
+   * A refused figure keeps its own shape (a cross its arms, a diagonal row its band) where it was
+   * held: its centre moved as far as its people were.
+   */
+  const refusedShape = (
+    shape: Shape,
+    id: string | null,
+    places: StagePoint[],
+    size: StageSize,
+  ): Shape & { id: string | null } => {
+    const middle = (points: StagePoint[]) => ({
+      x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+      y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
+    });
+    const to = middle(places);
+    // A space's people are those of its figures: its centre is theirs.
+    if (isSpace(shape.kind)) return { ...shape, id, ...to };
+    const from = middle(slotPositions(shape, size));
+    return { ...shape, id, x: shape.x + to.x - from.x, y: shape.y + to.y - from.y };
+  };
   const heldShape =
     held?.result && !held.result.fill
       ? held.result.ok
         ? { ...held.result.figure, id: held.id }
-        : isSpace(held.shape.kind) && held.result.places.length
-          ? {
-              ...held.shape,
-              id: held.id,
-              x:
-                held.result.places.reduce((sum, place) => sum + place.x, 0) /
-                held.result.places.length,
-              y:
-                held.result.places.reduce((sum, place) => sum + place.y, 0) /
-                held.result.places.length,
-            }
+        : held.result.places.length && stage
+          ? refusedShape(held.shape, held.id, held.result.places, stage)
           : undefined
       : undefined;
   // Where the held figure would land; refused places are drawn in red.
@@ -1891,7 +2066,7 @@ export function useStageEditing({
       drag: figureMove ? null : personDrag,
       dragged: personDrag && !figureMove ? (people.get(personDrag.personId) ?? null) : null,
       figures: viewsOf(shown),
-      shifting: heldShift?.to != null,
+      shifting,
       selectedFigureId: selectedId,
       selectedPersonId,
       onSelectPerson: setSelectedPersonId,
@@ -1959,6 +2134,8 @@ export function useStageEditing({
       onGrowRow: growIntoRow,
       onShuffle: shuffle,
       onDuplicate: duplicate,
+      onTurnInSpace: turnInSpace,
+      canTurnInSpace,
       // A cross: one arm a person longer (if there is room) or shorter.
       onCrossArm: (figureId: string, arm: number, change: 1 | -1) => {
         if (!content || !stage) return;
@@ -2001,22 +2178,23 @@ export function useStageEditing({
           ? { hot: inTrash(dragPointer), near: trashNearness(), top: trashTop }
           : null,
       movingFigureId: figureMove?.id ?? (reshaping ? selectedId : null),
+      carrying: Boolean(figureMove?.id),
       ghost: ghost && ghost.places.length ? ghost : null,
       capture: carried
         ? {
             onMove: (x: number, y: number) => {
               setCarriedPointer({ x, y });
-              setCarried({ ...carried, result: figureResult(carried, { x, y }) });
+              setCarried(steadied(carried, { x, y }));
             },
             onClick: (x: number, y: number) => {
-              landFigure(carried, figureResult(carried, { x, y }));
+              landFigure(carried, carried.result ?? figureResult(carried, { x, y }));
               setCarried(null);
             },
           }
         : null,
       bottomTools: carried ? (
         <>
-          <Button onClick={turnHeld}>Girar (R)</Button>
+          {carried.shape.kind !== 'solo' && <Button onClick={turnHeld}>Girar (R)</Button>}
           <Button onClick={() => setCarried(null)}>Cancelar (Esc)</Button>
         </>
       ) : null,

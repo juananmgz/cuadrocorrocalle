@@ -12,6 +12,7 @@ import {
   snapSpace,
   spaceOutline,
   stretchRing,
+  turnInHole,
 } from './spaces';
 
 const stage = { width: 8, depth: 4, squareSize: 0.5, edgeDistance: 1 };
@@ -211,4 +212,11 @@ test('opens a new hole between the two figures either side of a point', () => {
   expect(insertionAt(row, layout, { x: 0.4, y: 0 })).toBe(2);
   expect(insertionAt(row, layout, { x: 1.6, y: 0 })).toBe(3);
   expect(insertionAt({ ...row, kind: 'free' }, layout, { x: 0, y: 0 })).toBeNull();
+});
+
+test('diagonals and triangles keep their turn in a straight row, a pair turns with the hole', () => {
+  const place = { rotation: 90 as const, angle: null };
+  expect(turnInHole(row, { kind: 'pair_diagonal', rotation: 0 }, place)).toBe(0);
+  expect(turnInHole(row, { kind: 'trio_triangle', rotation: 180 }, place)).toBe(180);
+  expect(turnInHole(row, { kind: 'pair', rotation: 0 }, place)).toBe(90);
 });

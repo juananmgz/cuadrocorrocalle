@@ -261,8 +261,8 @@ export function PeopleTray({
             type="button"
             className={styles.railButton}
             data-fold=""
-            aria-label="Desplegar la bandeja"
-            title="Desplegar la bandeja"
+            aria-label="Mostrar la bandeja"
+            title="Mostrar la bandeja"
             onClick={() => fold(false)}
           >
             <PanelRightOpen size={20} aria-hidden="true" />
@@ -288,27 +288,29 @@ export function PeopleTray({
 
   return (
     <TrayDropZone collapsed={false}>
-      {sections.map(({ key, icon, title, content }) => (
-        <Section
-          key={key}
-          id={key}
-          icon={icon}
-          title={title}
-          open={open[key]}
-          onToggle={() => toggle(key)}
-        >
-          {content}
-        </Section>
-      ))}
+      <div className={styles.scroll}>
+        {sections.map(({ key, icon, title, content }) => (
+          <Section
+            key={key}
+            id={key}
+            icon={icon}
+            title={title}
+            open={open[key]}
+            onToggle={() => toggle(key)}
+          >
+            {content}
+          </Section>
+        ))}
+      </div>
       <button
         type="button"
         className={styles.foldButton}
-        aria-label="Plegar la bandeja"
-        title="Plegar la bandeja"
+        aria-label="Ocultar la bandeja"
+        title="Ocultar la bandeja"
         onClick={() => fold(true)}
       >
         <PanelRightClose size={18} aria-hidden="true" />
-        Plegar
+        Ocultar
       </button>
     </TrayDropZone>
   );

@@ -48,7 +48,15 @@ const RING_STEPS = 32;
 type Shape = Pick<StageFigure, 'kind' | 'width'> & {
   depth?: number | null;
   arms?: number[] | null;
+  rotation?: FigureRotation;
 };
+
+/**
+ * Figures that keep their own turn in a straight row: turning them with the row would mirror a
+ * diagonal or point a triangle elsewhere. Pairs and lines lie as the row says.
+ */
+export const keepsTurn = (kind: FigureKind) =>
+  kind === 'pair_diagonal' || kind === 'trio_diagonal' || kind === 'trio_triangle';
 
 /** What a figure takes up in squares, along its own width (x) and across it (y). */
 export function extentOf({ kind, width, depth, arms }: Shape) {
@@ -195,10 +203,15 @@ export function layoutSpace(
   }
   const battery = space.arrangement === 'battery';
   const sizes = Array.from({ length: space.width }, (_, hole) => {
-    const child = children.get(hole) ?? emptyHoleOf(space);
+    const child: Shape = children.get(hole) ?? emptyHoleOf(space);
     if (space.kind === 'row_diagonal') return diagonalSize(child, battery);
     const extent = extentOf(child);
-    return battery ? { along: extent.y, across: extent.x } : { along: extent.x, across: extent.y };
+    // Lying along the row unless turned across it (in battery, or by its own turn).
+    const across =
+      space.kind === 'row' && keepsTurn(child.kind) && child.rotation != null
+        ? (child.rotation - space.rotation) % 180 !== 0
+        : battery;
+    return across ? { along: extent.y, across: extent.x } : { along: extent.x, across: extent.y };
   });
   const gap = gapSquares(space, stage);
   // Holes and the room between them (a ring also leaves room between its last and first).
@@ -290,13 +303,25 @@ export const childrenOf = (figures: StageFigure[], spaceId: string) =>
     ),
   );
 
+/** How a figure stands in its hole: turned as the hole, or as it came if it keeps its turn. */
+export function turnInHole(
+  space: Pick<StageFigure, 'kind'>,
+  child: Pick<StageFigure, 'kind' | 'rotation'>,
+  place: Pick<HolePlace, 'rotation' | 'angle'>,
+): FigureRotation {
+  return space.kind === 'row' && place.angle == null && keepsTurn(child.kind)
+    ? child.rotation
+    : place.rotation;
+}
+
 /** The figures in a space moved to their holes, as the space now stands. */
 export function placeChildren(space: StageFigure, figures: StageFigure[], stage: StageSize) {
   const children = childrenOf(figures, space.id);
   const { holes } = layoutSpace(space, children, stage);
-  return holes.flatMap(({ hole, x, y, rotation, angle }) => {
-    const child = children.get(hole);
-    return child ? [{ ...child, x, y, rotation, angle }] : [];
+  return holes.flatMap((place) => {
+    const child = children.get(place.hole);
+    const { x, y, angle } = place;
+    return child ? [{ ...child, x, y, rotation: turnInHole(space, child, place), angle }] : [];
   });
 }
 
