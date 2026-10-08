@@ -25,6 +25,17 @@
   }
 }
 
+// The performance's title in the top bar, while summarizing.
+.barTitle {
+  @include mixins.heading;
+
+  margin: 0;
+  overflow: hidden;
+  font-size: 1.375rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .home {
   @include mixins.heading;
 
@@ -53,6 +64,10 @@
 .switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
+
+  &[data-options='3'] {
+    grid-template-columns: repeat(3, 1fr);
+  }
 
   &[hidden] {
     display: none;

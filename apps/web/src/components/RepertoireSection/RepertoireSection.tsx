@@ -191,11 +191,7 @@ function PieceRow({
             className={styles.summary}
             aria-current={selected ? 'true' : undefined}
             aria-label={
-              spoken
-                ? `${open ? 'Ocultar' : 'Mostrar'} los datos de «${draft.title.trim() || 'Sin título'}»`
-                : open
-                  ? `Entrar en «${draft.title.trim() || 'Sin título'}»`
-                  : undefined
+              open && !spoken ? `Entrar en «${draft.title.trim() || 'Sin título'}»` : undefined
             }
             onClick={onSelect}
           >
@@ -501,8 +497,8 @@ export function RepertoireSection({
       label={numbers.get(draft.key) ?? null}
       selected={openKey === draft.key}
       open={openKeys.has(draft.key)}
-      // A voice-over or a talk has no stage to enter: its row only opens its notes.
-      onSelect={() => (isSpoken(draft.type) ? toggleOpen(draft.key) : setOpenKey(draft.key))}
+      // A voice-over or a talk has no stage to enter: its row does nothing (its chevron opens it).
+      onSelect={() => !isSpoken(draft.type) && setOpenKey(draft.key)}
       onToggle={() => toggleOpen(draft.key)}
       onChange={updatePiece}
       people={peopleById}

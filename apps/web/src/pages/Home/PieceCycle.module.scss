@@ -22,34 +22,6 @@
   white-space: nowrap;
 }
 
-// Back, pause and on.
-.controls {
-  display: flex;
-  flex: none;
-  gap: var(--space-1);
-}
-
-.pause {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  color: var(--ink);
-  cursor: pointer;
-  background: transparent;
-  border: var(--border-width) solid var(--ink-soft);
-  border-radius: 50%;
-
-  &:hover,
-  &:focus-visible {
-    background: var(--sel-bg);
-    border-color: var(--accent);
-    outline: none;
-  }
-}
-
 // One segment per piece; the one on show fills over its time.
 .segments {
   display: flex;

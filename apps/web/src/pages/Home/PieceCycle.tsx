@@ -1,7 +1,8 @@
 import { isSpoken } from '@cuadrocorrocalle/shared';
-import { Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { CycleControls } from '../../components/CycleControls/CycleControls';
+import { useCycleKeys } from '../../components/CycleControls/useCycleKeys';
 import { PREVIEW_FADE } from '../../components/PiecePreview/PiecePreview';
 import { type PieceDraft, toDraft } from '../../pieces/draft';
 import { useRepertoire } from '../../pieces/repertoireApi';
@@ -55,29 +56,12 @@ export function PieceCycle({ performanceId, onPiece, onEnding }: PieceCycleProps
 
   const count = pieces.length;
   const step = (by: number) => setIndex((value) => (((value + by) % count) + count) % count);
-  // Space pauses and the arrows go back and on, unless something else wants the key.
-  useEffect(() => {
-    if (count < 2) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
-      const target = event.target instanceof Element ? event.target : null;
-      const typing = target?.closest('input, textarea, select, [contenteditable], [role=combobox]');
-      if (typing || document.querySelector('[role=dialog], [role=menu]')) return;
-      if (event.key === ' ') {
-        // A focused button keeps its own Space.
-        if (target?.closest('button, a')) return;
-        event.preventDefault();
-        setPaused((value) => !value);
-      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        event.preventDefault();
-        setIndex(
-          (value) => (((value + (event.key === 'ArrowLeft' ? -1 : 1)) % count) + count) % count,
-        );
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [count]);
+  // Space pauses and the arrows go back and on.
+  useCycleKeys(count > 1, {
+    onPrevious: () => step(-1),
+    onToggle: () => setPaused((value) => !value),
+    onNext: () => step(1),
+  });
 
   if (!data) return null;
   if (!current) return <p className={styles.empty}>Sin piezas todavía.</p>;
@@ -90,39 +74,12 @@ export function PieceCycle({ performanceId, onPiece, onEnding }: PieceCycleProps
           {current.title}
         </span>
         {pieces.length > 1 && (
-          <div className={styles.controls}>
-            <button
-              type="button"
-              className={styles.pause}
-              aria-label="Pieza anterior"
-              title="Anterior (←)"
-              onClick={() => step(-1)}
-            >
-              <SkipBack size={16} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className={styles.pause}
-              aria-label={paused ? 'Seguir pasando las piezas' : 'Pausar'}
-              title={paused ? 'Seguir (espacio)' : 'Pausar (espacio)'}
-              onClick={() => setPaused(!paused)}
-            >
-              {paused ? (
-                <Play size={16} aria-hidden="true" />
-              ) : (
-                <Pause size={16} aria-hidden="true" />
-              )}
-            </button>
-            <button
-              type="button"
-              className={styles.pause}
-              aria-label="Pieza siguiente"
-              title="Siguiente (→)"
-              onClick={() => step(1)}
-            >
-              <SkipForward size={16} aria-hidden="true" />
-            </button>
-          </div>
+          <CycleControls
+            paused={paused}
+            onPrevious={() => step(-1)}
+            onToggle={() => setPaused(!paused)}
+            onNext={() => step(1)}
+          />
         )}
       </div>
       <div className={styles.segments}>
