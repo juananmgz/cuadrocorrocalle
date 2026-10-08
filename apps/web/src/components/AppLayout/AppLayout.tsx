@@ -29,6 +29,8 @@ function SignedInLayout() {
   const [chooserOpen, setChooserOpen] = useState(false);
   // Pages can move the background grid (the home shifts it right of its list and looks from above).
   const [grid, setGrid] = useState<GridSettings>({});
+  // The middle of the top bar, for a page's title.
+  const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
   const groups = data?.groups;
   const activeGroup = groups?.find((group) => group.id === activeId);
 
@@ -68,6 +70,7 @@ function SignedInLayout() {
         userName={session?.user.name || '?'}
         userEmail={session?.user.email}
         showSections
+        titleRef={setTitleSlot}
         userMenuItems={[
           { label: 'Mi cuenta', onSelect: () => navigate('/cuenta') },
           { label: 'Ajustes', onSelect: () => navigate('/ajustes') },
@@ -90,7 +93,7 @@ function SignedInLayout() {
       )}
       <div className={styles.content}>
         <main className={styles.main}>
-          <Outlet context={{ activeGroup, signOut, setGrid } satisfies AppContext} />
+          <Outlet context={{ activeGroup, signOut, setGrid, titleSlot } satisfies AppContext} />
         </main>
       </div>
     </div>

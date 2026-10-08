@@ -99,6 +99,8 @@ interface CreatePerformanceCardProps {
   handleRef?: Ref<PerformanceFormHandle>;
   /** Where to draw the title instead of on top of the form, e.g. over the editor's tabs. */
   titleSlot?: HTMLElement | null;
+  /** Whether the form is on screen; each time it comes back, an existing one closes its blocks. */
+  shown?: boolean;
 }
 
 // Editing saves this long after the last change.
@@ -197,7 +199,8 @@ interface StepPanelProps {
   attention?: number;
   /** Marks the block with "(*)" when something in it must be filled in. */
   required?: boolean;
-  summary: string;
+  /** Shown while closed: a line, or several one under another. */
+  summary: string | string[];
   open: boolean;
   onOpen: () => void;
   children: ReactNode;
@@ -246,7 +249,15 @@ function StepPanel({
             />
           </button>
         </h2>
-        {!open && summary && <p className={styles.summary}>{summary}</p>}
+        {!open && summary.length > 0 && (
+          <p className={styles.summary}>
+            {[summary].flat().map((line) => (
+              <span key={line} className={styles.summaryLine}>
+                {line}
+              </span>
+            ))}
+          </p>
+        )}
       </div>
       {/* Closed blocks stay mounted so their fields keep what was typed. */}
       <div
@@ -281,6 +292,7 @@ export function CreatePerformanceCard({
   onMissingChange,
   handleRef,
   titleSlot = null,
+  shown = true,
 }: CreatePerformanceCardProps) {
   const { create, update: updatePerformance } = usePerformanceMutations();
   const queryClient = useQueryClient();
@@ -300,7 +312,14 @@ export function CreatePerformanceCard({
   // does not flash a 1 m stage.
   const [settled, setSettled] = useState<StageValues>(stage);
   const [scaleOpen, setScaleOpen] = useState(false);
-  const [step, setStep] = useState<Step | null>('data');
+  // Creating starts on the first block; editing, with every block closed.
+  const [step, setStep] = useState<Step | null>(performance ? null : 'data');
+  // Coming back to the form (from "Piezas" or the summary), its blocks are closed again.
+  const [wasShown, setWasShown] = useState(shown);
+  if (shown !== wasShown) {
+    setWasShown(shown);
+    if (shown && performance) setStep(null);
+  }
   const [title, setTitle] = useState(performance?.title ?? (initialTitle || DEFAULT_TITLE));
   const [titleError, setTitleError] = useState('');
   // Data fields are uncontrolled; these copies only feed the closed block's summary.
@@ -491,14 +510,14 @@ export function CreatePerformanceCard({
 
   const calledCount = callUp.entries.filter((entry) => entry.status === 'yes').length;
   const maybeCount = callUp.entries.filter((entry) => entry.status === 'maybe').length;
-  const dataSummary =
-    [
-      info.place?.trim(),
-      formatDay(info.date || null, info.time || null),
-      formatDuration(toNumber(info.minMinutes ?? ''), toNumber(info.maxMinutes ?? '')),
-    ]
-      .filter(Boolean)
-      .join(' · ') || 'Sin datos todavía';
+  // The place on one line; the date, time and duration under it.
+  const when = [
+    formatDay(info.date || null, info.time || null),
+    formatDuration(toNumber(info.minMinutes ?? ''), toNumber(info.maxMinutes ?? '')),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const dataSummary = [info.place?.trim(), when].filter((line): line is string => Boolean(line));
   const musicSummary = settled.musicSide
     ? ` · músicos ${MUSIC_SIDE_OPTIONS.find((option) => option.value === settled.musicSide)?.label.toLowerCase()}`
     : '';
@@ -578,7 +597,7 @@ export function CreatePerformanceCard({
         id="data"
         attention={missingDate ? beat : 0}
         title="Información general"
-        summary={dataSummary}
+        summary={dataSummary.length ? dataSummary : 'Sin datos todavía'}
         open={step === 'data'}
         onOpen={() => setStep(step === 'data' ? null : 'data')}
       >

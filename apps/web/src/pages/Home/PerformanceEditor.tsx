@@ -10,6 +10,7 @@ import { RepertoireCard } from '../../components/RepertoireSection/RepertoireCar
 import { StageMeasures } from '../../components/StageMeasures/StageMeasures';
 import { FROM_TABLET, useMediaQuery } from '../../hooks';
 import { StageTools } from '../../components/StageTools/StageTools';
+import { useApp } from '../../components/AppLayout/appContext';
 import { useMeasuresOn } from '../../stage/stagePrefs';
 import { CreatePerformanceCard, type PerformanceFormHandle } from './CreatePerformanceCard';
 import styles from './PerformanceEditor.module.scss';
@@ -64,7 +65,8 @@ export function PerformanceEditor({
   // Piece to open in "Piezas", chosen from the summary.
   const [pieceToOpen, setPieceToOpen] = useState<string | null>(null);
   // Where the title of the form goes: over both tabs, so it stays put when switching.
-  const [titleSlot, setTitleSlot] = useState<HTMLDivElement | null>(null);
+  // The title goes in the middle of the top bar.
+  const { titleSlot } = useApp();
   // The stage as shown, with any measure changed but not saved yet; people are placed on it.
   const [shownStage, setShownStage] = useState<StageSize | null>(null);
   // Its measures show while the "Escenario" block is open, or always with "Medidas" on.
@@ -129,7 +131,6 @@ export function PerformanceEditor({
             Piezas
           </button>
         </div>
-        <div ref={setTitleSlot} className={styles.titleSlot} hidden={summarizing} />
       </div>
 
       {/* Every view stays mounted, so switching keeps what was typed and the stage preview. */}
@@ -140,7 +141,8 @@ export function PerformanceEditor({
             onEdit={() => edit('settings')}
             onEditCallUp={() => {
               edit('settings');
-              formRef.current?.open('callUp');
+              // Once the form is back on screen, which closes its blocks first.
+              window.setTimeout(() => formRef.current?.open('callUp'), 0);
             }}
             onOpenPiece={(pieceId) => edit('pieces', pieceId)}
             stage={shownStage}
@@ -170,7 +172,9 @@ export function PerformanceEditor({
             onStageOpen={setStageOpen}
             onMissingChange={setMissing}
             handleRef={formRef}
-            titleSlot={titleSlot}
+            // While summarizing the form is hidden, so its title is too.
+            titleSlot={summarizing ? null : titleSlot}
+            shown={!summarizing && view === 'settings'}
           />
         )}
       </div>

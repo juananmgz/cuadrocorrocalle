@@ -16,6 +16,8 @@ interface TopBarProps {
   userMenuItems: MenuItem[];
   /** Shows the app's sections (Mi grupo) on tablets and PCs. */
   showSections?: boolean;
+  /** Gets the place in the middle of the bar where a page can put its title. */
+  titleRef?: (node: HTMLDivElement | null) => void;
 }
 
 export function TopBar({
@@ -25,6 +27,7 @@ export function TopBar({
   userEmail,
   userMenuItems,
   showSections = false,
+  titleRef,
 }: TopBarProps) {
   return (
     <header className={styles.root}>
@@ -40,6 +43,8 @@ export function TopBar({
           ))}
         </nav>
       )}
+      {/* A page can put its title here, in the middle of the bar (e.g. the performance's). */}
+      <div ref={titleRef} className={styles.title} />
       {/* Phones get the hamburger menu; tablets and PCs the group box and user menu. */}
       <div className={styles.mobile}>
         <SideMenu
