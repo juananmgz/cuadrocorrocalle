@@ -6,7 +6,7 @@ Documentación técnica de la herramienta. Se actualiza con cada commit. Las ide
 
 ## Estado
 
-- `main` publica la v0.3.0 (fases 0 a 2, pasos 0.1 a 2.9). En `devel` queda la revisión de accesibilidad de la fase 2 (paso 2.10).
+- `main` publica la v0.3.5 (fases 0 a 2 y los pasos 3.1 y 3.2 de la fase 3). En `devel` sigue la fase 3; la revisión de accesibilidad pasó al paso 5.4.
 - Web: <https://cuadrocorrocalle.pages.dev>
 - API: <https://cuadrocorrocalle-api.onrender.com>
 
