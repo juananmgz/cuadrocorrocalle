@@ -17,6 +17,7 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 | PR                                                                | Commit                                                                    | Cambio                                                                                                |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | [CCC-0048](https://github.com/juananmgz/cuadrocorrocalle/pull/48) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/48/commits) | ✨ Spoken pieces without number or stage, the title in the top bar and the tray as a strip (paso 3.1) |
+| [CCC-0049](https://github.com/juananmgz/cuadrocorrocalle/pull/49) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/49/commits) | 💄 Summary and editor in tabs, pencil buttons and a summary carousel with controls (paso 3.2)         |
 
 ## v0.3.0 · [Release #47](https://github.com/juananmgz/cuadrocorrocalle/pull/47)
 
