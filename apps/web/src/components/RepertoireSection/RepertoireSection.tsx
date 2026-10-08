@@ -25,11 +25,17 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { MAX_INSTRUMENTS, PIECE_TYPE_LABELS, type PieceType } from '@cuadrocorrocalle/shared';
+import {
+  isSpoken,
+  SPOKEN_TAGS,
+  MAX_INSTRUMENTS,
+  PIECE_TYPE_LABELS,
+  type PieceType,
+} from '@cuadrocorrocalle/shared';
 import { type ReactNode, useMemo, useState } from 'react';
 
 import { formatClock } from '../../pieces/clock';
-import { draftError, emptyDraft, type PieceDraft } from '../../pieces/draft';
+import { draftError, emptyDraft, type PieceDraft, pieceNumbers } from '../../pieces/draft';
 import { STARTER_INSTRUMENTS } from '../../pieces/instruments';
 import {
   missingPlaces,
@@ -44,6 +50,7 @@ import type { TrayPerson } from '../PeopleTray/PeopleTray';
 import { Button } from '../ui/Button/Button';
 import { Select } from '../ui/Select/Select';
 import { TagField } from '../ui/TagField/TagField';
+import { TextArea } from '../ui/TextArea/TextArea';
 import { TextField } from '../ui/TextField/TextField';
 import styles from './RepertoireSection.module.scss';
 
@@ -83,8 +90,8 @@ interface RepertoireSectionProps {
 
 interface PieceRowProps {
   draft: PieceDraft;
-  /** Shown before the title: 1, 2… in the repertoire, B1, B2… among the encores. */
-  label: string;
+  /** Shown before the title: 1, 2… in the repertoire, B1, B2… among the encores; none if spoken. */
+  label: string | null;
   /** Entered: its stage is the one shown; highlighted. */
   selected: boolean;
   /** Its fields are showing. */
@@ -131,11 +138,15 @@ function PieceRow({
   const repeated = repeatedPeople(draft).size;
   const undecided = undecidedPlaces(draft);
   const set = (changes: Partial<PieceDraft>) => onChange({ ...draft, ...changes });
+  // Voice-overs and talks: no stage, so no people, figures or instruments.
+  const spoken = isSpoken(draft.type);
+  const onStage = draft.participants.length + draft.figures.length + draft.instruments.length > 0;
 
   return (
     <li
       ref={setNodeRef}
       className={styles.piece}
+      data-spoken={spoken ? '' : undefined}
       data-dragging={isDragging ? '' : undefined}
       data-selected={selected ? '' : undefined}
       data-invalid={error && !open ? '' : undefined}
@@ -153,7 +164,12 @@ function PieceRow({
         >
           <GripVertical size={18} aria-hidden="true" />
         </button>
-        <span className={styles.number}>{label}</span>
+        {/* A spoken piece says what it is there instead: «(en off)», «(micro)». */}
+        {spoken ? (
+          <span className={styles.spokenTag}>({SPOKEN_TAGS[draft.type]})</span>
+        ) : (
+          <span className={styles.number}>{label}</span>
+        )}
         {/* Title on top and its details below; open, the title itself is the field. */}
         <div className={styles.main}>
           {open && (
@@ -174,32 +190,44 @@ function PieceRow({
             type="button"
             className={styles.summary}
             aria-current={selected ? 'true' : undefined}
-            aria-label={open ? `Entrar en «${draft.title.trim() || 'Sin título'}»` : undefined}
+            aria-label={
+              spoken
+                ? `${open ? 'Ocultar' : 'Mostrar'} los datos de «${draft.title.trim() || 'Sin título'}»`
+                : open
+                  ? `Entrar en «${draft.title.trim() || 'Sin título'}»`
+                  : undefined
+            }
             onClick={onSelect}
           >
             {!open && <span className={styles.name}>{draft.title.trim() || 'Sin título'}</span>}
-            <span className={styles.meta}>
-              <span className={styles.type} data-type={draft.type}>
-                {PIECE_TYPE_LABELS[draft.type]}
+            {/* Only its title, on one line; its duration beside it. */}
+            {spoken && !open && draft.duration && (
+              <span className={styles.duration}>{draft.duration}</span>
+            )}
+            {!spoken && (
+              <span className={styles.meta}>
+                <span className={styles.type} data-type={draft.type}>
+                  {PIECE_TYPE_LABELS[draft.type]}
+                </span>
+                {draft.optional && <span className={styles.optional}>Opcional</span>}
+                {people && !spoken && (
+                  <span className={styles.peopleCount}>
+                    {draft.participants.length}{' '}
+                    {draft.participants.length === 1 ? 'persona' : 'personas'}
+                  </span>
+                )}
+                {repeated > 0 && <span className={styles.repeated}>{repeatedText(repeated)}</span>}
+                {undecided > 0 && (
+                  <span className={styles.missingPlaces}>{undecidedText(undecided)}</span>
+                )}
+                {missing > 0 && (
+                  <span className={styles.missingPlaces}>
+                    {missing} {missing === 1 ? 'hueco vacío' : 'huecos vacíos'}
+                  </span>
+                )}
+                {draft.duration && <span className={styles.duration}>{draft.duration}</span>}
               </span>
-              {draft.optional && <span className={styles.optional}>Opcional</span>}
-              {people && (
-                <span className={styles.peopleCount}>
-                  {draft.participants.length}{' '}
-                  {draft.participants.length === 1 ? 'persona' : 'personas'}
-                </span>
-              )}
-              {repeated > 0 && <span className={styles.repeated}>{repeatedText(repeated)}</span>}
-              {undecided > 0 && (
-                <span className={styles.missingPlaces}>{undecidedText(undecided)}</span>
-              )}
-              {missing > 0 && (
-                <span className={styles.missingPlaces}>
-                  {missing} {missing === 1 ? 'hueco vacío' : 'huecos vacíos'}
-                </span>
-              )}
-              {draft.duration && <span className={styles.duration}>{draft.duration}</span>}
-            </span>
+            )}
           </button>
         </div>
         {/* Its own strip at the right: opens and closes the fields, turning over. */}
@@ -250,18 +278,27 @@ function PieceRow({
                 error={error && draft.title.trim() ? error : undefined}
               />
             </div>
-            <TagField
-              label="Instrumentos"
-              values={draft.instruments}
-              onChange={(values) => set({ instruments: values })}
-              placeholder="Dulzaina, redoblante, castañuelas, canto…"
-              hint="Cada uno tiene su sitio en la zona de músicos. Añádelo con Enter o una coma; «2 dulzainas» o «Dulzaina x2» añade dos, y − y + cambian cuántos."
-              suggestions={instruments}
-              suggestionsTitle="Ejemplos: elige uno o escribe el tuyo"
-              counted
-              max={MAX_INSTRUMENTS}
-            />
-            {groupInstruments &&
+            {spoken && onStage && (
+              <p className={styles.newInstruments}>
+                Las piezas habladas no tienen escenario: al guardar se quitan sus personas, figuras
+                e instrumentos.
+              </p>
+            )}
+            {!spoken && (
+              <TagField
+                label="Instrumentos"
+                values={draft.instruments}
+                onChange={(values) => set({ instruments: values })}
+                placeholder="Dulzaina, redoblante, castañuelas, canto…"
+                hint="Cada uno tiene su sitio en la zona de músicos. Añádelo con Enter o una coma; «2 dulzainas» o «Dulzaina x2» añade dos, y − y + cambian cuántos."
+                suggestions={instruments}
+                suggestionsTitle="Ejemplos: elige uno o escribe el tuyo"
+                counted
+                max={MAX_INSTRUMENTS}
+              />
+            )}
+            {!spoken &&
+              groupInstruments &&
               onAddToGroup &&
               (() => {
                 // New here: offer to keep it in the group's list for next time.
@@ -280,13 +317,24 @@ function PieceRow({
                   </p>
                 ) : null;
               })()}
-            <TextField
-              label="Estructura (opcional)"
-              maxLength={300}
-              placeholder="Entrada, 3 coplas con estribillo, salida"
-              value={draft.structure}
-              onChange={(event) => set({ structure: cleanText(event.target.value) })}
-            />
+            {spoken ? (
+              <TextArea
+                label="Anotaciones (opcional)"
+                maxLength={1000}
+                rows={3}
+                placeholder="Quién habla, qué se dice o qué suena"
+                value={draft.structure}
+                onChange={(event) => set({ structure: event.target.value })}
+              />
+            ) : (
+              <TextField
+                label="Estructura (opcional)"
+                maxLength={1000}
+                placeholder="Entrada, 3 coplas con estribillo, salida"
+                value={draft.structure}
+                onChange={(event) => set({ structure: cleanText(event.target.value) })}
+              />
+            )}
             <div className={styles.footer}>
               <label className={styles.check}>
                 <input
@@ -363,14 +411,10 @@ export function RepertoireSection({
   onAddToGroup,
 }: RepertoireSectionProps) {
   const [ownKey, setOwnKey] = useState<string | null>(null);
-  // Pieces showing their fields, apart from the one entered.
+  // The piece showing its fields: only one at a time, opening another closes it.
   const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(new Set());
   const toggleOpen = (key: string) =>
-    setOpenKeys((keys) => {
-      const next = new Set(keys);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
+    setOpenKeys((keys) => (keys.has(key) ? new Set() : new Set([key])));
   // List a piece is being dragged into, to highlight it.
   const [targetList, setTargetList] = useState<ListId | null>(null);
   // Piece being dragged, drawn under the pointer; it glides into its new place on dropping.
@@ -389,8 +433,11 @@ export function RepertoireSection({
       ...pieces.flatMap((piece) => piece.instruments),
     ]),
   ];
-  const updatePiece = (next: PieceDraft) =>
+  const updatePiece = (next: PieceDraft) => {
+    // A piece turned spoken has no stage, so it is no longer the one entered.
+    if (isSpoken(next.type) && openKey === next.key) setOpenKey(null);
     onChange(pieces.map((piece) => (piece.key === next.key ? next : piece)));
+  };
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } }),
@@ -415,7 +462,7 @@ export function RepertoireSection({
     onChange([...pieces, draft]);
     // A new piece is entered and open, to give it a title.
     setOpenKey(draft.key);
-    setOpenKeys((keys) => new Set(keys).add(draft.key));
+    setOpenKeys(new Set([draft.key]));
   };
 
   // While dragging into the other list it is only highlighted; the piece moves on dropping.
@@ -446,14 +493,16 @@ export function RepertoireSection({
     onChange(at < 0 ? [...rest, moved] : [...rest.slice(0, at), moved, ...rest.slice(at)]);
   };
 
-  const row = (draft: PieceDraft, label: string) => (
+  const numbers = pieceNumbers(pieces);
+  const row = (draft: PieceDraft) => (
     <PieceRow
       key={draft.key}
       draft={draft}
-      label={label}
+      label={numbers.get(draft.key) ?? null}
       selected={openKey === draft.key}
       open={openKeys.has(draft.key)}
-      onSelect={() => setOpenKey(draft.key)}
+      // A voice-over or a talk has no stage to enter: its row only opens its notes.
+      onSelect={() => (isSpoken(draft.type) ? toggleOpen(draft.key) : setOpenKey(draft.key))}
       onToggle={() => toggleOpen(draft.key)}
       onChange={updatePiece}
       people={peopleById}
@@ -482,7 +531,7 @@ export function RepertoireSection({
       >
         <PieceList id="main" pieces={main} highlighted={targetList === 'main'}>
           {main.length === 0 && <li className={styles.emptyList}>Sin piezas todavía</li>}
-          {main.map((draft, index) => row(draft, String(index + 1)))}
+          {main.map(row)}
         </PieceList>
         <div className={styles.add}>
           <Button className={styles.addButton} onClick={() => add(false)} disabled={full}>
@@ -496,7 +545,7 @@ export function RepertoireSection({
           highlighted={targetList === 'encore'}
         >
           <PieceList id="encore" pieces={encores} highlighted={false} droppable={false}>
-            {encores.map((draft, index) => row(draft, `B${index + 1}`))}
+            {encores.map(row)}
           </PieceList>
           <div className={styles.add}>
             <Button className={styles.addButton} onClick={() => add(true)} disabled={full}>
