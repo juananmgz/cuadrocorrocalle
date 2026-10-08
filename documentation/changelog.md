@@ -12,7 +12,9 @@ Qué commits entran en cada versión, con enlace a su pull request. Cada fase de
 
 Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 
-## v0.4.0 (en curso: fase 3)
+## v0.3.5 · [Release #51](https://github.com/juananmgz/cuadrocorrocalle/pull/51)
+
+Primeros pasos de la fase 3 (3.1 y 3.2), publicados antes de cerrarla; la v0.4.0 llegará al cerrar la fase 3.
 
 | PR                                                                | Commit                                                                    | Cambio                                                                                                |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -21,7 +23,7 @@ Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 
 ## v0.3.0 · [Release #47](https://github.com/juananmgz/cuadrocorrocalle/pull/47)
 
-Fase 2 (pasos 2.1 a 2.9); la revisión de accesibilidad del paso 2.10 irá en un parche.
+Fase 2 (pasos 2.1 a 2.9); la revisión de accesibilidad, antes paso 2.10, pasa al paso 5.4 de la fase 5.
 
 | PR                                                                | Commit                                                                    | Cambio                                                                                                |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
