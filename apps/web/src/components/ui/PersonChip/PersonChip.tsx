@@ -41,7 +41,9 @@ export function PersonChip({
       <span className={styles.token} style={{ background: fill, color: ink }} aria-hidden="true">
         {initials(name)}
       </span>
-      <span className={styles.name}>{name}</span>
+      <span className={styles.name} title={name}>
+        {name}
+      </span>
       {action}
     </span>
   );

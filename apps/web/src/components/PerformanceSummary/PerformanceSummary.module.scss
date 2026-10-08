@@ -61,10 +61,21 @@
   color: var(--ink-soft);
 }
 
+// One part at a time; on tablets and PCs it is at most as tall as the column.
 .root {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
-  align-content: start;
+
+  @include mixins.from-tablet {
+    height: 100%;
+  }
+
+  // Each part reaches the bottom of the column; what is too long scrolls inside it.
+  > * {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
 }
 
 .people {
@@ -81,6 +92,11 @@
   align-items: center;
   justify-content: space-between;
 
+  // The chip gives way, so its name is cut instead of wrapping.
+  > :first-child {
+    min-width: 0;
+  }
+
   // Called up but in no piece yet.
   &[data-idle] .count {
     color: var(--warn);
@@ -95,8 +111,23 @@
 }
 
 .details {
+  display: grid;
+  gap: 2px;
   margin: 0;
   color: var(--ink-soft);
+}
+
+.detailLine {
+  display: block;
+}
+
+// "Actuación" reaches the bottom of the column, its content at the top.
+.performanceCard {
+  align-content: start;
+
+  @include mixins.from-tablet {
+    flex-grow: 1;
+  }
 }
 
 .pieces {
@@ -116,9 +147,25 @@
   border: var(--border-width) solid var(--line);
   border-radius: var(--radius);
 
-  // The whole row lights up, "Editar" included.
-  &:hover,
-  &:has([aria-pressed='true']) {
+  // The whole row lights up, "Editar" included: yellow while the carousel shows it, blue under
+  // the pointer, and with a blue border once clicked. Colours fade in and out.
+  transition:
+    background-color 300ms ease,
+    border-color 300ms ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+
+  &[data-on-show] {
+    background: color-mix(in srgb, var(--warn) 38%, var(--surface));
+  }
+
+  &:hover {
+    background: var(--sel-bg);
+  }
+
+  &[data-picked] {
     background: var(--sel-bg);
     border-color: var(--accent);
   }
@@ -162,22 +209,47 @@
   color: var(--ink-soft);
 }
 
-// Blocks that fold away: the pieces and the people who come.
+// The parts with a title of their own: the pieces and the people who come.
 .foldable {
   @include mixins.panel;
+
+  display: flex;
+  flex-direction: column;
+}
+
+// Title and count, with "Editar" at the end of the row.
+.blockHead {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+
+  @include mixins.from-tablet {
+    padding: var(--space-3) var(--space-4);
+  }
 }
 
 .foldTitle {
+  @include mixins.heading;
+
   margin: 0;
+  font-size: 1.375rem;
 }
 
-// Its filters and "Editar", first inside the block, under the title.
-.foldActions {
+// Under the content, always in view: e.g. "Separar por género".
+.blockFooter {
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
   gap: var(--space-2);
   align-items: center;
-  justify-content: flex-end;
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--line);
+
+  @include mixins.from-tablet {
+    padding-inline: var(--space-4);
+  }
 }
 
 .check {
@@ -196,10 +268,11 @@
   }
 }
 
-// Split by gender: boys and girls side by side, anyone without one under them.
+// Split by gender: boys and girls side by side when each has room for a name and its count,
+// one under the other otherwise; anyone without one under them.
 .genders {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
   gap: var(--space-3);
 }
 
@@ -214,76 +287,23 @@
   font-size: 1rem;
 }
 
-.foldToggle {
-  @include mixins.heading;
-
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  width: 100%;
-  min-height: 48px;
-  padding: var(--space-3);
-  font-size: 1.375rem;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-
-  @include mixins.from-tablet {
-    padding: var(--space-3) var(--space-4);
-  }
-}
-
-// Lucide's chevron at the right, turning over when the block opens (as in the tray).
-.chevron {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  margin-left: auto;
-  color: var(--ink-soft);
-  transition: transform var(--duration) ease;
-
-  &[data-open] {
-    transform: rotate(180deg);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
-}
-
 .foldCount {
   font-size: 1rem;
   color: var(--ink-soft);
 }
 
-.foldBody {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows var(--duration) ease;
-
-  &[data-open] {
-    grid-template-rows: 1fr;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
-}
-
+// Only this scrolls (on tablets and PCs).
 .foldInner {
   display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  min-height: 0;
   gap: var(--space-2);
-  padding: 0 var(--space-3);
-  overflow: hidden;
-
-  [data-open] > & {
-    padding-bottom: var(--space-3);
-  }
+  padding: 0 var(--space-3) var(--space-3);
 
   @include mixins.from-tablet {
-    padding-inline: var(--space-4);
+    padding: 0 var(--space-4) var(--space-4);
+    overflow: hidden auto;
   }
 }
 

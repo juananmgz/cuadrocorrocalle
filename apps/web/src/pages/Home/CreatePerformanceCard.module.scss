@@ -168,6 +168,19 @@
   display: block;
 }
 
+.header[data-fixed] {
+  cursor: default;
+}
+
+// Some blocks, shown in one tab or another while editing.
+.part {
+  display: contents;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
 .next {
   display: flex;
   justify-content: flex-end;

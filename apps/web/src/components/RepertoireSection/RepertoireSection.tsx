@@ -186,49 +186,49 @@ function PieceRow({
               onChange={(event) => set({ title: cleanText(event.target.value) })}
             />
           )}
-          <button
-            type="button"
-            className={styles.summary}
-            aria-current={selected ? 'true' : undefined}
-            aria-label={
-              spoken
-                ? `${open ? 'Ocultar' : 'Mostrar'} los datos de «${draft.title.trim() || 'Sin título'}»`
-                : open
-                  ? `Entrar en «${draft.title.trim() || 'Sin título'}»`
-                  : undefined
-            }
-            onClick={onSelect}
-          >
-            {!open && <span className={styles.name}>{draft.title.trim() || 'Sin título'}</span>}
-            {/* Only its title, on one line; its duration beside it. */}
-            {spoken && !open && draft.duration && (
-              <span className={styles.duration}>{draft.duration}</span>
-            )}
-            {!spoken && (
-              <span className={styles.meta}>
-                <span className={styles.type} data-type={draft.type}>
-                  {PIECE_TYPE_LABELS[draft.type]}
+          {/* A voice-over or a talk is not entered: its row is only text (its chevron opens it). */}
+          {spoken ? (
+            <div className={styles.summary}>
+              {!open && <span className={styles.name}>{draft.title.trim() || 'Sin título'}</span>}
+              {!open && draft.duration && <span className={styles.duration}>{draft.duration}</span>}
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={styles.summary}
+              aria-current={selected ? 'true' : undefined}
+              aria-label={open ? `Entrar en «${draft.title.trim() || 'Sin título'}»` : undefined}
+              onClick={onSelect}
+            >
+              {!open && <span className={styles.name}>{draft.title.trim() || 'Sin título'}</span>}
+              {
+                <span className={styles.meta}>
+                  <span className={styles.type} data-type={draft.type}>
+                    {PIECE_TYPE_LABELS[draft.type]}
+                  </span>
+                  {draft.optional && <span className={styles.optional}>Opcional</span>}
+                  {people && !spoken && (
+                    <span className={styles.peopleCount}>
+                      {draft.participants.length}{' '}
+                      {draft.participants.length === 1 ? 'persona' : 'personas'}
+                    </span>
+                  )}
+                  {repeated > 0 && (
+                    <span className={styles.repeated}>{repeatedText(repeated)}</span>
+                  )}
+                  {undecided > 0 && (
+                    <span className={styles.missingPlaces}>{undecidedText(undecided)}</span>
+                  )}
+                  {missing > 0 && (
+                    <span className={styles.missingPlaces}>
+                      {missing} {missing === 1 ? 'hueco vacío' : 'huecos vacíos'}
+                    </span>
+                  )}
+                  {draft.duration && <span className={styles.duration}>{draft.duration}</span>}
                 </span>
-                {draft.optional && <span className={styles.optional}>Opcional</span>}
-                {people && !spoken && (
-                  <span className={styles.peopleCount}>
-                    {draft.participants.length}{' '}
-                    {draft.participants.length === 1 ? 'persona' : 'personas'}
-                  </span>
-                )}
-                {repeated > 0 && <span className={styles.repeated}>{repeatedText(repeated)}</span>}
-                {undecided > 0 && (
-                  <span className={styles.missingPlaces}>{undecidedText(undecided)}</span>
-                )}
-                {missing > 0 && (
-                  <span className={styles.missingPlaces}>
-                    {missing} {missing === 1 ? 'hueco vacío' : 'huecos vacíos'}
-                  </span>
-                )}
-                {draft.duration && <span className={styles.duration}>{draft.duration}</span>}
-              </span>
-            )}
-          </button>
+              }
+            </button>
+          )}
         </div>
         {/* Its own strip at the right: opens and closes the fields, turning over. */}
         <button
@@ -501,8 +501,8 @@ export function RepertoireSection({
       label={numbers.get(draft.key) ?? null}
       selected={openKey === draft.key}
       open={openKeys.has(draft.key)}
-      // A voice-over or a talk has no stage to enter: its row only opens its notes.
-      onSelect={() => (isSpoken(draft.type) ? toggleOpen(draft.key) : setOpenKey(draft.key))}
+      // A voice-over or a talk has no stage to enter: its row does nothing (its chevron opens it).
+      onSelect={() => !isSpoken(draft.type) && setOpenKey(draft.key)}
       onToggle={() => toggleOpen(draft.key)}
       onChange={updatePiece}
       people={peopleById}

@@ -1,0 +1,32 @@
+// Quiet, like the title's pencil: only the icon, in grey, until it is pointed at.
+.root {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: transparent;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius);
+
+  &:hover {
+    color: var(--ink);
+    border-color: var(--ctl);
+  }
+
+  &:focus-visible {
+    color: var(--ink);
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  // In a row, with a little room above and below it.
+  &[data-small] {
+    width: 30px;
+    height: 30px;
+    margin-block: 4px;
+  }
+}

@@ -65,11 +65,13 @@
     min-height: 36px;
   }
 
+  // Nothing to enter: the row is not a button to the pointer; only its chevron opens it.
   .summary {
     display: flex;
     gap: var(--space-2);
     align-items: baseline;
     padding: var(--space-1) 0;
+    cursor: default;
   }
 
   .name {
