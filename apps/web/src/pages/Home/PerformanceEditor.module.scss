@@ -20,18 +20,8 @@
   gap: var(--space-2);
   justify-items: start;
 
-  .switch,
-  .titleSlot {
+  .switch {
     justify-self: stretch;
-  }
-}
-
-// The title of the performance, the same field in "Actuación" and "Piezas".
-.titleSlot {
-  min-width: 0;
-
-  &[hidden] {
-    display: none;
   }
 }
 

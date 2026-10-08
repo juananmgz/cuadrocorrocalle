@@ -148,6 +148,7 @@
 .number {
   grid-row: span 2;
   font-weight: 700;
+  text-align: center;
   color: var(--ink-soft);
 }
 
@@ -311,4 +312,33 @@
   margin: 0;
   font-weight: 700;
   color: var(--warn);
+}
+
+// A voice-over or a talk: no number, no preview, taking less room.
+.pieceRow[data-spoken] {
+  border-style: dashed;
+
+  .piece {
+    padding-block: var(--space-1);
+    cursor: default;
+  }
+
+  .pieceTitle {
+    font-size: 0.875rem;
+  }
+}
+
+// «(off)», «(mic)»: where the others have their number, in grey italics, centred like them.
+.spokenTag {
+  text-align: center;
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.spokenDuration {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ink-soft);
 }

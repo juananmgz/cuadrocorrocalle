@@ -20,6 +20,8 @@ interface PeopleTrayProps {
   people: TrayPerson[];
   /** Title of the open piece; without one, nobody can be picked. */
   pieceTitle: string | null;
+  /** The open piece is spoken (a voice-over or a talk): it has no stage. */
+  spokenOpen?: boolean;
   /** People in the open piece. */
   selected: Set<string>;
   /** How many pieces each person takes part in. */
@@ -31,6 +33,8 @@ interface PeopleTrayProps {
   palette?: ReactNode;
   /** The spaces palette (step 2.3), like the figures one. */
   spaces?: ReactNode;
+  /** Always a strip of icons, with no button to unfold it (e.g. a laptop or a tablet). */
+  alwaysFolded?: boolean;
 }
 
 interface SectionProps {
@@ -161,12 +165,14 @@ type SectionKey = 'spaces' | 'figures' | 'people' | 'objects';
 export function PeopleTray({
   people,
   pieceTitle,
+  spokenOpen = false,
   selected,
   counts,
   onToggle,
   draggable = false,
   palette,
   spaces,
+  alwaysFolded = false,
 }: PeopleTrayProps) {
   const [open, setOpen] = useState({
     spaces: true,
@@ -204,22 +210,21 @@ export function PeopleTray({
     };
   }, [floating]);
 
+  // Why nothing can be placed: no piece entered, or a spoken one.
+  const enter = (what: string) =>
+    spokenOpen ? 'Las piezas habladas no tienen escenario.' : `Entra en una pieza para ${what}.`;
   const sections: { key: SectionKey; icon: ReactNode; title: string; content: ReactNode }[] = [
     {
       key: 'spaces',
       icon: <LayoutGrid size={20} aria-hidden="true" />,
       title: 'Espacios',
-      content: spaces ?? (
-        <p className={styles.hint}>Entra en una pieza para colocar espacios en el escenario.</p>
-      ),
+      content: spaces ?? <p className={styles.hint}>{enter('colocar espacios en el escenario')}</p>,
     },
     {
       key: 'figures',
       icon: <Shapes size={20} aria-hidden="true" />,
       title: 'Figuras',
-      content: palette ?? (
-        <p className={styles.hint}>Entra en una pieza para colocar figuras en el escenario.</p>
-      ),
+      content: palette ?? <p className={styles.hint}>{enter('colocar figuras en el escenario')}</p>,
     },
     {
       key: 'people',
@@ -235,7 +240,7 @@ export function PeopleTray({
     },
   ];
 
-  if (collapsed) {
+  if (collapsed || alwaysFolded) {
     const shown = sections.find((section) => section.key === floating?.key);
     return (
       <TrayDropZone collapsed>
@@ -257,16 +262,18 @@ export function PeopleTray({
               {icon}
             </button>
           ))}
-          <button
-            type="button"
-            className={styles.railButton}
-            data-fold=""
-            aria-label="Mostrar la bandeja"
-            title="Mostrar la bandeja"
-            onClick={() => fold(false)}
-          >
-            <PanelRightOpen size={20} aria-hidden="true" />
-          </button>
+          {!alwaysFolded && (
+            <button
+              type="button"
+              className={styles.railButton}
+              data-fold=""
+              aria-label="Mostrar la bandeja"
+              title="Mostrar la bandeja"
+              onClick={() => fold(false)}
+            >
+              <PanelRightOpen size={20} aria-hidden="true" />
+            </button>
+          )}
         </div>
         {shown && floating && (
           <section
@@ -320,7 +327,7 @@ export function PeopleTray({
     return (
       <>
         {/* How to use it will live in a help button (a guided tour), not here. */}
-        {!pieceTitle && <p className={styles.hint}>Entra en una pieza para elegir quién sale.</p>}
+        {!pieceTitle && <p className={styles.hint}>{enter('elegir quién sale')}</p>}
         {people.length ? (
           <ul className={styles.people}>
             {people.map((person) => (

@@ -1,3 +1,4 @@
+import { isSpoken } from '@cuadrocorrocalle/shared';
 import { Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -24,9 +25,9 @@ interface PieceCycleProps {
  */
 export function PieceCycle({ performanceId, onPiece, onEnding }: PieceCycleProps) {
   const { data } = useRepertoire(performanceId);
-  // The repertoire in order, then the encores.
+  // The repertoire in order, then the encores; voice-overs and talks have no stage to show.
   const pieces = useMemo(() => {
-    const drafts = data?.map(toDraft) ?? [];
+    const drafts = (data?.map(toDraft) ?? []).filter((piece) => !isSpoken(piece.type));
     return [...drafts.filter((piece) => !piece.encore), ...drafts.filter((piece) => piece.encore)];
   }, [data]);
   const [index, setIndex] = useState(0);

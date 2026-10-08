@@ -1,10 +1,15 @@
 import { ChevronDown } from 'lucide-react';
-import { type Performance, PIECE_TYPE_LABELS } from '@cuadrocorrocalle/shared';
+import {
+  isSpoken,
+  type Performance,
+  PIECE_TYPE_LABELS,
+  SPOKEN_TAGS,
+} from '@cuadrocorrocalle/shared';
 import { type ReactNode, useEffect, useId, useMemo, useState } from 'react';
 
 import { useCallUp } from '../../callUps/callUpApi';
 import { usePeople } from '../../people/peopleApi';
-import { type PieceDraft, toDraft } from '../../pieces/draft';
+import { pieceNumbers, toDraft } from '../../pieces/draft';
 import { useRepertoire } from '../../pieces/repertoireApi';
 import { summarize } from '../../pieces/summary';
 import { formatDay } from '../../performances/format';
@@ -108,26 +113,23 @@ export function PerformanceSummary({
   const summary = summarize(pieces, performance.minMinutes, performance.maxMinutes);
   const main = pieces.filter((piece) => !piece.encore);
   const encores = pieces.filter((piece) => piece.encore);
-  // 1, 2… in the repertoire and B1, B2… among the encores, as in "Piezas".
-  const numberOf = (piece: PieceDraft) =>
-    piece.encore ? `B${encores.indexOf(piece) + 1}` : String(main.indexOf(piece) + 1);
+  const order = [...main, ...encores];
+  // 1, 2… in the repertoire and B1, B2… among the encores, as in "Piezas"; spoken ones, none.
+  const numbers = pieceNumbers(order);
+  // Only pieces with a stage are previewed (voice-overs and talks have none).
+  const staged = order.filter((piece) => !isSpoken(piece.type));
 
   // Clicking a piece previews what it has on the stage, as saved; "Editar" opens it.
   const [previewKey, setPreviewKey] = useState<string | null>(null);
   // The first piece shows on the stage until another is picked.
-  const preview =
-    pieces.find((piece) => piece.key === previewKey) ??
-    pieces.find((piece) => !piece.encore) ??
-    pieces[0] ??
-    null;
+  const preview = staged.find((piece) => piece.key === previewKey) ?? staged[0] ?? null;
   const wide = useMediaQuery(FROM_TABLET);
   // The pieces take turns on the stage, from the last back to the first, as on the home page.
-  const order = [...main, ...encores];
-  const nextKey = preview ? order[(order.indexOf(preview) + 1) % order.length]?.key : undefined;
+  const nextKey = preview ? staged[(staged.indexOf(preview) + 1) % staged.length]?.key : undefined;
   // Its fade out is part of its turn, so the next one comes in right on time.
   const [ending, setEnding] = useState(false);
   useEffect(() => {
-    if (!active || !wide || !nextKey || order.length < 2) return;
+    if (!active || !wide || !nextKey || staged.length < 2) return;
     const fade = window.setTimeout(() => setEnding(true), PIECE_SECONDS * 1000 - PREVIEW_FADE);
     const next = window.setTimeout(() => {
       setPreviewKey(nextKey);
@@ -137,7 +139,7 @@ export function PerformanceSummary({
       window.clearTimeout(fade);
       window.clearTimeout(next);
     };
-  }, [active, wide, nextKey, preview?.key, order.length]);
+  }, [active, wide, nextKey, preview?.key, staged.length]);
   const [byGender, setByGender] = useState(false);
   const previewLabel = active && preview ? preview.title : null;
   useEffect(() => onPreviewLabel(previewLabel), [previewLabel, onPreviewLabel]);
@@ -237,46 +239,61 @@ export function PerformanceSummary({
               <li
                 key={piece.key}
                 className={styles.pieceRow}
+                data-spoken={isSpoken(piece.type) ? '' : undefined}
                 data-incomplete={
                   missingPlaces(piece) || repeatedPeople(piece).size || undecidedPlaces(piece)
                     ? ''
                     : undefined
                 }
               >
-                <button
-                  type="button"
-                  className={styles.piece}
-                  aria-pressed={piece.key === preview?.key}
-                  onClick={() => {
-                    setPreviewKey(piece.key);
-                    setEnding(false);
-                  }}
-                >
-                  <span className={styles.number}>{numberOf(piece)}</span>
-                  <span className={styles.pieceTitle}>{piece.title}</span>
-                  <span className={styles.pieceMeta}>
-                    {PIECE_TYPE_LABELS[piece.type]}
-                    {piece.optional && ' · Opcional'}
-                    {` · ${piece.participants.length} ${piece.participants.length === 1 ? 'persona' : 'personas'}`}
-                    {` · ${piece.duration || 'sin duración'}`}
-                  </span>
-                  {repeatedPeople(piece).size > 0 && (
-                    <span className={styles.repeated}>
-                      {repeatedText(repeatedPeople(piece).size)}
+                {/* A voice-over or a talk has no stage to preview: no number, a smaller row. */}
+                {isSpoken(piece.type) ? (
+                  <div className={styles.piece}>
+                    <span className={styles.spokenTag}>({SPOKEN_TAGS[piece.type]})</span>
+                    <span className={styles.pieceTitle}>
+                      {piece.title}
+                      {piece.duration && (
+                        <span className={styles.spokenDuration}> {piece.duration}</span>
+                      )}
                     </span>
-                  )}
-                  {undecidedPlaces(piece) > 0 && (
-                    <span className={styles.missingPlaces}>
-                      {undecidedText(undecidedPlaces(piece))}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.piece}
+                    aria-pressed={piece.key === preview?.key}
+                    onClick={() => {
+                      setPreviewKey(piece.key);
+                      setEnding(false);
+                    }}
+                  >
+                    <span className={styles.number}>{numbers.get(piece.key)}</span>
+                    <span className={styles.pieceTitle}>{piece.title}</span>
+                    <span className={styles.pieceMeta}>
+                      {PIECE_TYPE_LABELS[piece.type]}
+                      {piece.optional && ' · Opcional'}
+                      {` · ${piece.participants.length} ${piece.participants.length === 1 ? 'persona' : 'personas'}`}
+                      {` · ${piece.duration || 'sin duración'}`}
                     </span>
-                  )}
-                  {missingPlaces(piece) > 0 && (
-                    <span className={styles.missingPlaces}>
-                      {missingPlaces(piece)}{' '}
-                      {missingPlaces(piece) === 1 ? 'hueco vacío' : 'huecos vacíos'} en sus figuras
-                    </span>
-                  )}
-                </button>
+                    {repeatedPeople(piece).size > 0 && (
+                      <span className={styles.repeated}>
+                        {repeatedText(repeatedPeople(piece).size)}
+                      </span>
+                    )}
+                    {undecidedPlaces(piece) > 0 && (
+                      <span className={styles.missingPlaces}>
+                        {undecidedText(undecidedPlaces(piece))}
+                      </span>
+                    )}
+                    {missingPlaces(piece) > 0 && (
+                      <span className={styles.missingPlaces}>
+                        {missingPlaces(piece)}{' '}
+                        {missingPlaces(piece) === 1 ? 'hueco vacío' : 'huecos vacíos'} en sus
+                        figuras
+                      </span>
+                    )}
+                  </button>
+                )}
                 <Button onClick={() => piece.id && onOpenPiece(piece.id)}>Editar</Button>
               </li>
             ))}

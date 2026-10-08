@@ -12,6 +12,12 @@ Qué commits entran en cada versión, con enlace a su pull request. Cada fase de
 
 Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 
+## v0.4.0 (en curso: fase 3)
+
+| PR                                                                | Commit                                                                    | Cambio                                                                                                |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [CCC-0048](https://github.com/juananmgz/cuadrocorrocalle/pull/48) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/48/commits) | ✨ Spoken pieces without number or stage, the title in the top bar and the tray as a strip (paso 3.1) |
+
 ## v0.3.0 · [Release #47](https://github.com/juananmgz/cuadrocorrocalle/pull/47)
 
 Fase 2 (pasos 2.1 a 2.9); la revisión de accesibilidad del paso 2.10 irá en un parche.

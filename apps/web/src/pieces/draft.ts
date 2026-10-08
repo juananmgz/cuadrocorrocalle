@@ -1,9 +1,10 @@
-import type {
-  Participant,
-  Piece,
-  PieceInput,
-  PieceType,
-  StageFigure,
+import {
+  isSpoken,
+  type Participant,
+  type Piece,
+  type PieceInput,
+  type PieceType,
+  type StageFigure,
 } from '@cuadrocorrocalle/shared';
 
 import { formatClock, parseClock } from './clock';
@@ -70,16 +71,36 @@ export function draftError(draft: PieceDraft) {
   return null;
 }
 
-export const toPieceInput = (draft: PieceDraft): PieceInput => ({
-  id: draft.id,
-  title: draft.title.trim(),
-  type: draft.type,
-  durationSeconds: draftSeconds(draft) || null,
-  structure: draft.structure.trim() || null,
-  optional: draft.optional,
-  encore: draft.encore,
-  instruments: draft.instruments,
-  participants: draft.participants,
-  // Candidates of places filled meanwhile are no longer needed.
-  figures: withOpenCandidates(draft),
-});
+export const toPieceInput = (draft: PieceDraft): PieceInput => {
+  // A spoken piece has no stage: whoever and whatever was on it goes.
+  const spoken = isSpoken(draft.type);
+  return {
+    id: draft.id,
+    title: draft.title.trim(),
+    type: draft.type,
+    durationSeconds: draftSeconds(draft) || null,
+    structure: draft.structure.trim() || null,
+    optional: draft.optional,
+    encore: draft.encore,
+    instruments: spoken ? [] : draft.instruments,
+    participants: spoken ? [] : draft.participants,
+    // Candidates of places filled meanwhile are no longer needed.
+    figures: spoken ? [] : withOpenCandidates(draft),
+  };
+};
+
+/**
+ * What goes before each piece's title: 1, 2… in the repertoire and B1, B2… among the encores.
+ * Spoken pieces go between them with no number (null).
+ */
+export function pieceNumbers(pieces: PieceDraft[]) {
+  const numbers = new Map<string, string | null>();
+  let main = 0;
+  let encore = 0;
+  for (const piece of pieces) {
+    if (isSpoken(piece.type)) numbers.set(piece.key, null);
+    else if (piece.encore) numbers.set(piece.key, `B${++encore}`);
+    else numbers.set(piece.key, String(++main));
+  }
+  return numbers;
+}

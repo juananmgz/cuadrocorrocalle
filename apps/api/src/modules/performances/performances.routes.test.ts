@@ -673,3 +673,27 @@ test("counts each performance's call-up and length, and each person's attendance
   ).toBe(404);
   await app.close();
 });
+
+test('keeps voice-overs and talks without a stage', async () => {
+  const app = buildTestApp();
+  const { cookie, group } = await signUp(app, 'spoken@example.com');
+  const performance = (
+    await app.inject({
+      method: 'POST',
+      url: PERFORMANCES_PATH,
+      headers: { cookie },
+      payload: { groupId: group, title: 'Pasarón de la Vera', date: '2026-08-15' },
+    })
+  ).json();
+  const save = (piece: Record<string, unknown>) =>
+    app.inject({
+      method: 'PUT',
+      url: repertoirePath(performance.id),
+      headers: { cookie },
+      payload: { pieces: [{ title: 'Presentación', type: 'speech', ...piece }] },
+    });
+
+  expect((await save({ structure: 'Saluda la alcaldesa' })).statusCode).toBe(200);
+  expect((await save({ instruments: ['Dulzaina'] })).statusCode).toBe(400);
+  await app.close();
+});
