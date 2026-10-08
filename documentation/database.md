@@ -133,7 +133,7 @@ erDiagram
     text performance_id FK
     int position "orden, desde 0"
     text title
-    text type "dance, song o recorded"
+    text type "dance, song, recorded o speech"
     int duration_s
     text structure
     boolean optional
