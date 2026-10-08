@@ -7,7 +7,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { TRIAL_PIECE_LIMIT } from '@cuadrocorrocalle/shared';
+import { isSpoken, TRIAL_PIECE_LIMIT } from '@cuadrocorrocalle/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useCallUp } from '../../callUps/callUpApi';
@@ -31,6 +31,8 @@ import { useToast } from '../ui/Toast/toastContext';
 import { RepertoireSection } from './RepertoireSection';
 import styles from './RepertoireSection.module.scss';
 
+// Narrower than this, the tray cannot open beside the repertoire, in px.
+const NARROW_WORKSPACE = 500;
 // Changes are saved this long after the last one.
 const AUTOSAVE_DELAY = 800;
 
@@ -88,8 +90,24 @@ export function RepertoireCard({
 
   // People are placed on the stage from tablets and PCs, where the stage is beside the editor.
   const wide = useMediaQuery(FROM_TABLET);
+  // On a tablet or a laptop the column is too narrow for the tray beside the repertoire, so it
+  // stays a strip of icons there instead of going under it.
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const node = workspaceRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) =>
+      setNarrow((entry?.contentRect.width ?? 0) < NARROW_WORKSPACE),
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const rail = wide && narrow;
   const stageView = useStageView();
-  const placing = Boolean(stage && stageActive && wide && openPiece);
+  // A spoken piece has no stage, so nobody is placed or added to it.
+  const spokenOpen = Boolean(openPiece && isSpoken(openPiece.type));
+  const placing = Boolean(stage && stageActive && wide && openPiece && !spokenOpen);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } }),
@@ -269,7 +287,12 @@ export function RepertoireCard({
       accessibility={{ announcements }}
       {...editing.dnd}
     >
-      <div className={styles.workspace} data-fill={fill ? '' : undefined}>
+      <div
+        ref={workspaceRef}
+        className={styles.workspace}
+        data-fill={fill ? '' : undefined}
+        data-rail={rail ? '' : undefined}
+      >
         <div className={styles.workspaceGrid}>
           <Card title="Repertorio" className={styles.repertoireCard}>
             {saved && (
@@ -298,7 +321,9 @@ export function RepertoireCard({
           {people && (
             <PeopleTray
               people={people}
-              pieceTitle={openTitle}
+              pieceTitle={spokenOpen ? null : openTitle}
+              spokenOpen={spokenOpen}
+              alwaysFolded={rail}
               selected={new Set(openPiece?.participants.map((participant) => participant.personId))}
               counts={counts}
               draggable={placing}
@@ -325,24 +350,26 @@ export function RepertoireCard({
                 ) : null
               }
               onToggle={(person) =>
-                // With the stage there, a click also puts them on it.
-                placing
-                  ? editing.togglePerson(person.id)
-                  : openPiece &&
-                    change(
-                      pieces.map((piece) =>
-                        piece.key === openPiece.key
-                          ? {
-                              ...piece,
-                              participants: toggleParticipant(
-                                piece.participants,
-                                person,
-                                piece.type,
-                              ),
-                            }
-                          : piece,
-                      ),
-                    )
+                spokenOpen
+                  ? undefined
+                  : // With the stage there, a click also puts them on it.
+                    placing
+                    ? editing.togglePerson(person.id)
+                    : openPiece &&
+                      change(
+                        pieces.map((piece) =>
+                          piece.key === openPiece.key
+                            ? {
+                                ...piece,
+                                participants: toggleParticipant(
+                                  piece.participants,
+                                  person,
+                                  piece.type,
+                                ),
+                              }
+                            : piece,
+                        ),
+                      )
               }
             />
           )}

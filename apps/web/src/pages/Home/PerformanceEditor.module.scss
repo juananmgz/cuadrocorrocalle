@@ -20,19 +20,20 @@
   gap: var(--space-2);
   justify-items: start;
 
-  .switch,
-  .titleSlot {
+  .switch {
     justify-self: stretch;
   }
 }
 
-// The title of the performance, the same field in "Actuación" and "Piezas".
-.titleSlot {
-  min-width: 0;
+// The performance's title in the top bar, while summarizing.
+.barTitle {
+  @include mixins.heading;
 
-  &[hidden] {
-    display: none;
-  }
+  margin: 0;
+  overflow: hidden;
+  font-size: 1.375rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .home {
@@ -63,6 +64,10 @@
 .switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
+
+  &[data-options='3'] {
+    grid-template-columns: repeat(3, 1fr);
+  }
 
   &[hidden] {
     display: none;

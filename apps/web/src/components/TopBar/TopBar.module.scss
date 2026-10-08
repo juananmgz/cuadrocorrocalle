@@ -15,6 +15,30 @@
   border-bottom: var(--border-width) solid var(--line);
 }
 
+// A page's title, centred on the bar; the field keeps its look, in the bar's colours.
+.title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: 40%;
+  color: var(--topbar-ink);
+  transform: translate(-50%, -50%);
+
+  --ink: var(--topbar-ink);
+  --surface: var(--topbar);
+
+  &:empty {
+    display: none;
+  }
+
+  // The same field as on the page, a size smaller to fit the bar.
+  input,
+  label > span > span {
+    padding: 2px var(--space-2);
+    font-size: 1.375rem;
+  }
+}
+
 .brand {
   @include mixins.heading;
 

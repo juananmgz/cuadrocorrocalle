@@ -16,6 +16,8 @@ export interface AppContext {
   signOut: () => Promise<void>;
   /** Lets a page move the background grid: left inset, view from above and stage preview. */
   setGrid: (grid: GridSettings) => void;
+  /** The middle of the top bar, where a page can put its title (through a portal). */
+  titleSlot: HTMLElement | null;
 }
 
 /** Data shared by every signed-in page, provided by AppLayout. */

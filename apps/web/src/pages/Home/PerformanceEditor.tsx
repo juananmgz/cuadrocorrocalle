@@ -1,20 +1,25 @@
 import type { Performance } from '@cuadrocorrocalle/shared';
 import { ArrowLeft } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useCallUp } from '../../callUps/callUpApi';
 import type { GridStage } from '../../components/GridBackground/GridBackground';
 import type { StageSize } from '../../stage/placement';
-import { PerformanceSummary } from '../../components/PerformanceSummary/PerformanceSummary';
+import {
+  PerformanceSummary,
+  type SummarySection,
+} from '../../components/PerformanceSummary/PerformanceSummary';
 import { RepertoireCard } from '../../components/RepertoireSection/RepertoireCard';
 import { StageMeasures } from '../../components/StageMeasures/StageMeasures';
 import { FROM_TABLET, useMediaQuery } from '../../hooks';
 import { StageTools } from '../../components/StageTools/StageTools';
+import { useApp } from '../../components/AppLayout/appContext';
 import { useMeasuresOn } from '../../stage/stagePrefs';
 import { CreatePerformanceCard, type PerformanceFormHandle } from './CreatePerformanceCard';
 import styles from './PerformanceEditor.module.scss';
 
-export type EditorView = 'settings' | 'pieces';
+export type EditorView = 'settings' | 'callUp' | 'pieces';
 
 // Whether the stage's measures stay on, remembered on this device.
 interface PerformanceEditorProps {
@@ -64,7 +69,8 @@ export function PerformanceEditor({
   // Piece to open in "Piezas", chosen from the summary.
   const [pieceToOpen, setPieceToOpen] = useState<string | null>(null);
   // Where the title of the form goes: over both tabs, so it stays put when switching.
-  const [titleSlot, setTitleSlot] = useState<HTMLDivElement | null>(null);
+  // The title goes in the middle of the top bar.
+  const { titleSlot } = useApp();
   // The stage as shown, with any measure changed but not saved yet; people are placed on it.
   const [shownStage, setShownStage] = useState<StageSize | null>(null);
   // Its measures show while the "Escenario" block is open, or always with "Medidas" on.
@@ -93,9 +99,21 @@ export function PerformanceEditor({
     show('settings');
   };
   const summarizing = Boolean(performance) && !editing;
+  // The summary's parts, chosen like the editor's views; it opens on the performance's data.
+  const [summarySection, setSummarySection] = useState<SummarySection>('performance');
+  const summaryOptions: { value: SummarySection; label: string }[] = [
+    { value: 'performance', label: 'Actuación' },
+    { value: 'callUp', label: 'Convocatoria' },
+    { value: 'pieces', label: 'Piezas' },
+  ];
 
   return (
     <div className={styles.root}>
+      {/* In the summary the title is only read, in the middle of the top bar like when editing. */}
+      {summarizing &&
+        performance &&
+        titleSlot &&
+        createPortal(<h1 className={styles.barTitle}>{performance.title}</h1>, titleSlot)}
       <div className={styles.header}>
         {summarizing && (
           <button type="button" className={styles.home} onClick={onHome}>
@@ -107,8 +125,35 @@ export function PerformanceEditor({
             <ArrowLeft size={16} aria-hidden="true" /> Resumen
           </button>
         )}
-        {/* "Actuación" and "Piezas" only while editing. */}
-        <div className={styles.switch} role="group" aria-label="Qué editar" hidden={summarizing}>
+        {/* The summary's three parts, with the same buttons as the editor's. */}
+        {summarizing && (
+          <div
+            className={styles.switch}
+            data-options={summaryOptions.length}
+            role="group"
+            aria-label="Qué ver"
+          >
+            {summaryOptions.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                className={styles.option}
+                aria-pressed={summarySection === value}
+                onClick={() => setSummarySection(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        {/* While editing: "Actuación", "Convocatoria" (an existing performance) and "Piezas". */}
+        <div
+          className={styles.switch}
+          data-options={performance ? 3 : 2}
+          role="group"
+          aria-label="Qué editar"
+          hidden={summarizing}
+        >
           <button
             type="button"
             className={styles.option}
@@ -117,6 +162,16 @@ export function PerformanceEditor({
           >
             Actuación
           </button>
+          {performance && (
+            <button
+              type="button"
+              className={styles.option}
+              aria-pressed={view === 'callUp'}
+              onClick={() => show('callUp')}
+            >
+              Convocatoria
+            </button>
+          )}
           <button
             type="button"
             className={styles.option}
@@ -129,7 +184,6 @@ export function PerformanceEditor({
             Piezas
           </button>
         </div>
-        <div ref={setTitleSlot} className={styles.titleSlot} hidden={summarizing} />
       </div>
 
       {/* Every view stays mounted, so switching keeps what was typed and the stage preview. */}
@@ -137,11 +191,9 @@ export function PerformanceEditor({
         <div className={styles.view} hidden={!summarizing}>
           <PerformanceSummary
             performance={performance}
+            section={summarySection}
             onEdit={() => edit('settings')}
-            onEditCallUp={() => {
-              edit('settings');
-              formRef.current?.open('callUp');
-            }}
+            onEditCallUp={() => edit('callUp')}
             onOpenPiece={(pieceId) => edit('pieces', pieceId)}
             stage={shownStage}
             active={summarizing}
@@ -149,7 +201,10 @@ export function PerformanceEditor({
           />
         </div>
       )}
-      <div className={styles.view} hidden={summarizing || view !== 'settings'}>
+      <div
+        className={styles.view}
+        hidden={summarizing || (view !== 'settings' && view !== 'callUp')}
+      >
         {ready && (
           <CreatePerformanceCard
             // A new key once created, so the form starts again in edit mode.
@@ -170,7 +225,11 @@ export function PerformanceEditor({
             onStageOpen={setStageOpen}
             onMissingChange={setMissing}
             handleRef={formRef}
-            titleSlot={titleSlot}
+            // While summarizing the form is hidden, so its title is too.
+            titleSlot={summarizing ? null : titleSlot}
+            shown={!summarizing && view === 'settings'}
+            // Creating, every block is in "Actuación"; editing, the call-up has its own tab.
+            part={!performance ? 'all' : view === 'callUp' ? 'callUp' : 'settings'}
           />
         )}
       </div>

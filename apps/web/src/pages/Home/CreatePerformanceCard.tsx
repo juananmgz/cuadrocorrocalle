@@ -99,6 +99,13 @@ interface CreatePerformanceCardProps {
   handleRef?: Ref<PerformanceFormHandle>;
   /** Where to draw the title instead of on top of the form, e.g. over the editor's tabs. */
   titleSlot?: HTMLElement | null;
+  /** Whether the form is on screen; each time it comes back, an existing one closes its blocks. */
+  shown?: boolean;
+  /**
+   * Which blocks show: all of them (creating), the information and the stage, or only the call-up
+   * (editing, each in its own tab). Hidden ones stay mounted, so nothing typed is lost.
+   */
+  part?: 'all' | 'settings' | 'callUp';
 }
 
 // Editing saves this long after the last change.
@@ -197,8 +204,11 @@ interface StepPanelProps {
   attention?: number;
   /** Marks the block with "(*)" when something in it must be filled in. */
   required?: boolean;
-  summary: string;
+  /** Shown while closed: a line, or several one under another. */
+  summary: string | string[];
   open: boolean;
+  /** Always open, with no chevron: the block is the whole tab (e.g. the call-up). */
+  fixed?: boolean;
   onOpen: () => void;
   children: ReactNode;
 }
@@ -211,6 +221,7 @@ function StepPanel({
   required,
   summary,
   open,
+  fixed = false,
   onOpen,
   children,
 }: StepPanelProps) {
@@ -231,22 +242,35 @@ function StepPanel({
             className={styles.header}
             aria-expanded={open}
             aria-controls={`${id}-body`}
+            // A fixed block does not fold: its title is only a title.
+            tabIndex={fixed ? -1 : undefined}
+            data-fixed={fixed ? '' : undefined}
             onClick={(event) => {
               // Avoid a second toggle from the section's own click.
               event.stopPropagation();
-              onOpen();
+              if (!fixed) onOpen();
             }}
           >
             {title}
             {required && <RequiredMark />}
-            <ChevronDown
-              className={styles.chevron}
-              data-open={open ? '' : undefined}
-              aria-hidden="true"
-            />
+            {!fixed && (
+              <ChevronDown
+                className={styles.chevron}
+                data-open={open ? '' : undefined}
+                aria-hidden="true"
+              />
+            )}
           </button>
         </h2>
-        {!open && summary && <p className={styles.summary}>{summary}</p>}
+        {!open && summary.length > 0 && (
+          <p className={styles.summary}>
+            {[summary].flat().map((line) => (
+              <span key={line} className={styles.summaryLine}>
+                {line}
+              </span>
+            ))}
+          </p>
+        )}
       </div>
       {/* Closed blocks stay mounted so their fields keep what was typed. */}
       <div
@@ -281,6 +305,8 @@ export function CreatePerformanceCard({
   onMissingChange,
   handleRef,
   titleSlot = null,
+  shown = true,
+  part = 'all',
 }: CreatePerformanceCardProps) {
   const { create, update: updatePerformance } = usePerformanceMutations();
   const queryClient = useQueryClient();
@@ -300,7 +326,14 @@ export function CreatePerformanceCard({
   // does not flash a 1 m stage.
   const [settled, setSettled] = useState<StageValues>(stage);
   const [scaleOpen, setScaleOpen] = useState(false);
-  const [step, setStep] = useState<Step | null>('data');
+  // Creating starts on the first block; editing, with every block closed.
+  const [step, setStep] = useState<Step | null>(performance ? null : 'data');
+  // Coming back to the form (from "Piezas" or the summary), its blocks are closed again.
+  const [wasShown, setWasShown] = useState(shown);
+  if (shown !== wasShown) {
+    setWasShown(shown);
+    if (shown && performance) setStep(null);
+  }
   const [title, setTitle] = useState(performance?.title ?? (initialTitle || DEFAULT_TITLE));
   const [titleError, setTitleError] = useState('');
   // Data fields are uncontrolled; these copies only feed the closed block's summary.
@@ -491,14 +524,14 @@ export function CreatePerformanceCard({
 
   const calledCount = callUp.entries.filter((entry) => entry.status === 'yes').length;
   const maybeCount = callUp.entries.filter((entry) => entry.status === 'maybe').length;
-  const dataSummary =
-    [
-      info.place?.trim(),
-      formatDay(info.date || null, info.time || null),
-      formatDuration(toNumber(info.minMinutes ?? ''), toNumber(info.maxMinutes ?? '')),
-    ]
-      .filter(Boolean)
-      .join(' · ') || 'Sin datos todavía';
+  // The place on one line; the date, time and duration under it.
+  const when = [
+    formatDay(info.date || null, info.time || null),
+    formatDuration(toNumber(info.minMinutes ?? ''), toNumber(info.maxMinutes ?? '')),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const dataSummary = [info.place?.trim(), when].filter((line): line is string => Boolean(line));
   const musicSummary = settled.musicSide
     ? ` · músicos ${MUSIC_SIDE_OPTIONS.find((option) => option.value === settled.musicSide)?.label.toLowerCase()}`
     : '';
@@ -574,197 +607,208 @@ export function CreatePerformanceCard({
     >
       {titleSlot ? createPortal(titleField, titleSlot) : titleField}
 
-      <StepPanel
-        id="data"
-        attention={missingDate ? beat : 0}
-        title="Información general"
-        summary={dataSummary}
-        open={step === 'data'}
-        onOpen={() => setStep(step === 'data' ? null : 'data')}
-      >
-        <TextField
-          label="Lugar (opcional)"
-          name="place"
-          maxLength={120}
-          defaultValue={performance?.place ?? ''}
-          onInput={textField}
-        />
-        {/* Date (required), time and durations side by side while they fit, wrapping below. */}
-        <div className={styles.when}>
+      <div className={styles.part} hidden={part === 'callUp'}>
+        <StepPanel
+          id="data"
+          attention={missingDate ? beat : 0}
+          title="Información general"
+          summary={dataSummary.length ? dataSummary : 'Sin datos todavía'}
+          open={step === 'data'}
+          onOpen={() => setStep(step === 'data' ? null : 'data')}
+        >
           <TextField
-            label="Fecha"
-            name="date"
-            type="date"
-            requiredMark
-            defaultValue={performance?.date ?? ''}
+            label="Lugar (opcional)"
+            name="place"
+            maxLength={120}
+            defaultValue={performance?.place ?? ''}
+            onInput={textField}
           />
-          <TimeField
-            label="Hora (opcional)"
-            name="time"
-            defaultValue={performance?.time ?? ''}
-            onChange={(time) => setInfo((current) => ({ ...current, time }))}
-          />
-          <TextField
-            label="Duración mínima"
-            name="minMinutes"
-            defaultValue={performance?.minMinutes ?? ''}
-            inputMode="numeric"
-            autoComplete="off"
-            onInput={minutesField}
-            hint="Minutos"
-          />
-          <TextField
-            label="Duración máxima"
-            name="maxMinutes"
-            defaultValue={performance?.maxMinutes ?? ''}
-            inputMode="numeric"
-            autoComplete="off"
-            onInput={minutesField}
-            hint="Minutos"
-          />
-        </div>
-        <div className={styles.next}>
-          <Button variant="primary" onClick={() => checkTitle() && setStep('stage')}>
-            Continuar
-          </Button>
-        </div>
-      </StepPanel>
-
-      <StepPanel
-        id="stage"
-        attention={missingStage ? beat : 0}
-        title="Escenario"
-        summary={stageSummary}
-        open={step === 'stage'}
-        onOpen={() => setStep(step === 'stage' ? null : 'stage')}
-      >
-        <fieldset className={styles.stage} aria-labelledby="stage-title" onBlur={applyStage}>
-          <div className={styles.triple}>
+          {/* Date (required), time and durations side by side while they fit, wrapping below. */}
+          <div className={styles.when}>
             <TextField
-              label="Ancho (m)"
+              label="Fecha"
+              name="date"
+              type="date"
               requiredMark
-              inputMode="numeric"
-              autoComplete="off"
-              value={stage.width}
-              onChange={update('width', metres)}
-              hint="De 4 a 32 m"
+              defaultValue={performance?.date ?? ''}
+            />
+            <TimeField
+              label="Hora (opcional)"
+              name="time"
+              defaultValue={performance?.time ?? ''}
+              onChange={(time) => setInfo((current) => ({ ...current, time }))}
             />
             <TextField
-              label="Fondo (m)"
-              requiredMark
+              label="Duración mínima"
+              name="minMinutes"
+              defaultValue={performance?.minMinutes ?? ''}
               inputMode="numeric"
               autoComplete="off"
-              value={stage.depth}
-              onChange={update('depth', metres)}
-              hint="De 2 a 20 m"
+              onInput={minutesField}
+              hint="Minutos"
             />
             <TextField
-              label="Borde (m)"
-              inputMode="decimal"
+              label="Duración máxima"
+              name="maxMinutes"
+              defaultValue={performance?.maxMinutes ?? ''}
+              inputMode="numeric"
               autoComplete="off"
-              value={stage.edgeDistance}
-              onChange={update('edgeDistance', cleanDecimal)}
-              hint="De 0,25 a 2 m, de 0,25 en 0,25"
+              onInput={minutesField}
+              hint="Minutos"
             />
           </div>
-          {/* Where the musicians play, kept for them in every piece. */}
-          <div className={styles.pair} data-top="">
-            <Select
-              label="Zona de músicos"
-              options={MUSIC_SIDE_OPTIONS}
-              value={stage.musicSide || 'none'}
-              onValueChange={(value) => {
-                const next: StageValues = {
-                  ...stage,
-                  musicSide: value === 'none' ? '' : (value as MusicSide),
-                };
-                setStage(next);
-                setSettled(next);
-              }}
-            />
-            {stage.musicSide && (
+          <div className={styles.next}>
+            <Button variant="primary" onClick={() => checkTitle() && setStep('stage')}>
+              Continuar
+            </Button>
+          </div>
+        </StepPanel>
+
+        <StepPanel
+          id="stage"
+          attention={missingStage ? beat : 0}
+          title="Escenario"
+          summary={stageSummary}
+          open={step === 'stage'}
+          onOpen={() => setStep(step === 'stage' ? null : 'stage')}
+        >
+          <fieldset className={styles.stage} aria-labelledby="stage-title" onBlur={applyStage}>
+            <div className={styles.triple}>
               <TextField
-                label="Espacio para músicos (m)"
+                label="Ancho (m)"
+                requiredMark
+                inputMode="numeric"
+                autoComplete="off"
+                value={stage.width}
+                onChange={update('width', metres)}
+                hint="De 4 a 32 m"
+              />
+              <TextField
+                label="Fondo (m)"
+                requiredMark
+                inputMode="numeric"
+                autoComplete="off"
+                value={stage.depth}
+                onChange={update('depth', metres)}
+                hint="De 2 a 20 m"
+              />
+              <TextField
+                label="Borde (m)"
                 inputMode="decimal"
                 autoComplete="off"
-                value={stage.musicDepth}
-                onChange={update('musicDepth', cleanDecimal)}
-                hint="De 0,5 a 6 m, desde el borde"
+                value={stage.edgeDistance}
+                onChange={update('edgeDistance', cleanDecimal)}
+                hint="De 0,25 a 2 m, de 0,25 en 0,25"
               />
-            )}
-          </div>
-          {/* The musicians' zone is not for dancing: the centre goes to the middle of the rest. */}
-          {stage.musicSide && (
-            <label className={styles.check}>
-              <input
-                type="checkbox"
-                checked={stage.danceCentre}
-                onChange={(event) => {
-                  const next = { ...stage, danceCentre: event.target.checked };
+            </div>
+            {/* Where the musicians play, kept for them in every piece. */}
+            <div className={styles.pair} data-top="">
+              <Select
+                label="Zona de músicos"
+                options={MUSIC_SIDE_OPTIONS}
+                value={stage.musicSide || 'none'}
+                onValueChange={(value) => {
+                  const next: StageValues = {
+                    ...stage,
+                    musicSide: value === 'none' ? '' : (value as MusicSide),
+                  };
                   setStage(next);
                   setSettled(next);
                 }}
               />
-              Recalcular el centro hábil
-              <span className={styles.checkHint}>
-                El centro va entre el borde de los músicos y el del público
-              </span>
-            </label>
-          )}
-          <div className={styles.scaleNote}>
-            <span>{square === '1' ? '1 m = 1 cuadrado' : `1 cuadrado = ${square} m`}</span>
-            <button
-              type="button"
-              className={styles.change}
-              aria-expanded={scaleOpen}
-              aria-controls="square-size"
-              onClick={() => setScaleOpen((open) => !open)}
-            >
-              {scaleOpen ? 'Cerrar' : 'Cambiar'}
-            </button>
-          </div>
-          {/* Accordion sweep: the row grows from 0 to its height. */}
-          <div id="square-size" className={styles.accordion} data-open={scaleOpen ? '' : undefined}>
-            <div className={styles.accordionInner}>
-              <label className={styles.scale}>
-                <span>1 cuadrado =</span>
-                <input
-                  className={styles.scaleInput}
+              {stage.musicSide && (
+                <TextField
+                  label="Espacio para músicos (m)"
                   inputMode="decimal"
                   autoComplete="off"
-                  value={stage.squareSize}
-                  onChange={update('squareSize', cleanDecimal)}
-                  tabIndex={scaleOpen ? 0 : -1}
-                  aria-label="Metros por cuadrado"
+                  value={stage.musicDepth}
+                  onChange={update('musicDepth', cleanDecimal)}
+                  hint="De 0,5 a 6 m, desde el borde"
                 />
-                <span>m</span>
-              </label>
+              )}
             </div>
+            {/* The musicians' zone is not for dancing: the centre goes to the middle of the rest. */}
+            {stage.musicSide && (
+              <label className={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={stage.danceCentre}
+                  onChange={(event) => {
+                    const next = { ...stage, danceCentre: event.target.checked };
+                    setStage(next);
+                    setSettled(next);
+                  }}
+                />
+                Recalcular el centro hábil
+                <span className={styles.checkHint}>
+                  El centro va entre el borde de los músicos y el del público
+                </span>
+              </label>
+            )}
+            <div className={styles.scaleNote}>
+              <span>{square === '1' ? '1 m = 1 cuadrado' : `1 cuadrado = ${square} m`}</span>
+              <button
+                type="button"
+                className={styles.change}
+                aria-expanded={scaleOpen}
+                aria-controls="square-size"
+                onClick={() => setScaleOpen((open) => !open)}
+              >
+                {scaleOpen ? 'Cerrar' : 'Cambiar'}
+              </button>
+            </div>
+            {/* Accordion sweep: the row grows from 0 to its height. */}
+            <div
+              id="square-size"
+              className={styles.accordion}
+              data-open={scaleOpen ? '' : undefined}
+            >
+              <div className={styles.accordionInner}>
+                <label className={styles.scale}>
+                  <span>1 cuadrado =</span>
+                  <input
+                    className={styles.scaleInput}
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={stage.squareSize}
+                    onChange={update('squareSize', cleanDecimal)}
+                    tabIndex={scaleOpen ? 0 : -1}
+                    aria-label="Metros por cuadrado"
+                  />
+                  <span>m</span>
+                </label>
+              </div>
+            </div>
+          </fieldset>
+          <div className={styles.next}>
+            <Button variant="primary" onClick={() => setStep('callUp')}>
+              Continuar
+            </Button>
           </div>
-        </fieldset>
-        <div className={styles.next}>
-          <Button variant="primary" onClick={() => setStep('callUp')}>
-            Continuar
-          </Button>
-        </div>
-      </StepPanel>
+        </StepPanel>
+      </div>
 
-      <StepPanel
-        id="callUp"
-        attention={missingCallUp ? beat : 0}
-        title="Convocatoria"
-        required
-        summary={callUpSummary}
-        open={step === 'callUp'}
-        onOpen={() => setStep(step === 'callUp' ? null : 'callUp')}
-      >
-        <CallUpSection groupId={groupId} initial={initialCallUp} onChange={reportCallUp} />
-        <div className={styles.next}>
-          <Button variant="primary" onClick={() => setStep(null)} disabled={callUp.pending}>
-            Continuar
-          </Button>
-        </div>
-      </StepPanel>
+      <div className={styles.part} hidden={part === 'settings'}>
+        <StepPanel
+          id="callUp"
+          attention={missingCallUp ? beat : 0}
+          title="Convocatoria"
+          required
+          summary={callUpSummary}
+          open={part === 'callUp' || step === 'callUp'}
+          fixed={part === 'callUp'}
+          onOpen={() => setStep(step === 'callUp' ? null : 'callUp')}
+        >
+          <CallUpSection groupId={groupId} initial={initialCallUp} onChange={reportCallUp} />
+          {part !== 'callUp' && (
+            <div className={styles.next}>
+              <Button variant="primary" onClick={() => setStep(null)} disabled={callUp.pending}>
+                Continuar
+              </Button>
+            </div>
+          )}
+        </StepPanel>
+      </div>
 
       {saveError && (
         <p className={styles.error} role="alert">

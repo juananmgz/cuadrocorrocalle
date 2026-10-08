@@ -13,13 +13,26 @@ export const MAX_PIECES = 100;
 // Longest piece: one hour.
 export const MAX_PIECE_SECONDS = 60 * 60;
 
-export const pieceTypeSchema = z.enum(['dance', 'song', 'recorded']);
+export const pieceTypeSchema = z.enum(['dance', 'song', 'recorded', 'speech']);
 export type PieceType = z.infer<typeof pieceTypeSchema>;
 export const PIECE_TYPE_LABELS = {
   dance: 'Baile',
   song: 'Canción',
   recorded: 'Voz en off / Música enlatada',
+  speech: 'Presentación / Hablar al micro',
 } as const;
+
+/**
+ * Spoken pieces (step 3.1): voice-overs and talks at the microphone. They go between the pieces
+ * with no number and no stage (nobody placed, no figures, no instruments), only notes.
+ */
+export const isSpoken = (type: PieceType) => type === 'recorded' || type === 'speech';
+
+/** What a spoken piece shows where the others have their number. */
+export const SPOKEN_TAGS: Partial<Record<PieceType, string>> = {
+  recorded: 'off',
+  speech: 'mic',
+};
 
 // What a piece needs played (step 2.7): free tags like "Dulzaina", "Redoblante" or "Canto", each
 // as many times as there are of it (two dulzainas: "Dulzaina" twice).
@@ -74,7 +87,8 @@ export const pieceInputSchema = z
       .max(MAX_PIECE_SECONDS, 'Máximo 1 hora')
       .nullable()
       .optional(),
-    structure: z.string().trim().max(300, 'Máximo 300 caracteres').nullable().optional(),
+    /** Its structure or, in a spoken piece, its notes. */
+    structure: z.string().trim().max(1000, 'Máximo 1000 caracteres').nullable().optional(),
     optional: z.boolean().optional(),
     encore: z.boolean().optional(),
     /** Instruments it needs: each gets a seat in the musicians' zone. */
@@ -84,6 +98,16 @@ export const pieceInputSchema = z
   })
   // Members point at a figure of the same piece and at a free place in it.
   .superRefine((piece, context) => {
+    // A spoken piece has no stage.
+    if (
+      isSpoken(piece.type) &&
+      (piece.participants?.length || piece.figures?.length || piece.instruments?.length)
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Una pieza hablada no tiene escenario',
+        path: ['type'],
+      });
     const figures = new Map((piece.figures ?? []).map((figure) => [figure.id, figure]));
     if (figures.size !== (piece.figures ?? []).length)
       context.addIssue({ code: 'custom', message: 'Hay figuras repetidas', path: ['figures'] });
