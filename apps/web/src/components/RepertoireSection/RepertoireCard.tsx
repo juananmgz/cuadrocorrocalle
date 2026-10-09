@@ -26,10 +26,12 @@ import { useStageEditing } from '../StageLayer/useStageEditing';
 import { FigurePalette, SpacePalette } from '../PeopleTray/FigurePalette';
 import { PeopleTray, type TrayPerson } from '../PeopleTray/PeopleTray';
 import { FIGURE_LABELS } from '@cuadrocorrocalle/shared';
+import { HistoryTools } from '../StageTools/StageTools';
 import { Card } from '../ui/Card/Card';
 import { useToast } from '../ui/Toast/toastContext';
 import { RepertoireSection } from './RepertoireSection';
 import styles from './RepertoireSection.module.scss';
+import { useHistory } from './useHistory';
 
 // Narrower than this, the tray cannot open beside the repertoire, in px.
 const NARROW_WORKSPACE = 500;
@@ -247,7 +249,10 @@ export function RepertoireCard({
     const content = syncMusicSeats(draft, draft.instruments, stage);
     return { ...draft, ...content };
   };
+  // Every change of the pieces can be undone (and redone), with Ctrl+Z or the buttons.
+  const history = useHistory<PieceDraft[]>();
   const change = (next: PieceDraft[]) => {
+    history.record(pieces);
     // A piece whose instruments changed gets its seats again.
     const before = new Map(pieces.map((piece) => [piece.key, piece.instruments.join('|')]));
     setDrafts(
@@ -257,6 +262,31 @@ export function RepertoireCard({
     );
     setPending(true);
   };
+
+  const travel = (way: 'undo' | 'redo') => {
+    const step = way === 'undo' ? history.undo(pieces) : history.redo(pieces);
+    if (!step) return;
+    // A piece saved since keeps the id it got, so it is not created again.
+    const ids = new Map(pieces.map((piece) => [piece.key, piece.id]));
+    setDrafts(step.map((draft) => (draft.id ? draft : { ...draft, id: ids.get(draft.key) })));
+    setPending(true);
+  };
+  // Ctrl+Z undoes, and Ctrl+Shift+Z or Ctrl+Y redo (Cmd on a Mac); in a text field, its own undo.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const { target } = event;
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable]'))
+        return;
+      const key = event.key.toLowerCase();
+      const way = key === 'z' ? (event.shiftKey ? 'redo' : 'undo') : key === 'y' ? 'redo' : null;
+      if (!way) return;
+      event.preventDefault();
+      travel(way);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   // When the musicians' zone (or the stage) changes, every piece's seats move with it.
   const seatsKey = stage
@@ -383,6 +413,16 @@ export function RepertoireCard({
           transform={floorView?.transform}
           stage={stage}
           {...editing.layer}
+        />
+      )}
+      {/* Undo and redo, in the top right corner of the stage side. */}
+      {wide && (
+        <HistoryTools
+          shown={stageActive}
+          canUndo={history.canUndo}
+          canRedo={history.canRedo}
+          onUndo={() => travel('undo')}
+          onRedo={() => travel('redo')}
         />
       )}
       {editing.settings}
