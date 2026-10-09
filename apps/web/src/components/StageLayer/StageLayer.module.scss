@@ -445,6 +445,13 @@
   padding: var(--space-1);
   pointer-events: auto;
   transform: translateX(-50%);
+
+  // The group's menu: in the bottom left corner, level with the stage tools on the right.
+  &[data-aside] {
+    bottom: var(--space-4);
+    margin-left: var(--space-4);
+    transform: none;
+  }
 }
 
 // Under a musician's seat, the instrument played there.
@@ -772,6 +779,14 @@
     background: var(--sel-bg);
     border-color: var(--accent);
     outline: none;
+  }
+
+  // Nothing to do, e.g. duplicating only musicians' seats.
+  &:disabled {
+    cursor: not-allowed;
+    background: transparent;
+    border-color: var(--ink-soft);
+    opacity: 0.4;
   }
 
   // Removing is red, like every button that removes.

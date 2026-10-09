@@ -850,6 +850,8 @@ interface StageLayerProps {
   } | null;
   /** Tools at the bottom of the stage, e.g. while placing a figure. */
   bottomTools?: ReactNode;
+  /** Puts them in the bottom left corner of the stage side instead, beside the panels. */
+  bottomToolsAside?: boolean;
   /** Figures picked together (step 3.3), outlined as one selection. */
   groupIds?: ReadonlySet<string>;
   /** A click on a figure picks it alone; with Shift (or Ctrl), adds it or takes it out. */
@@ -903,6 +905,7 @@ export function StageLayer({
   ghost = null,
   capture = null,
   bottomTools,
+  bottomToolsAside = false,
   groupIds,
   onToggleInGroup,
   groupRefused = false,
@@ -2003,7 +2006,11 @@ export function StageLayer({
         />
       )}
       {bottomTools && (
-        <div className={styles.bottomTools} style={{ left: view.originX }}>
+        <div
+          className={styles.bottomTools}
+          data-aside={bottomToolsAside ? '' : undefined}
+          style={{ left: bottomToolsAside ? view.left : view.originX }}
+        >
           {bottomTools}
         </div>
       )}
@@ -2044,19 +2051,21 @@ export function StageLayer({
               {label}
             </button>
           ))}
-          {onDuplicate && (
-            <button
-              type="button"
-              role="menuitem"
-              className={styles.figureMenuItem}
-              onClick={() => {
-                onDuplicate(figureMenu.figureId);
-                setFigureMenu(null);
-              }}
-            >
-              Duplicar <kbd className={styles.shortcut}>Ctrl+C, Ctrl+V</kbd>
-            </button>
-          )}
+          {/* A musician's seat belongs to its zone: it is never copied. */}
+          {onDuplicate &&
+            !figures.find((item) => item.figure.id === figureMenu.figureId)?.figure.instrument && (
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.figureMenuItem}
+                onClick={() => {
+                  onDuplicate(figureMenu.figureId);
+                  setFigureMenu(null);
+                }}
+              >
+                Duplicar <kbd className={styles.shortcut}>Ctrl+C, Ctrl+V</kbd>
+              </button>
+            )}
           {onDelete && (
             <>
               {/* Apart and in red, at the end: it takes the figure and its people away. */}

@@ -19,6 +19,7 @@ Resto de la fase 3 (pasos 3.3 a 3.5); se publicará al cerrarla.
 | PR                                                                | Commit                                                                    | Cambio                                                                                                         |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | [CCC-0052](https://github.com/juananmgz/cuadrocorrocalle/pull/52) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/52/commits) | ✨ Select several figures at once, a smooth stage between screens, two-step sign-in and group pages (paso 3.3) |
+| [CCC-0053](https://github.com/juananmgz/cuadrocorrocalle/pull/53) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/53/commits) | ✨ Copy and paste several figures with their people, also into another piece (paso 3.4)                        |
 
 ## v0.3.5 · [Release #51](https://github.com/juananmgz/cuadrocorrocalle/pull/51)
 

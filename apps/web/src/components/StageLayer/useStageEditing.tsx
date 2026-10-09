@@ -14,7 +14,7 @@ import {
   type Spot,
   type StageFigure,
 } from '@cuadrocorrocalle/shared';
-import { RotateCw, Trash2, X } from 'lucide-react';
+import { Copy, RotateCw, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { useSaveFigureDefaults } from '../../groups/groupsApi';
@@ -71,6 +71,7 @@ import {
   stretchSpots,
   turnSpot,
 } from '../../stage/freeDance';
+import { type Clip, copiedFigures, copyFigures } from '../../stage/clipboard';
 import { mirrorFigure, type MirrorWay } from '../../stage/mirror';
 import { baseOf, playsSeat } from '../../stage/musicSeats';
 import { stageProjection } from '../../stage/projection';
@@ -271,8 +272,6 @@ export function useStageEditing({
   const [seatMove, setSeatMove] = useState<FigureMove | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [reshaping, setReshaping] = useState<Reshape | null>(null);
-  // Figure copied with Ctrl+C, pasted beside itself with Ctrl+V.
-  const [copied, setCopied] = useState<string | null>(null);
   // Pointer while dragging, to light up and use the trash strip at the bottom.
   const [dragPointer, setDragPointer] = useState<StagePoint | null>(null);
   // The trash takes everything below "PÚBLICO" (drawn 0.6 squares under the stage, 12 to 20 px tall).
@@ -656,9 +655,11 @@ export function useStageEditing({
     to: (figure: StageFigure) => StageFigure,
     /** Without checking, e.g. to draw the group where it is being dragged. */
     unchecked = false,
+    /** What the stage holds, e.g. with copies of the group still on top of it. */
+    from = content,
   ) => {
-    if (!content || !stage) return null;
-    let next = content;
+    if (!from || !stage) return null;
+    let next = from;
     const moved: StageFigure[] = [];
     for (const id of ids) {
       const figure = next.figures.find((item) => item.id === id);
@@ -750,6 +751,91 @@ export function useStageEditing({
     });
     if (!next) return warn('close', 'figure');
     onChange(next);
+  };
+
+  /** What Ctrl+C takes: the figures (a space with the figures in it) and the people in them. */
+  const clipOf = (ids: string[]): Clip | null => {
+    // A musician's seat belongs to its zone: it is never copied.
+    const tops = figures.filter((figure) => ids.includes(figure.id) && !figure.instrument);
+    if (!tops.length) return null;
+    const all = [...tops, ...tops.flatMap((top) => [...childrenOf(figures, top.id).values()])];
+    const copied = new Set(all.map((figure) => figure.id));
+    return {
+      tops: tops.map((figure) => figure.id),
+      figures: all,
+      participants: participants.filter(
+        (participant) => participant.figureId && copied.has(participant.figureId),
+      ),
+    };
+  };
+
+  /**
+   * Pastes copied figures, as they stand to each other: where they were if there is room (coming
+   * from another piece), else on the nearest free ground. Their people come along, except those
+   * already in this piece, whose places stay empty. The copies are then picked.
+   */
+  const paste = (clip: Clip) => {
+    if (!content || !stage) return;
+    const ids = new Map<string, string>();
+    const copies: StageFigure[] = [];
+    for (const topId of clip.tops) {
+      const top = clip.figures.find((figure) => figure.id === topId);
+      if (!top) continue;
+      const id = newFigureId();
+      ids.set(top.id, id);
+      // A figure of a space comes out on its own.
+      copies.push({
+        ...top,
+        id,
+        spaceId: null,
+        hole: top.spaceId ? null : top.hole,
+        angle: top.spaceId ? null : top.angle,
+      });
+      for (const child of clip.figures.filter((figure) => figure.spaceId === top.id)) {
+        const childId = newFigureId();
+        ids.set(child.id, childId);
+        copies.push({ ...child, id: childId, spaceId: id });
+      }
+    }
+    const here = new Set(participants.map(({ personId }) => personId));
+    const coming = clip.participants
+      .filter(({ personId, figureId }) => !here.has(personId) && figureId && ids.has(figureId))
+      .map((participant) => ({ ...participant, figureId: ids.get(participant.figureId!)! }));
+    const left = clip.participants.length - coming.length;
+    const from: StageContent = {
+      figures: [...figures, ...copies],
+      participants: [...participants, ...coming],
+    };
+    const copyTops = clip.tops.flatMap((id) => ids.get(id) ?? []);
+    // Where they were first, then ever further away, every way round, until all of them fit.
+    const offsets: (readonly [number, number])[] = [[0, 0]];
+    for (let distance = 1; distance <= MAX_COPY_DISTANCE; distance += 1)
+      for (const [dx, dy] of COPY_WAYS) offsets.push([dx * distance, dy * distance]);
+    for (const [dx, dy] of offsets) {
+      const [x, y] = [dx * stage.squareSize, dy * stage.squareSize];
+      const next = regrouped(
+        copyTops,
+        (figure) => ({ ...figure, x: figure.x + x, y: figure.y + y }),
+        false,
+        from,
+      );
+      if (!next) continue;
+      onChange(next);
+      // One copy keeps its handles, as before; several are the group.
+      setSelectedId(copyTops.length === 1 ? copyTops[0]! : null);
+      setGroupIds(copyTops.length === 1 ? [] : copyTops);
+      if (left > 0)
+        toast.show({
+          title: coming.length
+            ? left === 1
+              ? '1 persona ya está en esta pieza: su sitio queda vacío'
+              : `${left} personas ya están en esta pieza: sus sitios quedan vacíos`
+            : 'Las copias salen sin personas: ya están en esta pieza',
+          tone: 'info',
+        });
+      return;
+    }
+    toast.show({ title: 'No queda sitio libre para las copias', tone: 'error' });
   };
 
   /** Takes every figure of the group off the stage, with their people. */
@@ -1690,7 +1776,8 @@ export function useStageEditing({
    */
   const duplicate = (figureId: string) => {
     const original = figures.find((figure) => figure.id === figureId);
-    if (!content || !stage || !original) return;
+    // A musician's seat belongs to its zone: it is never copied.
+    if (!content || !stage || !original || original.instrument) return;
     const id = newFigureId();
     const copy: StageFigure = {
       ...original,
@@ -2062,14 +2149,20 @@ export function useStageEditing({
         setGroupIds([]);
       } else if ((event.ctrlKey || event.metaKey) && (event.key === 'c' || event.key === 'C')) {
         // Unless some text is selected, which copies as usual.
-        if (selectedId && !window.getSelection()?.toString()) {
+        // The figure with handles (it may be one in a space), or else the group.
+        const picked = clipOf(
+          selectedId && !(grouped && group.length > 1) ? [selectedId] : grouped ? group : [],
+        );
+        if (picked && !window.getSelection()?.toString()) {
           event.preventDefault();
-          setCopied(selectedId);
+          copyFigures(picked);
         }
       } else if ((event.ctrlKey || event.metaKey) && (event.key === 'v' || event.key === 'V')) {
-        if (copied && figures.some((figure) => figure.id === copied)) {
+        // Also in another piece: the copies are kept from piece to piece.
+        const clip = copiedFigures();
+        if (clip) {
           event.preventDefault();
-          duplicate(copied);
+          paste(clip);
         }
       }
     };
@@ -2535,6 +2628,7 @@ export function useStageEditing({
             },
           }
         : null,
+      bottomToolsAside: !carried && toolsCount > 0,
       bottomTools: carried ? (
         <>
           {carried.shape.kind !== 'solo' && <Button onClick={turnHeld}>Girar (R)</Button>}
@@ -2559,6 +2653,19 @@ export function useStageEditing({
               onClick={turnGroup}
             >
               <RotateCw size={18} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={styles.groupIcon}
+              disabled={!movable.length}
+              aria-label="Duplicar (Ctrl+C, Ctrl+V)"
+              title="Duplicar (Ctrl+C, Ctrl+V)"
+              onClick={() => {
+                const clip = clipOf(group);
+                if (clip) paste(clip);
+              }}
+            >
+              <Copy size={18} aria-hidden="true" />
             </button>
             <button
               type="button"
