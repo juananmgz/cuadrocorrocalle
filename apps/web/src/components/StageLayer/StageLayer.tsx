@@ -208,7 +208,11 @@ interface BlockProps {
   targeted?: 'figure' | 'space' | 'inside' | null;
   /** Carried where it cannot stand. */
   refused?: boolean;
+  /** One of several figures picked together. */
+  grouped?: boolean;
   onSelect?: () => void;
+  /** A click picks it alone; with Shift (or Ctrl), adds it to those picked or takes it out. */
+  onToggleGroup?: (additive: boolean) => void;
 }
 
 /** The block of a figure: dragged as a whole; hovering it (or a right click) shows its handles. */
@@ -222,7 +226,9 @@ function Block({
   space,
   targeted,
   refused,
+  grouped,
   onSelect,
+  onToggleGroup,
 }: BlockProps) {
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `figure:${view.figure.id}`,
@@ -253,6 +259,7 @@ function Block({
       data-targeted={targeted ?? undefined}
       data-hidden={hidden ? '' : undefined}
       data-refused={refused ? '' : undefined}
+      data-grouped={grouped ? '' : undefined}
       data-incomplete={view.empty.length ? '' : undefined}
       data-shape={outline ? '' : undefined}
       style={style}
@@ -263,6 +270,7 @@ function Block({
         event.preventDefault();
         onSelect?.();
       }}
+      onClick={(event) => onToggleGroup?.(event.shiftKey || event.ctrlKey || event.metaKey)}
     >
       {outline && <BlockShape outline={outline} />}
     </button>
@@ -842,6 +850,16 @@ interface StageLayerProps {
   } | null;
   /** Tools at the bottom of the stage, e.g. while placing a figure. */
   bottomTools?: ReactNode;
+  /** Puts them in the bottom left corner of the stage side instead, beside the panels. */
+  bottomToolsAside?: boolean;
+  /** Figures picked together (step 3.3), outlined as one selection. */
+  groupIds?: ReadonlySet<string>;
+  /** A click on a figure picks it alone; with Shift (or Ctrl), adds it or takes it out. */
+  onToggleInGroup?: (figureId: string, additive: boolean) => void;
+  /** The group being dragged cannot go where it is: its figures are drawn in red. */
+  groupRefused?: boolean;
+  /** The box being drawn on the stage to pick figures, in screen px. */
+  selectionBox?: { from: { x: number; y: number }; to: { x: number; y: number } } | null;
 }
 
 /** The people and figures of a piece drawn over the stage of the background grid. */
@@ -887,6 +905,11 @@ export function StageLayer({
   ghost = null,
   capture = null,
   bottomTools,
+  bottomToolsAside = false,
+  groupIds,
+  onToggleInGroup,
+  groupRefused = false,
+  selectionBox = null,
 }: StageLayerProps) {
   const { perMetre, toScreen } = stageProjection(view, stage);
   const token = Math.min(MAX_TOKEN, Math.max(MIN_TOKEN, personSize(stage) * perMetre));
@@ -1567,9 +1590,14 @@ export function StageLayer({
               selected={item.figure.id === selectedFigureId}
               targeted={item.figure.id === figureMenu?.figureId ? 'space' : null}
               hidden={item.figure.id === movingFigureId && !carriedHere(item.figure.id)}
-              refused={carriedHere(item.figure.id) && !ghost?.ok}
+              refused={
+                (carriedHere(item.figure.id) && !ghost?.ok) ||
+                (groupRefused && Boolean(groupIds?.has(item.figure.id)))
+              }
+              grouped={groupIds?.has(item.figure.id)}
               space
               onSelect={() => onSelectFigure?.(item.figure.id)}
+              onToggleGroup={(additive) => onToggleInGroup?.(item.figure.id, additive)}
             />
             {/* Empty holes: a dashed outline of the pair they are waiting for. */}
             {item
@@ -1619,8 +1647,13 @@ export function StageLayer({
                       : null
                 }
                 hidden={moving}
-                refused={carriedHere(item.figure.id) && !ghost?.ok}
+                refused={
+                  (carriedHere(item.figure.id) && !ghost?.ok) ||
+                  (groupRefused && Boolean(groupIds?.has(item.figure.id)))
+                }
+                grouped={groupIds?.has(item.figure.id)}
                 onSelect={() => onSelectFigure?.(item.figure.id)}
+                onToggleGroup={(additive) => onToggleInGroup?.(item.figure.id, additive)}
               />
               {item.figure.instrument && (
                 // A musician's seat: what is played there, under it.
@@ -1960,8 +1993,24 @@ export function StageLayer({
           </span>
         </div>
       )}
+      {selectionBox && (
+        // The box being drawn to pick several figures.
+        <div
+          className={styles.selectionBox}
+          style={{
+            left: Math.min(selectionBox.from.x, selectionBox.to.x),
+            top: Math.min(selectionBox.from.y, selectionBox.to.y),
+            width: Math.abs(selectionBox.to.x - selectionBox.from.x),
+            height: Math.abs(selectionBox.to.y - selectionBox.from.y),
+          }}
+        />
+      )}
       {bottomTools && (
-        <div className={styles.bottomTools} style={{ left: view.originX }}>
+        <div
+          className={styles.bottomTools}
+          data-aside={bottomToolsAside ? '' : undefined}
+          style={{ left: bottomToolsAside ? view.left : view.originX }}
+        >
           {bottomTools}
         </div>
       )}
@@ -2002,19 +2051,21 @@ export function StageLayer({
               {label}
             </button>
           ))}
-          {onDuplicate && (
-            <button
-              type="button"
-              role="menuitem"
-              className={styles.figureMenuItem}
-              onClick={() => {
-                onDuplicate(figureMenu.figureId);
-                setFigureMenu(null);
-              }}
-            >
-              Duplicar <kbd className={styles.shortcut}>Ctrl+C, Ctrl+V</kbd>
-            </button>
-          )}
+          {/* A musician's seat belongs to its zone: it is never copied. */}
+          {onDuplicate &&
+            !figures.find((item) => item.figure.id === figureMenu.figureId)?.figure.instrument && (
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.figureMenuItem}
+                onClick={() => {
+                  onDuplicate(figureMenu.figureId);
+                  setFigureMenu(null);
+                }}
+              >
+                Duplicar <kbd className={styles.shortcut}>Ctrl+C, Ctrl+V</kbd>
+              </button>
+            )}
           {onDelete && (
             <>
               {/* Apart and in red, at the end: it takes the figure and its people away. */}

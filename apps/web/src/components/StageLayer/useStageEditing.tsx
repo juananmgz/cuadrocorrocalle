@@ -14,7 +14,8 @@ import {
   type Spot,
   type StageFigure,
 } from '@cuadrocorrocalle/shared';
-import { useEffect, useState } from 'react';
+import { Copy, RotateCw, Trash2, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useSaveFigureDefaults } from '../../groups/groupsApi';
 import { defaultRoles, placeParticipant } from '../../pieces/participants';
@@ -33,6 +34,7 @@ import {
   reachOf,
   slotAt,
   slotPositions,
+  snapFigure,
   turn,
   widthForReach,
 } from '../../stage/figures';
@@ -69,6 +71,7 @@ import {
   stretchSpots,
   turnSpot,
 } from '../../stage/freeDance';
+import { type Clip, copiedFigures, copyFigures } from '../../stage/clipboard';
 import { mirrorFigure, type MirrorWay } from '../../stage/mirror';
 import { baseOf, playsSeat } from '../../stage/musicSeats';
 import { stageProjection } from '../../stage/projection';
@@ -98,7 +101,13 @@ import { FigureSettings } from '../PeopleTray/FigureSettings';
 import type { TrayPerson } from '../PeopleTray/PeopleTray';
 import { Button } from '../ui/Button/Button';
 import { useToast } from '../ui/Toast/toastContext';
+import styles from './StageLayer.module.scss';
 import type { EditHandles, FigureGhost, FigureView, PlacedPerson, StageDrag } from './StageLayer';
+
+// How long the group's menu takes to fade out, in ms.
+const TOOLS_FADE = 200;
+// No figures picked together.
+const NO_GROUP: ReadonlySet<string> = new Set();
 
 // Ids of the held figure while it is previewed in the space it will go into.
 const HELD_PREVIEW = 'held-preview-';
@@ -132,6 +141,11 @@ interface FigureMove {
   result: MoveResult | null;
   /** Stage point where the shown result last changed, so it does not flicker back and forth. */
   anchor?: StagePoint;
+  /**
+   * How far the group it belongs to has gone, the last step where all of it fits: it never goes
+   * where it cannot stand (off the stage, over another figure, a seat out of the musicians' zone).
+   */
+  groupStep?: StagePoint;
 }
 
 // How far the pointer must go, in squares, from where the preview last changed to change it again.
@@ -247,13 +261,17 @@ export function useStageEditing({
   const [carriedPointer, setCarriedPointer] = useState<StagePoint | null>(null);
   // Figure in edit mode (handles shown) and its reshape while a handle is held.
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Several figures picked together (step 3.3), with a box on the stage or Shift + click, to move,
+  // turn or remove at once.
+  const [groupIds, setGroupIds] = useState<string[]>([]);
+  // The box being drawn on the stage, in screen px; where it started survives re-renders.
+  const [box, setBox] = useState<{ from: StagePoint; to: StagePoint; add?: boolean } | null>(null);
+  const boxStart = useRef<StagePoint | null>(null);
   // Someone picked on the stage (a click, or the start of a drag): drawn as selected.
   // A musician held with their seat: the seat moves while they stay in the zone.
   const [seatMove, setSeatMove] = useState<FigureMove | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [reshaping, setReshaping] = useState<Reshape | null>(null);
-  // Figure copied with Ctrl+C, pasted beside itself with Ctrl+V.
-  const [copied, setCopied] = useState<string | null>(null);
   // Pointer while dragging, to light up and use the trash strip at the bottom.
   const [dragPointer, setDragPointer] = useState<StagePoint | null>(null);
   // The trash takes everything below "PÚBLICO" (drawn 0.6 squares under the stage, 12 to 20 px tall).
@@ -451,6 +469,15 @@ export function useStageEditing({
       point.y >= zone.bottom &&
       point.y <= zone.top,
     );
+  /** Inside the musicians' zone, its edge included (a hair's width either way). */
+  const withinZone = (point: StagePoint) =>
+    Boolean(
+      zone &&
+      point.x >= zone.left - 1e-6 &&
+      point.x <= zone.right + 1e-6 &&
+      point.y >= zone.bottom - 1e-6 &&
+      point.y <= zone.top + 1e-6,
+    );
   const zoneOutline = zone
     ? [
         { x: zone.left, y: zone.bottom },
@@ -551,6 +578,335 @@ export function useStageEditing({
       ? { ok: false, reason: 'close', places: people }
       : { ok: true, figure: landed, places: people };
   };
+
+  // Only figures still on the stage, and never a figure inside a space (its space goes instead).
+  const group = groupIds.filter((id) =>
+    figures.some((figure) => figure.id === id && !figure.spaceId),
+  );
+  // Picked with the box or Shift + click, even a single figure.
+  const grouped = group.length > 0;
+  // Musicians' seats stay where they are when the group moves or turns.
+  const movable = group.filter((id) => !figures.find((figure) => figure.id === id)?.instrument);
+  // The group's menu stays a moment after letting go, to fade out; it keeps the last count.
+  const [toolsCount, setToolsCount] = useState(0);
+  const [toolsLeaving, setToolsLeaving] = useState(false);
+  if (grouped && (toolsCount !== group.length || toolsLeaving)) {
+    setToolsCount(group.length);
+    setToolsLeaving(false);
+  } else if (!grouped && toolsCount > 0 && !toolsLeaving) setToolsLeaving(true);
+  useEffect(() => {
+    if (!toolsLeaving) return;
+    const timer = window.setTimeout(() => {
+      setToolsCount(0);
+      setToolsLeaving(false);
+    }, TOOLS_FADE);
+    return () => window.clearTimeout(timer);
+  }, [toolsLeaving]);
+
+  /**
+   * A click picks a figure alone; with Shift or Ctrl it joins the group, or leaves it (a figure in
+   * a space counts as its space).
+   */
+  const toggleInGroup = (figureId: string, additive: boolean) => {
+    const figure = figures.find((item) => item.id === figureId);
+    if (!figure) return;
+    const id = figure.spaceId ?? figure.id;
+    if (!additive) {
+      // A click on a figure (on a tablet or a phone, a tap) also shows its handles.
+      const alone = group.length === 1 && group[0] === id;
+      setGroupIds(alone ? [] : [id]);
+      setSelectedId(alone ? null : id);
+      return;
+    }
+    setGroupIds(group.includes(id) ? group.filter((item) => item !== id) : [...group, id]);
+  };
+
+  /** The figures whose blocks a box drawn on the screen touches. */
+  const inBox = (from: StagePoint, to: StagePoint) => {
+    const a = toStage(from);
+    const b = toStage(to);
+    if (!a || !b || !stage) return [];
+    const area = [
+      { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) },
+      { x: Math.max(a.x, b.x), y: Math.min(a.y, b.y) },
+      { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y) },
+      { x: Math.min(a.x, b.x), y: Math.max(a.y, b.y) },
+    ];
+    return figures
+      .filter((figure) => !figure.spaceId)
+      .filter((figure) => blockOutlines(figure).some((part) => overlaps(area, part)))
+      .map((figure) => figure.id);
+  };
+
+  /** The people's places of a figure, or of the figures in a space. */
+  const placesIn = (figure: StageFigure, all: StageFigure[]) =>
+    isSpace(figure.kind)
+      ? all
+          .filter((item) => item.spaceId === figure.id)
+          .flatMap((child) => slotPositions(child, stage!))
+      : slotPositions(figure, stage!);
+
+  /**
+   * The group's figures moved (or turned) by `to`, with the figures in their spaces and their
+   * people; null if one would be off the stage, in its edge strip or over another figure.
+   */
+  const regrouped = (
+    ids: string[],
+    to: (figure: StageFigure) => StageFigure,
+    /** Without checking, e.g. to draw the group where it is being dragged. */
+    unchecked = false,
+    /** What the stage holds, e.g. with copies of the group still on top of it. */
+    from = content,
+  ) => {
+    if (!from || !stage) return null;
+    let next = from;
+    const moved: StageFigure[] = [];
+    for (const id of ids) {
+      const figure = next.figures.find((item) => item.id === id);
+      if (!figure) continue;
+      const placed = to(figure);
+      moved.push(placed);
+      if (isSpace(placed.kind)) {
+        next = {
+          ...next,
+          figures: next.figures.map((item) => (item.id === id ? placed : item)),
+        };
+        for (const child of placeChildren(placed, next.figures, stage))
+          next = putFigure(next, child, slotPositions(child, stage));
+      } else next = putFigure(next, placed, slotPositions(placed, stage));
+    }
+    if (unchecked) return next;
+    const inGroup = new Set(ids);
+    const others = next.figures.filter(
+      (figure) => !inGroup.has(figure.id) && !(figure.spaceId && inGroup.has(figure.spaceId)),
+    );
+    const otherBlocks = others.filter((figure) => !figure.spaceId).flatMap(blockOutlines);
+    for (const figure of moved) {
+      const places = placesIn(figure, next.figures);
+      if (!fitsOnStage(places, stage)) return null;
+      // A musician's seat never leaves the musicians' zone, not even half its token.
+      if (figure.instrument && !blockOutlines(figure).every((part) => part.every(withinZone)))
+        return null;
+      const blocks =
+        playsIn(figure.id) || !zoneOutline ? otherBlocks : [...otherBlocks, zoneOutline];
+      const parts = blockOutlines(figure);
+      if (parts.some((part) => blocks.some((block) => overlaps(part, block)))) return null;
+    }
+    return next;
+  };
+
+  /** How far a figure of the group has been dragged, in half squares so all stay on the grid. */
+  const groupStep = (move: FigureMove, pointer: StagePoint) => {
+    const point = toStage(pointer);
+    const before = figures.find((figure) => figure.id === move.id);
+    if (!point || !before || !stage) return null;
+    const half = stage.squareSize / 2;
+    const snap = (value: number) => Math.round(value / half) * half;
+    return { x: snap(point.x - move.grab.x - before.x), y: snap(point.y - move.grab.y - before.y) };
+  };
+
+  /** The preview of a figure of the group dragged: where it would go, red if the group cannot. */
+  const groupResult = (move: FigureMove, pointer: StagePoint): MoveResult | null => {
+    const step = groupStep(move, pointer);
+    const before = figures.find((figure) => figure.id === move.id);
+    if (!step || !before || !stage) return null;
+    const next = regrouped(movable, (figure) => ({
+      ...figure,
+      x: figure.x + step.x,
+      y: figure.y + step.y,
+    }));
+    const figure = { ...before, x: before.x + step.x, y: before.y + step.y };
+    const places = placesIn(figure, next?.figures ?? figures);
+    return next ? { ok: true, figure, places } : { ok: false, reason: 'close', places };
+  };
+
+  /** Moves the whole group by a step, e.g. as far as one of its figures was dragged. */
+  const moveGroup = (dx: number, dy: number) => {
+    const next = regrouped(movable, (figure) => ({
+      ...figure,
+      x: figure.x + dx,
+      y: figure.y + dy,
+    }));
+    if (!next) return warn('close', 'figure');
+    onChange(next);
+  };
+
+  /** Turns the whole group a quarter round its middle, each figure turning with it. */
+  const turnGroup = () => {
+    if (!stage || !grouped) return;
+    const members = figures.filter((figure) => movable.includes(figure.id));
+    if (!members.length) return;
+    const middle = {
+      x: members.reduce((sum, figure) => sum + figure.x, 0) / members.length,
+      y: members.reduce((sum, figure) => sum + figure.y, 0) / members.length,
+    };
+    const next = regrouped(movable, (figure) => {
+      // A quarter anticlockwise seen from above, like the figures' own turn.
+      const x = middle.x - (figure.y - middle.y);
+      const y = middle.y + (figure.x - middle.x);
+      const turned = { ...figure, x, y, rotation: nextRotation(figure.rotation) };
+      return isSpace(figure.kind)
+        ? { ...figure, ...snapSpace(turned, childrenOf(figures, figure.id), stage) }
+        : { ...figure, ...snapFigure(turned, stage) };
+    });
+    if (!next) return warn('close', 'figure');
+    onChange(next);
+  };
+
+  /** What Ctrl+C takes: the figures (a space with the figures in it) and the people in them. */
+  const clipOf = (ids: string[]): Clip | null => {
+    // A musician's seat belongs to its zone: it is never copied.
+    const tops = figures.filter((figure) => ids.includes(figure.id) && !figure.instrument);
+    if (!tops.length) return null;
+    const all = [...tops, ...tops.flatMap((top) => [...childrenOf(figures, top.id).values()])];
+    const copied = new Set(all.map((figure) => figure.id));
+    return {
+      tops: tops.map((figure) => figure.id),
+      figures: all,
+      participants: participants.filter(
+        (participant) => participant.figureId && copied.has(participant.figureId),
+      ),
+    };
+  };
+
+  /**
+   * Pastes copied figures, as they stand to each other: where they were if there is room (coming
+   * from another piece), else on the nearest free ground. Their people come along, except those
+   * already in this piece, whose places stay empty. The copies are then picked.
+   */
+  const paste = (clip: Clip) => {
+    if (!content || !stage) return;
+    const ids = new Map<string, string>();
+    const copies: StageFigure[] = [];
+    for (const topId of clip.tops) {
+      const top = clip.figures.find((figure) => figure.id === topId);
+      if (!top) continue;
+      const id = newFigureId();
+      ids.set(top.id, id);
+      // A figure of a space comes out on its own.
+      copies.push({
+        ...top,
+        id,
+        spaceId: null,
+        hole: top.spaceId ? null : top.hole,
+        angle: top.spaceId ? null : top.angle,
+      });
+      for (const child of clip.figures.filter((figure) => figure.spaceId === top.id)) {
+        const childId = newFigureId();
+        ids.set(child.id, childId);
+        copies.push({ ...child, id: childId, spaceId: id });
+      }
+    }
+    const here = new Set(participants.map(({ personId }) => personId));
+    const coming = clip.participants
+      .filter(({ personId, figureId }) => !here.has(personId) && figureId && ids.has(figureId))
+      .map((participant) => ({ ...participant, figureId: ids.get(participant.figureId!)! }));
+    const left = clip.participants.length - coming.length;
+    const from: StageContent = {
+      figures: [...figures, ...copies],
+      participants: [...participants, ...coming],
+    };
+    const copyTops = clip.tops.flatMap((id) => ids.get(id) ?? []);
+    // Where they were first, then ever further away, every way round, until all of them fit.
+    const offsets: (readonly [number, number])[] = [[0, 0]];
+    for (let distance = 1; distance <= MAX_COPY_DISTANCE; distance += 1)
+      for (const [dx, dy] of COPY_WAYS) offsets.push([dx * distance, dy * distance]);
+    for (const [dx, dy] of offsets) {
+      const [x, y] = [dx * stage.squareSize, dy * stage.squareSize];
+      const next = regrouped(
+        copyTops,
+        (figure) => ({ ...figure, x: figure.x + x, y: figure.y + y }),
+        false,
+        from,
+      );
+      if (!next) continue;
+      onChange(next);
+      // One copy keeps its handles, as before; several are the group.
+      setSelectedId(copyTops.length === 1 ? copyTops[0]! : null);
+      setGroupIds(copyTops.length === 1 ? [] : copyTops);
+      if (left > 0)
+        toast.show({
+          title: coming.length
+            ? left === 1
+              ? '1 persona ya está en esta pieza: su sitio queda vacío'
+              : `${left} personas ya están en esta pieza: sus sitios quedan vacíos`
+            : 'Las copias salen sin personas: ya están en esta pieza',
+          tone: 'info',
+        });
+      return;
+    }
+    toast.show({ title: 'No queda sitio libre para las copias', tone: 'error' });
+  };
+
+  /** Takes every figure of the group off the stage, with their people. */
+  const removeGroup = () => {
+    if (!content) return;
+    // A musician's seat stays, waiting for someone else: only its musician leaves the piece.
+    const seats = new Set(group.filter((id) => !movable.includes(id)));
+    const next = movable.reduce((current, id) => removeFigure(current, id), content);
+    onChange({
+      ...next,
+      participants: next.participants.filter(
+        (participant) => !participant.figureId || !seats.has(participant.figureId),
+      ),
+    });
+    setGroupIds([]);
+  };
+
+  // A box drawn on the empty stage picks the figures it touches; a click there lets go of them.
+  useEffect(() => {
+    if (!view || !stage) return;
+    // The empty stage: right of the column, on nothing that can be pressed or dragged.
+    const onEmptyStage = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      return Boolean(
+        target &&
+        event.clientX >= view.left &&
+        !target.closest(
+          'button, a, input, label, select, textarea, header, [role=menu], [role=dialog], [data-tray], [data-tray-floating], [data-figure-block], [data-figure-member], [data-figure-handle], [data-hole]',
+        ),
+      );
+    };
+    const onDown = (event: PointerEvent) => {
+      if (event.button !== 0 || !onEmptyStage(event) || carried || figureMove) return;
+      // Drawing the box does not select the text of the panels it passes over.
+      event.preventDefault();
+      boxStart.current = { x: event.clientX, y: event.clientY };
+    };
+    const onMove = (event: PointerEvent) => {
+      const start = boxStart.current;
+      if (!start) return;
+      setBox({
+        from: start,
+        to: { x: event.clientX, y: event.clientY },
+        add: event.shiftKey || event.ctrlKey || event.metaKey,
+      });
+      // While drawing, no handles: the figures it touches only show as picked.
+      setSelectedId(null);
+    };
+    const onUp = (event: PointerEvent) => {
+      const start = boxStart.current;
+      if (!start) return;
+      const end = { x: event.clientX, y: event.clientY };
+      // Hardly moved: a click on the floor.
+      const ids = Math.hypot(end.x - start.x, end.y - start.y) < 6 ? [] : inBox(start, end);
+      boxStart.current = null;
+      setBox(null);
+      const picked =
+        event.shiftKey || event.ctrlKey || event.metaKey ? [...new Set([...group, ...ids])] : ids;
+      setGroupIds(picked);
+      // No handles from a box: they come with the pointer over a figure, or a click on it.
+      setSelectedId(null);
+    };
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  });
 
   const newShape = (kind: FigureKind): Shape | null =>
     !stage
@@ -667,6 +1023,31 @@ export function useStageEditing({
     return null;
   };
 
+  /**
+   * While a hole is open for the held figure, where it goes is read on the space as shown, grown
+   * and with the figures moved along: the hole nearest the figure. Read on the space as it was,
+   * the opening would move the figures under the pointer and send it back and forth.
+   */
+  const keptOpening = (move: FigureMove, centre: StagePoint): Fill | null => {
+    const held = move.result;
+    const opened = held?.ok ? held.fill : undefined;
+    const space = opened && figures.find((figure) => figure.id === opened.spaceId);
+    if (!stage || !held?.ok || !opened || opened.insertAt == null || !space) return null;
+    const at = opened.insertAt;
+    const grown = { ...space, ...held.figure, id: space.id };
+    const children = new Map(
+      [...childrenOf(figures, space.id)].map(([hole, child]) => [
+        hole >= at ? hole + 1 : hole,
+        child as Shape,
+      ]),
+    );
+    children.set(at, move.shape);
+    const layout = layoutSpace(grown, children, stage);
+    if (!contains(spaceOutline(grown, layout, stage), centre)) return null;
+    const to = nearestHole(layout, centre);
+    return { spaceId: space.id, holes: [to], insertAt: to };
+  };
+
   /** A space with a figure like `shape` in some of its holes, checked as it would stand. */
   const fillResult = (shape: Shape, id: string | null, fill: Fill): MoveResult | null => {
     const space = figures.find((figure) => figure.id === fill.spaceId);
@@ -772,7 +1153,7 @@ export function useStageEditing({
         shift: { to: null },
       };
     }
-    const fill = fillAt(centre, move.id, move.shape.kind);
+    const fill = keptOpening(move, centre) ?? fillAt(centre, move.id, move.shape.kind);
     if (fill) return fillResult(move.shape, move.id, fill);
     // Someone in a solo dropped on an empty place of another figure takes it.
     const seat =
@@ -1395,7 +1776,8 @@ export function useStageEditing({
    */
   const duplicate = (figureId: string) => {
     const original = figures.find((figure) => figure.id === figureId);
-    if (!content || !stage || !original) return;
+    // A musician's seat belongs to its zone: it is never copied.
+    if (!content || !stage || !original || original.instrument) return;
     const id = newFigureId();
     const copy: StageFigure = {
       ...original,
@@ -1503,6 +1885,16 @@ export function useStageEditing({
     const id = String(active.id);
     const pointer = startPoint(activatorEvent);
     setCarried(null);
+    // With several figures picked, anything of one of them (a person, a figure in its space)
+    // drags them all, like a pack; nobody leaves their figure.
+    if (group.length > 1) {
+      const figureId = id.startsWith('stage:')
+        ? memberOf(id.slice('stage:'.length))?.figureId
+        : id.replace(/^(figure|child):/, '');
+      const figure = figures.find((item) => item.id === figureId);
+      const head = figure && spaceAround(figure);
+      if (head && group.includes(head.id)) return startFigureMove(head, pointer);
+    }
     if (id.startsWith('palette:')) {
       const shape = newShape(id.slice('palette:'.length) as FigureKind);
       if (shape) setFigureMove({ shape, id: null, grab: { x: 0, y: 0 }, result: null });
@@ -1563,6 +1955,13 @@ export function useStageEditing({
         return;
       }
       setFigureMove(null);
+    } else if (figureMove?.id && group.length > 1 && group.includes(figureMove.id)) {
+      // A figure of the group: the whole group moves, so it is checked as one.
+      // The group follows the pointer only as far as it can stand.
+      const step = groupStep(figureMove, pointer);
+      const result = groupResult(figureMove, pointer);
+      setFigureMove(result?.ok && step ? { ...figureMove, result, groupStep: step } : figureMove);
+      return;
     } else if (figureMove) {
       setFigureMove(steadied(figureMove, pointer));
       return;
@@ -1597,13 +1996,22 @@ export function useStageEditing({
     setDragPointer(null);
 
     // Dropped on the trash strip: a figure goes, someone on their own leaves the stage.
+    // Dragging one figure of the group drags them all (one picked alone moves as usual).
+    const ofGroup = Boolean(move?.id && group.length > 1 && group.includes(move.id));
     if (inTrash(pointer)) {
-      if (move?.id) discardFigure(move.id);
+      if (ofGroup) removeGroup();
+      else if (move?.id) discardFigure(move.id);
       else if (person && id.startsWith('stage:')) removePerson(person.personId);
       return;
     }
 
     if (move) {
+      if (ofGroup && !toTray) {
+        // Where it was last drawn, which is always somewhere it fits.
+        const step = move.groupStep;
+        return step && (step.x || step.y) ? moveGroup(step.x, step.y) : undefined;
+      }
+      if (ofGroup && toTray) return removeGroup();
       // It lands where its preview showed it.
       if (!toTray) return landFigure(move, move.result ?? figureResult(move, pointer));
       // A member dropped on the tray leaves its figure; a figure dropped there goes.
@@ -1728,20 +2136,33 @@ export function useStageEditing({
         if (figureMove || carried) {
           event.preventDefault();
           turnHeld();
+        } else if (grouped) {
+          event.preventDefault();
+          turnGroup();
         }
+      } else if ((event.key === 'Delete' || event.key === 'Backspace') && grouped) {
+        event.preventDefault();
+        removeGroup();
       } else if (event.key === 'Escape') {
         setCarried(null);
         setSelectedId(null);
+        setGroupIds([]);
       } else if ((event.ctrlKey || event.metaKey) && (event.key === 'c' || event.key === 'C')) {
         // Unless some text is selected, which copies as usual.
-        if (selectedId && !window.getSelection()?.toString()) {
+        // The figure with handles (it may be one in a space), or else the group.
+        const picked = clipOf(
+          selectedId && !(grouped && group.length > 1) ? [selectedId] : grouped ? group : [],
+        );
+        if (picked && !window.getSelection()?.toString()) {
           event.preventDefault();
-          setCopied(selectedId);
+          copyFigures(picked);
         }
       } else if ((event.ctrlKey || event.metaKey) && (event.key === 'v' || event.key === 'V')) {
-        if (copied && figures.some((figure) => figure.id === copied)) {
+        // Also in another piece: the copies are kept from piece to piece.
+        const clip = copiedFigures();
+        if (clip) {
           event.preventDefault();
-          duplicate(copied);
+          paste(clip);
         }
       }
     };
@@ -1763,6 +2184,17 @@ export function useStageEditing({
     settingsKind && stage ? figureDefault(settingsKind, figureDefaults, stage) : null;
 
   const held = figureMove ?? carried;
+  // A figure of the group being dragged: all of them are drawn where they are going.
+  const groupDrag = Boolean(figureMove?.id && group.length > 1 && group.includes(figureMove.id));
+  const groupStepNow = groupDrag ? (figureMove?.groupStep ?? null) : null;
+  const drawn =
+    groupStepNow && shown
+      ? (regrouped(
+          movable,
+          (figure) => ({ ...figure, x: figure.x + groupStepNow.x, y: figure.y + groupStepNow.y }),
+          true,
+        ) ?? shown)
+      : shown;
   // While a handle is held, the edited figure as it would end up (a row's figures widened too).
   const reshapedChildren =
     selected && reshaping && stage && isSpace(selected.figure.kind)
@@ -2061,11 +2493,11 @@ export function useStageEditing({
     togglePerson,
     personDrag,
     layer: {
-      placed: placedOf(shown),
-      repeated: shown ? repeatedPeople(shown) : undefined,
+      placed: placedOf(drawn),
+      repeated: drawn ? repeatedPeople(drawn) : undefined,
       drag: figureMove ? null : personDrag,
       dragged: personDrag && !figureMove ? (people.get(personDrag.personId) ?? null) : null,
-      figures: viewsOf(shown),
+      figures: viewsOf(drawn),
       shifting,
       selectedFigureId: selectedId,
       selectedPersonId,
@@ -2123,6 +2555,8 @@ export function useStageEditing({
         removePerson(personId);
       },
       onSelectFigure: (figureId: string | null) => {
+        // No handles while a box is drawn, nor on several figures picked together.
+        if (figureId && (boxStart.current || group.length > 1)) return;
         // A figure in a space edits its space.
         const figure = figures.find((item) => item.id === figureId);
         setSelectedId(figure ? spaceAround(figure).id : null);
@@ -2177,9 +2611,11 @@ export function useStageEditing({
         figureMove?.id || personDrag
           ? { hot: inTrash(dragPointer), near: trashNearness(), top: trashTop }
           : null,
-      movingFigureId: figureMove?.id ?? (reshaping ? selectedId : null),
+      // The group moves as itself, not as a ghost of the figure held.
+      movingFigureId: groupDrag ? null : (figureMove?.id ?? (reshaping ? selectedId : null)),
       carrying: Boolean(figureMove?.id),
-      ghost: ghost && ghost.places.length ? ghost : null,
+      ghost: !groupDrag && ghost && ghost.places.length ? ghost : null,
+      groupRefused: Boolean(groupDrag && figureMove?.result && !figureMove.result.ok),
       capture: carried
         ? {
             onMove: (x: number, y: number) => {
@@ -2192,12 +2628,74 @@ export function useStageEditing({
             },
           }
         : null,
+      bottomToolsAside: !carried && toolsCount > 0,
       bottomTools: carried ? (
         <>
           {carried.shape.kind !== 'solo' && <Button onClick={turnHeld}>Girar (R)</Button>}
           <Button onClick={() => setCarried(null)}>Cancelar (Esc)</Button>
         </>
+      ) : toolsCount > 0 ? (
+        // How many are picked on top; under it, icons that say what they do (and their key).
+        <div
+          className={styles.groupTools}
+          data-leaving={toolsLeaving ? '' : undefined}
+          inert={toolsLeaving}
+        >
+          <span className={styles.groupCount}>
+            {toolsCount === 1 ? '1 figura' : `${toolsCount} figuras`}
+          </span>
+          <div className={styles.groupIcons}>
+            <button
+              type="button"
+              className={styles.groupIcon}
+              aria-label="Girar (R)"
+              title="Girar (R)"
+              onClick={turnGroup}
+            >
+              <RotateCw size={18} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={styles.groupIcon}
+              disabled={!movable.length}
+              aria-label="Duplicar (Ctrl+C, Ctrl+V)"
+              title="Duplicar (Ctrl+C, Ctrl+V)"
+              onClick={() => {
+                const clip = clipOf(group);
+                if (clip) paste(clip);
+              }}
+            >
+              <Copy size={18} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={styles.groupIcon}
+              data-danger=""
+              aria-label="Eliminar (Supr)"
+              title="Eliminar (Supr)"
+              onClick={removeGroup}
+            >
+              <Trash2 size={18} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={styles.groupIcon}
+              aria-label="Soltar (Esc)"
+              title="Soltar (Esc)"
+              onClick={() => setGroupIds([])}
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
       ) : null,
+      groupIds: box
+        ? new Set([...(box.add ? group : []), ...inBox(box.from, box.to)])
+        : grouped
+          ? new Set(group)
+          : NO_GROUP,
+      onToggleInGroup: toggleInGroup,
+      selectionBox: box,
     },
     palette: {
       picked: carried?.shape.kind ?? null,

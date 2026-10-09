@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { CycleControls } from '../../components/CycleControls/CycleControls';
 import { useCycleKeys } from '../../components/CycleControls/useCycleKeys';
+import { noteTurn } from '../../components/PiecePreview/carryOn';
 import { PREVIEW_FADE } from '../../components/PiecePreview/PiecePreview';
 import { type PieceDraft, toDraft } from '../../pieces/draft';
 import { useRepertoire } from '../../pieces/repertoireApi';
@@ -39,8 +40,11 @@ export function PieceCycle({ performanceId, onPiece, onEnding }: PieceCycleProps
   useEffect(() => {
     if (data) onPiece(current);
   }, [data, current, onPiece]);
+  const turnKey = current ? `${performanceId}:${current.key}` : null;
   useEffect(() => {
     onEnding?.(false);
+    // Opening the performance carries on from this second of the turn.
+    noteTurn(paused || pieces.length < 2 ? null : turnKey);
     if (paused || pieces.length < 2) return;
     // Its fade out is part of its turn, so the next one comes in right on time.
     const fade = window.setTimeout(() => onEnding?.(true), PIECE_SECONDS * 1000 - PREVIEW_FADE);
@@ -52,7 +56,7 @@ export function PieceCycle({ performanceId, onPiece, onEnding }: PieceCycleProps
       window.clearTimeout(fade);
       window.clearTimeout(timer);
     };
-  }, [index, paused, pieces.length, onEnding]);
+  }, [index, paused, pieces.length, onEnding, turnKey]);
 
   const count = pieces.length;
   const step = (by: number) => setIndex((value) => (((value + by) % count) + count) % count);

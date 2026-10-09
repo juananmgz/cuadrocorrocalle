@@ -112,3 +112,39 @@ export function homography(from: Point[], to: Point[]) {
   const [a, b, c, d, e, f, g, h] = rows.map((row, index) => row[8]! / row[index]!) as number[];
   return `matrix3d(${[a, d, 0, g, b, e, 0, h, 0, 0, 1, 0, c, f, 0, 1].map((n) => n!.toPrecision(10)).join(',')})`;
 }
+
+/**
+ * The stage wherever the camera is, also while it moves (between screens, say): a layer laid out
+ * as seen from above with `view` lands on the floor with `transform`, none once still from above.
+ * Layers that use it stay on screen through the move instead of going and coming back.
+ */
+export interface FloorView {
+  view: StageView;
+  transform?: string;
+}
+
+let floor: FloorView | null = null;
+const floorListeners = new Set<() => void>();
+
+/** Called by the grid on every frame; null while there is no stage fully shown. */
+export function setFloorView(next: FloorView | null) {
+  const same =
+    next && floor
+      ? next.transform === floor.transform &&
+        next.view.originX === floor.view.originX &&
+        next.view.originY === floor.view.originY &&
+        next.view.cell === floor.view.cell &&
+        next.view.left === floor.view.left
+      : next === floor;
+  if (same) return;
+  floor = next;
+  floorListeners.forEach((listener) => listener());
+}
+
+const subscribeFloor = (listener: () => void) => {
+  floorListeners.add(listener);
+  return () => floorListeners.delete(listener);
+};
+
+/** The stage on screen, still or moving, for layers that must not blink between screens. */
+export const useFloorView = () => useSyncExternalStore(subscribeFloor, () => floor);

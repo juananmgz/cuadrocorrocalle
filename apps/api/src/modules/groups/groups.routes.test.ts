@@ -248,3 +248,18 @@ test('stores how each figure comes out when placed', async () => {
   expect((await save({ pair: { rotation: 0, width: 2.3 } })).statusCode).toBe(400);
   await app.close();
 });
+
+test("an administrator's groups are all definitive, with no trial group", async () => {
+  const db: MemoryDb = { user: [], session: [], account: [], verification: [] };
+  const app = buildTestApp(db);
+  const cookie = await signUp(app, 'admin@example.com');
+  // Set by hand in the database.
+  db.user[0]!.isAdmin = true;
+
+  const response = await app.inject({ method: 'GET', url: GROUPS_PATH, headers: { cookie } });
+
+  expect(response.json().groups).toEqual([
+    expect.objectContaining({ name: TRIAL_GROUP_NAME, isTrial: false }),
+  ]);
+  await app.close();
+});

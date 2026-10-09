@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { expect, test, vi } from 'vitest';
@@ -33,6 +33,7 @@ function renderSignIn(url = '/entrar?volver=/inicio') {
 async function fillAndSubmit() {
   const user = userEvent.setup();
   await user.type(screen.getByLabelText('Correo electrónico'), 'julia@example.com');
+  await user.click(screen.getByRole('button', { name: 'Continuar' }));
   await user.type(screen.getByLabelText('Contraseña'), 'jota-de-la-vera');
   await user.click(screen.getByRole('button', { name: 'Entrar' }));
 }
@@ -74,6 +75,45 @@ test('starts Google sign-in and returns to the requested page', async () => {
     newUserCallbackURL: '/empezar',
     errorCallbackURL: '/entrar',
   });
+});
+
+test('makes the Google button ready again when coming back from Google', async () => {
+  const user = userEvent.setup();
+  signInSocial.mockResolvedValueOnce({ data: { url: 'https://accounts.google.com' }, error: null });
+  renderSignIn();
+
+  await user.click(screen.getByRole('button', { name: 'Continuar con Google' }));
+  expect(screen.getByRole('button', { name: 'Abriendo Google…' })).toBeDisabled();
+
+  // The back button restores the page from the back-forward cache.
+  act(() => {
+    window.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: true }));
+  });
+  expect(screen.getByRole('button', { name: 'Continuar con Google' })).toBeEnabled();
+});
+
+test('asks for the email and then the password', async () => {
+  const user = userEvent.setup();
+  signInEmail.mockResolvedValueOnce({ data: {}, error: null });
+  renderSignIn();
+
+  expect(screen.queryByLabelText('Contraseña')).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Crea una' })).toBeInTheDocument();
+  await user.type(screen.getByLabelText('Correo electrónico'), 'julia@example.com');
+  await user.click(screen.getByRole('button', { name: 'Continuar' }));
+
+  expect(screen.getByText('julia@example.com')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '¿Has olvidado la contraseña?' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Continuar con Google' })).not.toBeInTheDocument();
+  await user.type(screen.getByLabelText('Contraseña'), 'jota-de-la-vera');
+  await user.click(screen.getByRole('button', { name: 'Entrar' }));
+
+  expect(signInEmail).toHaveBeenLastCalledWith({
+    email: 'julia@example.com',
+    password: 'jota-de-la-vera',
+    rememberMe: true,
+  });
+  expect(await screen.findByText('Inicio')).toBeInTheDocument();
 });
 
 test('explains why Google could not link to an unconfirmed account', () => {

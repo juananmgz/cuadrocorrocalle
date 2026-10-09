@@ -183,9 +183,13 @@ export function PeopleTray({
   const toggle = (key: SectionKey) => setOpen((current) => ({ ...current, [key]: !current[key] }));
   // Folded into a strip of icons; a click on one shows just that block, floating beside it.
   const [collapsed, setCollapsed] = useState(readCollapsed);
-  const [floating, setFloating] = useState<{ key: SectionKey; top: number; left: number } | null>(
-    null,
-  );
+  const [floating, setFloating] = useState<{
+    key: SectionKey;
+    top: number;
+    left: number;
+    /** As low as the strip of icons reaches, so its end is always in view. */
+    bottom: number;
+  } | null>(null);
   const fold = (next: boolean) => {
     setCollapsed(next);
     setFloating(null);
@@ -256,7 +260,13 @@ export function PeopleTray({
               onClick={(event) => {
                 if (floating?.key === key) return setFloating(null);
                 const box = event.currentTarget.getBoundingClientRect();
-                setFloating({ key, top: box.top, left: box.right + 8 });
+                const strip = event.currentTarget.closest('[data-tray]')?.getBoundingClientRect();
+                setFloating({
+                  key,
+                  top: box.top,
+                  left: box.right + 8,
+                  bottom: strip?.bottom ?? window.innerHeight - 16,
+                });
               }}
             >
               {icon}
@@ -280,7 +290,11 @@ export function PeopleTray({
             className={styles.floating}
             data-tray-floating=""
             aria-label={shown.title}
-            style={{ top: floating.top, left: floating.left }}
+            style={{
+              top: floating.top,
+              left: floating.left,
+              maxHeight: floating.bottom - floating.top,
+            }}
           >
             <h3 className={styles.floatingTitle}>
               {shown.icon}

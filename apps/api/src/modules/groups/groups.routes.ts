@@ -24,7 +24,10 @@ export async function groupRoutes(app: FastifyInstance, { auth, groups }: GroupR
     const user = await getSessionUser(auth, request);
     if (!user) return reply.status(401).send({ message: 'Sign in first' });
 
-    return { groups: await groups.list(user.id), licenses: await groups.licenseQuota() };
+    return {
+      groups: await groups.list(user.id, { isAdmin: Boolean(user.isAdmin) }),
+      licenses: await groups.licenseQuota(),
+    };
   });
 
   app.post(GROUPS_PATH, async (request, reply) => {

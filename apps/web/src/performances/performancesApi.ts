@@ -41,9 +41,16 @@ export function usePerformances(groupId: string | undefined) {
 }
 
 export function usePerformance(id: string) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: itemKey(id),
     queryFn: async () => performanceSchema.parse(await request(`${PERFORMANCES_PATH}/${id}`)),
+    // Opened from a list, it shows at once with what the list has, while it loads.
+    placeholderData: () =>
+      queryClient
+        .getQueriesData<Performance[]>({ queryKey: ['performances'] })
+        .flatMap(([, list]) => (Array.isArray(list) ? list : []))
+        .find((item) => item.id === id),
   });
 }
 

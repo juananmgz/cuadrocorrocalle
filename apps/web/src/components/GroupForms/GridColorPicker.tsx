@@ -4,7 +4,7 @@ import { RadioGroup } from 'radix-ui';
 import { useEffect, useId } from 'react';
 
 import { GRID_COLOR_LABELS, gridColorVar } from '../../groups/gridColors';
-import styles from './GroupChooser.module.scss';
+import styles from './GroupForms.module.scss';
 
 interface GridColorPickerProps {
   value: GridColor;

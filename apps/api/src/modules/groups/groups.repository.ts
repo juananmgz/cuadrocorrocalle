@@ -23,6 +23,8 @@ export interface NewGroup {
 
 export interface GroupRepository {
   listByOwner(ownerId: string): Promise<GroupRecord[]>;
+  /** Turns every trial group of ownerId into a definitive one. */
+  makeDefinitive(ownerId: string): Promise<void>;
   create(group: NewGroup): Promise<GroupRecord>;
   findOwned(id: string, ownerId: string): Promise<GroupRecord | null>;
   /** Deletes a group and, through cascades, everything that belongs to it. */
@@ -51,6 +53,12 @@ export function createPrismaGroupRepository(prisma: PrismaClient): GroupReposito
         orderBy: { createdAt: 'asc' },
       });
       return groups.map((group) => ({ ...group, gridColor: group.gridColor as GridColor }));
+    },
+    async makeDefinitive(ownerId) {
+      await prisma.group.updateMany({
+        where: { ownerId, isTrial: true },
+        data: { isTrial: false },
+      });
     },
     async create(group) {
       const created = await prisma.group.create({ data: group });
@@ -101,6 +109,9 @@ export function createMemoryGroupRepository(): GroupRepository {
   return {
     async listByOwner(ownerId) {
       return groups.filter((group) => group.ownerId === ownerId);
+    },
+    async makeDefinitive(ownerId) {
+      for (const group of groups) if (group.ownerId === ownerId) group.isTrial = false;
     },
     async create(group) {
       nextId += 1;

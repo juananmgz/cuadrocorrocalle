@@ -1,4 +1,5 @@
-import { Ruler, SquareDashed, ZoomIn, ZoomOut } from 'lucide-react';
+import { Redo2, Ruler, SquareDashed, Undo2, ZoomIn, ZoomOut } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import {
   setMeasuresOn,
@@ -16,7 +17,7 @@ const ZOOM_STEP = 1.25;
  * In a corner of the stage side of the screen: zoom out and in, "Sin bordes" (hides the outlines
  * of figures and spaces) and "Medidas" (keeps the stage's measures on). They hold on every screen.
  */
-export function StageTools() {
+export function StageTools({ measuresLocked = false }: { measuresLocked?: boolean }) {
   const outlinesHidden = useOutlinesHidden();
   const measuresOn = useMeasuresOn();
   return (
@@ -52,10 +53,62 @@ export function StageTools() {
       <button
         type="button"
         className={styles.tool}
-        aria-pressed={measuresOn}
+        aria-pressed={measuresOn || measuresLocked}
+        // While the "Escenario" block is open the measures stay on; the button waits.
+        disabled={measuresLocked}
+        title={measuresLocked ? 'Con «Escenario» abierto las medidas se ven siempre' : undefined}
         onClick={() => setMeasuresOn(!measuresOn)}
       >
         <Ruler size={16} aria-hidden="true" /> Medidas
+      </button>
+    </div>
+  );
+}
+
+// How long undo and redo take to come in or go, in ms.
+const HISTORY_FADE = 200;
+
+interface HistoryToolsProps {
+  /** Whether they are on screen; they fade in and out. */
+  shown: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+}
+
+/** Undo and redo, in the top right corner of the stage side of the screen. */
+export function HistoryTools({ shown, canUndo, canRedo, onUndo, onRedo }: HistoryToolsProps) {
+  // Still there while they fade out.
+  const [present, setPresent] = useState(shown);
+  if (shown && !present) setPresent(true);
+  useEffect(() => {
+    if (shown) return;
+    const timer = window.setTimeout(() => setPresent(false), HISTORY_FADE);
+    return () => window.clearTimeout(timer);
+  }, [shown]);
+  if (!present) return null;
+  return (
+    <div className={styles.root} data-top="" data-leaving={shown ? undefined : ''} inert={!shown}>
+      <button
+        type="button"
+        className={styles.tool}
+        aria-label="Deshacer (Ctrl+Z)"
+        title="Deshacer (Ctrl+Z)"
+        disabled={!canUndo}
+        onClick={onUndo}
+      >
+        <Undo2 size={16} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className={styles.tool}
+        aria-label="Rehacer (Ctrl+Mayús+Z)"
+        title="Rehacer (Ctrl+Mayús+Z)"
+        disabled={!canRedo}
+        onClick={onRedo}
+      >
+        <Redo2 size={16} aria-hidden="true" />
       </button>
     </div>
   );

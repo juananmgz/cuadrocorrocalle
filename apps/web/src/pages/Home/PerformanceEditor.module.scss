@@ -20,6 +20,11 @@
   gap: var(--space-2);
   justify-items: start;
 
+  // As wide as the views' content, which keep room for their scrollbar on the right.
+  @include mixins.from-tablet {
+    padding-right: var(--scrollbar-size);
+  }
+
   .switch {
     justify-self: stretch;
   }
@@ -135,8 +140,10 @@
   min-height: 0;
 
   @include mixins.from-tablet {
-    // Only vertical: the heartbeat around a block must not add a horizontal scroll.
+    // Only vertical: the heartbeat around a block must not add a horizontal scroll. The bar's
+    // room is always kept, beside the cards.
     overflow: hidden auto;
+    scrollbar-gutter: stable;
   }
 
   &[hidden] {

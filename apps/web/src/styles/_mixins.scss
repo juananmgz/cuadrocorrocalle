@@ -13,6 +13,20 @@ $breakpoint-desktop: 1024px;
   }
 }
 
+// Scrolls up and down without its content losing width: the scrollbar takes its room from the
+// right padding given (or, without one, from the space beside the box). Its room is always kept,
+// so nothing moves when the bar comes or goes. `--scrollbar-size` is measured in main.tsx.
+@mixin scroll-y($padding-right: null) {
+  overflow: hidden auto;
+  scrollbar-gutter: stable;
+
+  @if $padding-right {
+    padding-right: max(0px, calc(#{$padding-right} - var(--scrollbar-size)));
+  } @else {
+    margin-right: calc(-1 * var(--scrollbar-size));
+  }
+}
+
 @mixin heading {
   font-family: var(--font-heading);
   font-weight: 700;

@@ -1,0 +1,60 @@
+@use '../../styles/mixins';
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.colors {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  @include mixins.label;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.swatch {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--gc-ink);
+  cursor: pointer;
+  border: var(--border-width) solid var(--token-stroke);
+  border-radius: 50%;
+
+  &[data-state='checked'] {
+    box-shadow:
+      0 0 0 3px var(--surface),
+      0 0 0 5px var(--ink);
+  }
+}
+
+.check {
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+// "Borrar grupo" sits on the left, away from the save button.
+.deleteButton {
+  margin-right: auto;
+}
+
+.note {
+  margin: 0;
+  color: var(--ink-soft);
+}
