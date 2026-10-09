@@ -6,6 +6,26 @@
   z-index: 3;
   display: flex;
   gap: var(--space-2);
+
+  // Undo and redo, in the top right corner instead, under the top bar.
+  &[data-top] {
+    top: calc(56px + var(--space-4));
+    bottom: auto;
+    animation: tools-in 200ms ease both;
+
+    &[data-leaving] {
+      animation: tools-out 200ms ease both;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+
+      &[data-leaving] {
+        animation: none;
+        opacity: 0;
+      }
+    }
+  }
 }
 
 .tool:disabled {
@@ -37,5 +57,19 @@
     color: var(--on-accent);
     background: var(--accent);
     border-color: var(--accent);
+  }
+}
+
+@keyframes tools-in {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+
+@keyframes tools-out {
+  to {
+    opacity: 0;
+    translate: 0 -8px;
   }
 }
