@@ -12,8 +12,9 @@ import {
 } from '../../stage/pieceFigures';
 import type { StageSize } from '../../stage/placement';
 import { childrenOf, layoutSpace } from '../../stage/spaces';
-import { usePerspectiveView, useStageView } from '../GridBackground/stageView';
+import { useFloorView } from '../GridBackground/stageView';
 import { type PlacedPerson, StageLayer } from '../StageLayer/StageLayer';
+import { carriesOn, leftStage } from './carryOn';
 
 interface PiecePreviewProps {
   groupId: string;
@@ -21,8 +22,6 @@ interface PiecePreviewProps {
   /** What the piece has on its stage, as saved. */
   piece: StageContent;
   stage: StageSize;
-  /** Drawn on the stage seen from an angle (the home page) instead of from above. */
-  perspective?: boolean;
 }
 
 // How long one preview takes to fade out (and the next to fade in), in ms.
@@ -50,6 +49,14 @@ export function PiecePreview(props: Shown) {
   const [leaving, setLeaving] = useState<Shown | null>(null);
   // The piece that came in place of another, so it waits for it to go.
   const [afterKey, setAfterKey] = useState<string | null>(null);
+  // The same piece the last screen had: it is already there, so it does not fade in.
+  const [carriedKey] = useState(() => (carriesOn(fadeKey) ? fadeKey : null));
+  useEffect(
+    () => () => {
+      if (!last.current.fadingOut) leftStage(last.current.fadeKey);
+    },
+    [],
+  );
   // Before it is painted, so the new one starts hidden.
   useLayoutEffect(() => {
     if (last.current.fadeKey === fadeKey) return;
@@ -73,7 +80,15 @@ export function PiecePreview(props: Shown) {
       <PieceLayer
         key={fadeKey}
         {...props}
-        fade={fadingOut ? 'out' : afterKey === fadeKey ? 'after' : 'in'}
+        fade={
+          fadingOut
+            ? 'out'
+            : afterKey === fadeKey
+              ? 'after'
+              : carriedKey === fadeKey
+                ? undefined
+                : 'in'
+        }
       />
     </>
   );
@@ -88,12 +103,11 @@ function PieceLayer({
   performanceId,
   piece,
   stage,
-  perspective = false,
   fade,
-}: PiecePreviewProps & { fade: 'in' | 'after' | 'out' }) {
-  const above = useStageView();
-  const angled = usePerspectiveView();
-  const view = perspective ? angled?.view : above;
+}: PiecePreviewProps & { fade?: 'in' | 'after' | 'out' }) {
+  // Wherever the camera is, also while it moves, so it stays on screen between screens.
+  const floor = useFloorView();
+  const view = floor?.view;
   const { data: callUp } = useCallUp(performanceId);
   const { data: people } = usePeople(groupId);
 
@@ -114,7 +128,7 @@ function PieceLayer({
   return (
     <StageLayer
       view={view}
-      transform={perspective ? angled?.transform : undefined}
+      transform={floor?.transform}
       fade={fade}
       stage={stage}
       placed={placed}

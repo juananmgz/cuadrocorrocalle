@@ -1,11 +1,18 @@
 import { useEffect, useRef } from 'react';
 
 import styles from './GridBackground.module.scss';
-import { onZoom, zoomBy, zoomLevel } from '../../stage/stagePrefs';
+import {
+  onOutlinesHidden,
+  onZoom,
+  outlinesHidden,
+  zoomBy,
+  zoomLevel,
+} from '../../stage/stagePrefs';
 import {
   homography,
   isLabelLifted,
   onLabelLift,
+  setFloorView,
   setPerspectiveView,
   setStageView,
 } from './stageView';
@@ -50,6 +57,8 @@ const BOTTOM_ROOM = 48;
 const LABEL_LIFT = 48;
 // How long it takes to move, in ms (eased in and out).
 const LIFT_DURATION = 200;
+// How long "Sin bordes" takes to fade the stage's lines in or out, in ms.
+const PLAIN_DURATION = 300;
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
 // Room kept above the stage for the label of the piece being edited.
@@ -59,6 +68,9 @@ const DURATION = 1200;
 const HORIZON_FROM = 0.18;
 const HORIZON_TO = 0.45;
 const STAGE_DURATION = 350;
+// How long a stage that is taken away stays, in case the next screen brings it back (e.g. opening
+// a performance from the home page): then it never goes, and nothing blinks.
+const STAGE_GRACE = 600;
 const RESIZE_DURATION = 450;
 // Cross-fade when the grid colour or the theme changes.
 const COLOR_FADE = 450;
@@ -102,6 +114,12 @@ interface Frame {
   label: string | null;
   /** How far the sign has moved up out of the way of the stage's measures: 0 to 1. */
   lift: number;
+  /**
+   * "Sin bordes": a solid stage (no grid through it), with no dashed edge strip nor the musicians'
+   * zone (its band, line or name).
+   */
+  /** How far "Sin bordes" has come in (eased): 0 = off, 1 = on. */
+  plain: number;
 }
 
 interface Camera {
@@ -195,7 +213,8 @@ function fittingCell(frame: Pick<Frame, 'width' | 'height' | 'leftInset' | 'stag
   const halfRows = frame.stage.rows / 2;
   // The centre sits above the middle, so each half is fitted on its own: the top keeps room for
   // the sign (raised over the width measure) and the bottom for "PÚBLICO".
-  const top = (frame.label ? LABEL_ROOM + LABEL_LIFT : 0) + SIDE_ROOM / 2;
+  // The sign's room is kept even without one, so showing or hiding it never zooms.
+  const top = LABEL_ROOM + LABEL_LIFT + SIDE_ROOM / 2;
   const fit = Math.min(
     (areaWidth * FILL_WIDTH) / frame.stage.cols,
     ((frame.height - TOP_BAR) * FILL_HEIGHT) / frame.stage.rows,
@@ -344,12 +363,12 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
     addLine(k + offsetX, true, levels, axisX.alpha(k + offsetX));
     addLine(k + offsetY, false, levels, axisY.alpha(k + offsetY));
   }
-  const strokeLevels = (segments: number[][], color: string, lineWidth: number) => {
+  const strokeLevels = (segments: number[][], color: string, lineWidth: number, alpha = 1) => {
     ctx.strokeStyle = color;
     ctx.lineWidth = lineWidth;
     segments.forEach((points, level) => {
       if (!points.length) return;
-      ctx.globalAlpha = (level + 1) / FOG_LEVELS;
+      ctx.globalAlpha = ((level + 1) / FOG_LEVELS) * alpha;
       ctx.beginPath();
       for (let i = 0; i < points.length; i += 4) {
         ctx.moveTo(points[i]!, points[i + 1]!);
@@ -360,6 +379,19 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
     ctx.globalAlpha = 1;
   };
   strokeLevels(levels, colors['--grid-minor'], 1);
+
+  // Centre cross through the middle point, which is also the stage centre.
+  function drawCross(alpha = 1) {
+    if (!showCross || alpha <= 0) return;
+    const cross: number[][] = Array.from({ length: FOG_LEVELS }, () => []);
+    addLine(centre.x, true, cross);
+    addLine(centre.y, false, cross);
+    strokeLevels(cross, colors['--grid-major'], 2, alpha);
+  }
+  // Under the stage too: a solid stage ("Sin bordes") covers it, like the rest of the grid.
+  if (frame.plain > 0) drawCross();
+  // What "Sin bordes" takes away fades out (and back in) with it.
+  const kept = 1 - frame.plain;
 
   // Stage, centred on the middle point, with the audience at the near edge.
   // It grows a little while it fades in.
@@ -409,7 +441,8 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
       return true;
     };
     if (rectangle(halfX, halfY)) {
-      ctx.globalAlpha = 0.75 * shown;
+      // "Sin bordes": the stage is solid, so the grid does not show through it.
+      ctx.globalAlpha = lerp(0.75, 1, frame.plain) * shown;
       ctx.fillStyle = colors['--stage'];
       ctx.fill();
       ctx.globalAlpha = shown;
@@ -419,15 +452,23 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
 
       // Distance to keep clear from the edge.
       const edge = frame.edge * grow;
-      if (edge > 0 && halfX > edge && halfY > edge && rectangle(halfX - edge, halfY - edge)) {
+      if (
+        kept > 0 &&
+        edge > 0 &&
+        halfX > edge &&
+        halfY > edge &&
+        rectangle(halfX - edge, halfY - edge)
+      ) {
+        ctx.globalAlpha = shown * kept;
         ctx.setLineDash([6, 5]);
         ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.setLineDash([]);
+        ctx.globalAlpha = shown;
       }
 
       // The musicians' zone: a band of its own colour along the back or a side, named.
-      const music = frame.stage?.music;
+      const music = kept > 0 ? frame.stage?.music : null;
       if (music) {
         const deep = Math.min(music.deep * grow, music.side === 'back' ? halfY * 2 : halfX * 2);
         const [x0, y0, x1, y1] =
@@ -437,14 +478,15 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
               ? [-halfX, -halfY, -halfX + deep, halfY]
               : [halfX - deep, -halfY, halfX, halfY];
         if (box(x0, y0, x1, y1)) {
+          ctx.globalAlpha = shown * kept;
           ctx.fillStyle = colors['--music'];
           ctx.fill();
-          ctx.globalAlpha = shown;
           ctx.setLineDash([4, 4]);
           ctx.lineWidth = 1.5;
           ctx.strokeStyle = colors['--stage-edge'];
           ctx.stroke();
           ctx.setLineDash([]);
+          ctx.globalAlpha = shown;
           // Its name goes with the other labels, over the lines and with their halo.
           const name = project((x0 + x1) / 2, (y0 + y1) / 2);
           if (name) musicName = { ...name, size: Math.max(11, Math.min(16, camera.scale * 0.45)) };
@@ -456,6 +498,7 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
         ctx.globalAlpha = shown;
         if (musicName) {
           const { x, y, size } = musicName;
+          ctx.globalAlpha = shown * kept;
           ctx.font = `700 ${size}px ${colors['--font-heading']}`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
@@ -464,6 +507,7 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
           ctx.fillStyle = colors['--ink-soft'];
           ctx.fillText('MÚSICOS', x, y);
           ctx.letterSpacing = '0px';
+          ctx.globalAlpha = shown;
         }
         const label = project(0, -halfY - 0.6);
         if (label) {
@@ -513,13 +557,8 @@ function drawFrame(canvas: HTMLCanvasElement, frame: Frame, colors: Colors) {
     }
   }
 
-  // Centre cross through the middle point, which is also the stage centre.
-  if (showCross) {
-    const cross: number[][] = Array.from({ length: FOG_LEVELS }, () => []);
-    addLine(centre.x, true, cross);
-    addLine(centre.y, false, cross);
-    strokeLevels(cross, colors['--grid-major'], 2);
-  }
+  // Over the stage, fading out as it turns solid ("Sin bordes").
+  drawCross(kept);
 
   // Soft edge where the curved floor meets the sky; it fades out as the camera looks down.
   if (t < 1) {
@@ -579,8 +618,11 @@ export function GridBackground({
     // Last stage shown, kept to fade it out after the prop is cleared.
     stage: stage as GridStage | null,
     lift: isLabelLifted() ? 1 : 0,
+    plain: outlinesHidden() ? 1 : 0,
     centre: stage?.centre ?? { x: 0, y: 0 },
     frame: 0,
+    // When the stage was taken away, while it is held on (see STAGE_GRACE).
+    goneAt: null as number | null,
   });
 
   useEffect(() => {
@@ -589,7 +631,11 @@ export function GridBackground({
     const state = animation.current;
     const targetView = view === 'top' ? 1 : 0;
     const targetLean = view === 'angled' ? 1 : 0;
-    const targetShown = stage ? 1 : 0;
+    if (stage) state.goneAt = null;
+    else if (state.stage && state.stageShown > 0 && state.goneAt === null)
+      state.goneAt = performance.now();
+    const holding = () => state.goneAt !== null && performance.now() - state.goneAt < STAGE_GRACE;
+    let targetShown = stage ? 1 : 0;
     // A visible stage that changes size animates from its previous size.
     const resizing =
       stage &&
@@ -625,12 +671,15 @@ export function GridBackground({
       centre: state.centre,
       label,
       lift: easeInOut(state.lift),
+      plain: easeInOut(state.plain),
     });
 
     let last = performance.now();
     const tick = (now: number) => {
       const step = Math.min(1, (now - last) / DURATION);
       last = now;
+      const held = !stage && holding();
+      targetShown = stage || held ? 1 : 0;
       const targetCell = fittingCell(currentFrame()) * zoomLevel();
 
       const toward = (value: number, target: number, amount: number) =>
@@ -698,6 +747,10 @@ export function GridBackground({
       }
       if (state.resized === 1) state.previous = null;
       const targetLift = isLabelLifted() ? 1 : 0;
+      const targetPlain = outlinesHidden() ? 1 : 0;
+      state.plain = reduceMotion
+        ? targetPlain
+        : toward(state.plain, targetPlain, (step * DURATION) / PLAIN_DURATION);
       state.lift = reduceMotion
         ? targetLift
         : toward(state.lift, targetLift, (step * DURATION) / LIFT_DURATION);
@@ -720,11 +773,15 @@ export function GridBackground({
         state.stageShown !== targetShown ||
         state.resized !== 1;
       publishStageView(currentFrame(), moving && (camera || !zooming));
-      state.frame = moving || state.lift !== targetLift ? requestAnimationFrame(tick) : 0;
+      state.frame =
+        moving || held || state.lift !== targetLift || state.plain !== targetPlain
+          ? requestAnimationFrame(tick)
+          : 0;
     };
 
     // Layers over the grid (the people on the stage) follow it once it stands still from above.
     const publishStageView = (frame: Frame, moving: boolean) => {
+      publishFloor(frame, moving);
       publishPerspective(frame, moving);
       if (moving || !frame.stage || frame.view !== 1 || frame.stageShown !== 1)
         return setStageView(null);
@@ -732,11 +789,30 @@ export function GridBackground({
       setStageView({ originX: centerX, originY: centerY, cell: frame.cell, left: frame.leftInset });
     };
 
+    // Layers that follow the stage wherever the camera is: from above once still, else put onto
+    // the floor as the camera sees it on this frame.
+    const publishFloor = (frame: Frame, moving: boolean) => {
+      if (!frame.stage || frame.stageShown !== 1) return setFloorView(null);
+      if (!moving && frame.view === 1) {
+        const { centerX, centerY } = freeArea(frame);
+        return setFloorView({
+          view: { originX: centerX, originY: centerY, cell: frame.cell, left: frame.leftInset },
+        });
+      }
+      setFloorView(floorAt(frame, ease(frame.view)));
+    };
+
     // Previews on the stage seen from an angle: laid out from above, then put onto the floor.
     const publishPerspective = (frame: Frame, moving: boolean) => {
       if (moving || !frame.stage || frame.view !== 0 || frame.stageShown !== 1)
         return setPerspectiveView(null);
-      const camera = cameraFor(frame, 0);
+      setPerspectiveView(floorAt(frame, 0));
+    };
+
+    // A layer laid out from above, and how it lands on the floor seen by the camera at `t`.
+    const floorAt = (frame: Frame, t: number) => {
+      if (!frame.stage) return null;
+      const camera = cameraFor(frame, t);
       const project = projector(camera);
       const [halfX, halfY] = [frame.stage.cols / 2, frame.stage.rows / 2];
       const corners = [
@@ -746,25 +822,23 @@ export function GridBackground({
         [-halfX, halfY],
       ] as const;
       const to = corners.map(([x, y]) => project(x, y));
-      if (!to.every(Boolean)) return setPerspectiveView(null);
+      if (!to.every(Boolean)) return null;
       const from = corners.map(([x, y]) => ({
         x: camera.centerX + x * camera.scale,
         y: camera.centerY - y * camera.scale,
       }));
       const transform = homography(from, to as { x: number; y: number }[]);
-      setPerspectiveView(
-        transform
-          ? {
-              view: {
-                originX: camera.centerX,
-                originY: camera.centerY,
-                cell: camera.scale,
-                left: frame.leftInset,
-              },
-              transform,
-            }
-          : null,
-      );
+      return transform
+        ? {
+            view: {
+              originX: camera.centerX,
+              originY: camera.centerY,
+              cell: camera.scale,
+              left: frame.leftInset,
+            },
+            transform,
+          }
+        : null;
     };
 
     const redraw = () => {
@@ -777,6 +851,7 @@ export function GridBackground({
 
     const stopLift = onLabelLift(redraw);
     const stopZoom = onZoom(redraw);
+    const stopOutlines = onOutlinesHidden(redraw);
 
     // Redraw on resize and whenever the theme or the group's grid colour changes.
     const resize = new ResizeObserver(redraw);
@@ -811,6 +886,7 @@ export function GridBackground({
       state.frame = 0;
       stopLift();
       stopZoom();
+      stopOutlines();
       resize.disconnect();
       theme.disconnect();
       scheme?.removeEventListener('change', recolor);
@@ -866,6 +942,7 @@ export function GridBackground({
     () => () => {
       setStageView(null);
       setPerspectiveView(null);
+      setFloorView(null);
     },
     [],
   );

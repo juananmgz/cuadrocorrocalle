@@ -20,7 +20,7 @@ import { FROM_TABLET, useMediaQuery } from '../../hooks';
 import { useSaveGroupInstruments } from '../../groups/groupsApi';
 import { syncMusicSeats } from '../../stage/musicSeats';
 import { isMisplaced, type StageSize } from '../../stage/placement';
-import { useStageView } from '../GridBackground/stageView';
+import { useFloorView } from '../GridBackground/stageView';
 import { StageLayer } from '../StageLayer/StageLayer';
 import { useStageEditing } from '../StageLayer/useStageEditing';
 import { FigurePalette, SpacePalette } from '../PeopleTray/FigurePalette';
@@ -104,7 +104,9 @@ export function RepertoireCard({
     return () => observer.disconnect();
   }, []);
   const rail = wide && narrow;
-  const stageView = useStageView();
+  // Also while the camera moves (e.g. coming from the summary), so the figures never blink.
+  const floorView = useFloorView();
+  const stageView = floorView?.view ?? null;
   // A spoken piece has no stage, so nobody is placed or added to it.
   const spokenOpen = Boolean(openPiece && isSpoken(openPiece.type));
   const placing = Boolean(stage && stageActive && wide && openPiece && !spokenOpen);
@@ -376,7 +378,12 @@ export function RepertoireCard({
         </div>
       </div>
       {placing && stage && stageView && (
-        <StageLayer view={stageView} stage={stage} {...editing.layer} />
+        <StageLayer
+          view={stageView}
+          transform={floorView?.transform}
+          stage={stage}
+          {...editing.layer}
+        />
       )}
       {editing.settings}
     </DndContext>
