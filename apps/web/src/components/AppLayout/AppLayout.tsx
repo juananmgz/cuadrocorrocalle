@@ -1,18 +1,16 @@
-import type { Group } from '@cuadrocorrocalle/shared';
 import { useEffect, useState } from 'react';
-import { Outlet, useNavigate } from 'react-router';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 
 import { authClient } from '../../auth/authClient';
 import { RequireAuth } from '../../auth/RequireAuth';
 import { clearActiveGroup, setActiveGroupId, useActiveGroupId } from '../../groups/activeGroup';
 import { useGroups } from '../../groups/groupsApi';
 import { GridBackground } from '../GridBackground/GridBackground';
-import { GroupChooser } from '../GroupChooser/GroupChooser';
 import { TopBar } from '../TopBar/TopBar';
 import styles from './AppLayout.module.scss';
 import type { AppContext, GridSettings } from './appContext';
 
-/** Frame for signed-in pages: grid, top bar and the active group with its chooser. */
+/** Frame for signed-in pages: grid, top bar and the active group ("Elegir grupo" is a page). */
 export function AppLayout() {
   return (
     <RequireAuth>
@@ -21,12 +19,15 @@ export function AppLayout() {
   );
 }
 
+/** "Elegir grupo", and "Modificar grupos" under it. */
+const GROUPS_PAGE = '/grupos';
+
 function SignedInLayout() {
   const navigate = useNavigate();
   const { data: session } = authClient.useSession();
   const { data } = useGroups();
   const activeId = useActiveGroupId();
-  const [chooserOpen, setChooserOpen] = useState(false);
+  const { pathname } = useLocation();
   // Pages can move the background grid (the home shifts it right of its list and looks from above).
   const [grid, setGrid] = useState<GridSettings>({});
   // The middle of the top bar, for a page's title.
@@ -48,12 +49,9 @@ function SignedInLayout() {
     };
   }, [activeGroup]);
 
+  // With several groups and none chosen, "Elegir grupo" comes first.
   const mustChoose = Boolean(groups && groups.length > 1 && !activeGroup);
-
-  const choose = (group: Group) => {
-    setActiveGroupId(group.id);
-    setChooserOpen(false);
-  };
+  if (mustChoose && !pathname.startsWith(GROUPS_PAGE)) return <Navigate to={GROUPS_PAGE} replace />;
 
   const signOut = async () => {
     await authClient.signOut();
@@ -66,7 +64,7 @@ function SignedInLayout() {
       <GridBackground {...grid} />
       <TopBar
         groupName={activeGroup?.name}
-        onGroupClick={() => setChooserOpen(true)}
+        onGroupClick={() => navigate(GROUPS_PAGE)}
         userName={session?.user.name || '?'}
         userEmail={session?.user.email}
         showSections
@@ -80,17 +78,6 @@ function SignedInLayout() {
           { label: 'Cerrar sesión', onSelect: signOut, danger: true },
         ]}
       />
-      {data && groups && (
-        <GroupChooser
-          open={chooserOpen || mustChoose}
-          onOpenChange={setChooserOpen}
-          groups={groups}
-          groupsAvailable={data.licenses.groupsAvailable}
-          activeId={activeId}
-          onChoose={choose}
-          dismissable={!mustChoose}
-        />
-      )}
       <div className={styles.content}>
         <main className={styles.main}>
           <Outlet context={{ activeGroup, signOut, setGrid, titleSlot } satisfies AppContext} />

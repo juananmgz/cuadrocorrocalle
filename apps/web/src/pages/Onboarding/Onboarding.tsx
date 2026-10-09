@@ -3,7 +3,7 @@ import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { useApp } from '../../components/AppLayout/appContext';
-import { GridColorPicker } from '../../components/GroupChooser/GridColorPicker';
+import { GridColorPicker } from '../../components/GroupForms/GridColorPicker';
 import { PasteNamesDialog } from '../../components/PasteNamesDialog/PasteNamesDialog';
 import { Button } from '../../components/ui/Button/Button';
 import { TextField } from '../../components/ui/TextField/TextField';

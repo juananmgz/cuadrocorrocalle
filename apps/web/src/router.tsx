@@ -87,6 +87,18 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        path: '/grupos',
+        lazy: async () => ({
+          Component: (await import('./pages/Groups/ChooseGroup')).ChooseGroup,
+        }),
+      },
+      {
+        path: '/grupos/editar',
+        lazy: async () => ({
+          Component: (await import('./pages/Groups/ManageGroups')).ManageGroups,
+        }),
+      },
+      {
         path: '/grupo',
         lazy: async () => ({ Component: (await import('./pages/MyGroup/MyGroup')).MyGroup }),
       },

@@ -48,8 +48,14 @@ export function createGroupService(repository: GroupRepository) {
   return {
     ensureTrialGroup,
 
-    async list(ownerId: string): Promise<Group[]> {
-      return (await ensureTrialGroup(ownerId)).map(toGroup);
+    /** An administrator has no trial groups: every one of theirs is definitive. */
+    async list(ownerId: string, { isAdmin = false } = {}): Promise<Group[]> {
+      const groups = await ensureTrialGroup(ownerId);
+      if (isAdmin && groups.some((group) => group.isTrial)) {
+        await repository.makeDefinitive(ownerId);
+        return groups.map((group) => toGroup({ ...group, isTrial: false }));
+      }
+      return groups.map(toGroup);
     },
 
     // No licences exist until phase 5, so no extra groups are covered yet.

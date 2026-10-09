@@ -1,0 +1,212 @@
+@use '../../styles/mixins';
+
+.title {
+  @include mixins.heading;
+
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3rem);
+}
+
+.lead {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.back {
+  @include mixins.heading;
+
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  justify-self: start;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+// "Elegir grupo": a square per group, then "Modificar".
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.tile {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: center;
+  align-content: start;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-2);
+  font: inherit;
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+  background: transparent;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius);
+
+  &:hover {
+    background: var(--sel-bg);
+  }
+
+  &[aria-current='true'] {
+    border-color: var(--accent);
+  }
+}
+
+// Over the square: "Prueba", or the same room empty so the squares line up.
+.tag {
+  display: grid;
+  place-items: center;
+  min-height: 20px;
+
+  &[data-small] {
+    min-height: 0;
+  }
+}
+
+.badge {
+  padding: 0 var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--warn-bg);
+  border-radius: var(--radius);
+}
+
+.square {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  font-family: var(--font-heading);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--gc-ink);
+  border: var(--border-width) solid var(--token-stroke);
+  border-radius: 16px;
+
+  &[data-small] {
+    width: 48px;
+    height: 48px;
+    font-size: 1.5rem;
+    border-radius: 10px;
+  }
+
+  &[data-modify] {
+    color: var(--ink-soft);
+    border: var(--border-width) dashed var(--ctl);
+  }
+}
+
+.name {
+  font-weight: 700;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+// "Modificar grupos": a row per group, with its form below when open.
+.rows {
+  display: grid;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: var(--border-width) solid var(--line);
+
+  &:first-child {
+    padding-top: 0;
+  }
+}
+
+.rowHead {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+// The small square with "Prueba" beside it, on top.
+.rowSquare {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: center;
+}
+
+.rowName {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+  background: transparent;
+  border: var(--border-width) solid var(--ctl);
+  border-radius: var(--radius);
+
+  &:hover,
+  &[aria-expanded='true'] {
+    background: var(--sel-bg);
+  }
+
+  &[data-danger] {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+}
+
+.add {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  background: transparent;
+  border: var(--border-width) dashed var(--ctl);
+  border-radius: var(--radius);
+
+  &:hover {
+    background: var(--sel-bg);
+  }
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--line);
+}
+
+.quota {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
