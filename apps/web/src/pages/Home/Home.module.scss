@@ -7,19 +7,27 @@
   align-content: start;
 
   @include mixins.from-tablet {
+    // A third of the screen, like 4 of 12 columns: the list, the summary and the editor alike.
+    --column-width: max(380px, calc((100vw - 2 * var(--space-4)) / 3));
+
     position: fixed;
     top: calc(56px + var(--space-4));
     bottom: var(--space-4);
     left: var(--space-4);
     z-index: 2;
-
-    // A third of the screen, like 4 of 12 columns: the list, the summary and the editor alike.
-    width: max(380px, calc((100vw - 2 * var(--space-4)) / 3));
+    width: var(--column-width);
     overflow-y: auto;
 
-    // The editor scrolls inside its own views.
+    // The editor scrolls inside its own views; the column is a scrollbar wider, so the bar sits
+    // beside the cards instead of narrowing them.
     &[data-editor] {
+      width: calc(var(--column-width) + var(--scrollbar-size));
       overflow: hidden;
+    }
+
+    // On a tablet (a touch screen) the menus get more room: 5 of 12 columns, the stage 7.
+    @media (pointer: coarse) {
+      --column-width: max(380px, calc((100vw - 2 * var(--space-4)) * 5 / 12));
     }
   }
 }

@@ -98,9 +98,12 @@
   position: fixed;
   z-index: 30;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   width: min(340px, calc(100vw - 80px));
+
+  // No lower than the strip of icons (set from it); only its content scrolls.
   max-height: calc(100vh - 96px);
-  overflow: hidden auto;
+  overflow: hidden;
 }
 
 .floatingTitle {
@@ -115,9 +118,13 @@
 }
 
 .floatingBody {
+  @include mixins.scroll-y(var(--space-3));
+
   display: grid;
+  align-content: start;
   gap: var(--space-2);
-  padding: 0 var(--space-3) var(--space-3);
+  padding-bottom: var(--space-3);
+  padding-left: var(--space-3);
 }
 
 // Unfolded: the button to fold it, stuck to the bottom of the tray, in the accent colour.

@@ -24,8 +24,9 @@ function devicePref(key: string) {
     listeners.add(listener);
     return () => listeners.delete(listener);
   };
-  const use = () => useSyncExternalStore(subscribe, () => value);
-  return { set, use };
+  const get = () => value;
+  const use = () => useSyncExternalStore(subscribe, get);
+  return { set, use, get, subscribe };
 }
 
 const outlines = devicePref('ccc.stageOutlinesHidden');
@@ -35,6 +36,9 @@ const measures = devicePref('ccc.stageMeasures');
 export const setOutlinesHidden = outlines.set;
 /** Whether the outlines of figures and spaces are hidden, so only the people show. */
 export const useOutlinesHidden = outlines.use;
+/** The same, read outside React (e.g. by the grid drawn on a canvas), and told when it changes. */
+export const outlinesHidden = outlines.get;
+export const onOutlinesHidden = outlines.subscribe;
 
 // When "Medidas" was last pressed: only then do the measures draw (or undraw) themselves.
 let measuresPressedAt = -Infinity;
@@ -45,6 +49,11 @@ export function setMeasuresOn(next: boolean) {
   measures.set(next);
 }
 
+/** Makes the measures draw (or undraw) themselves next time they come or go, e.g. with "Escenario". */
+export function animateMeasures() {
+  measuresPressedAt = performance.now();
+}
+
 /** Whether "Medidas" was pressed within the last `ms`, so the measures animate. */
 export const measuresJustPressed = (ms: number) => performance.now() - measuresPressedAt < ms;
 /** Whether the stage's measures are kept drawn. */
@@ -53,7 +62,15 @@ export const useMeasuresOn = measures.use;
 // How much the stage is zoomed in (or out) by hand, on top of what fits; for this visit only.
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 4;
-let zoom = 1;
+// A tablet starts a little closer, so the stage reads better on its smaller screen.
+const TABLET_ZOOM = 1.25;
+let zoom = (() => {
+  try {
+    return window.matchMedia('(pointer: coarse) and (min-width: 640px)').matches ? TABLET_ZOOM : 1;
+  } catch {
+    return 1;
+  }
+})();
 const zoomListeners = new Set<() => void>();
 
 /** Zooms the stage in (a factor over 1) or out, within its limits. */
@@ -64,7 +81,7 @@ export function zoomBy(factor: number) {
   zoomListeners.forEach((listener) => listener());
 }
 
-/** The zoom set by hand: 1 is what fits. */
+/** The zoom set by hand (or a tablet's start): 1 is what fits. */
 export const zoomLevel = () => zoom;
 
 export function onZoom(listener: () => void) {

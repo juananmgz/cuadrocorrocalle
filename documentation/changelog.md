@@ -12,6 +12,14 @@ Qué commits entran en cada versión, con enlace a su pull request. Cada fase de
 
 Las PR anteriores a la #13 llevaban el número de paso del plan en el título.
 
+## v0.4.0 · en curso
+
+Resto de la fase 3 (pasos 3.3 a 3.5); se publicará al cerrarla.
+
+| PR                                                                | Commit                                                                    | Cambio                                                                                                         |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [CCC-0052](https://github.com/juananmgz/cuadrocorrocalle/pull/52) | [en la PR](https://github.com/juananmgz/cuadrocorrocalle/pull/52/commits) | ✨ Select several figures at once, a smooth stage between screens, two-step sign-in and group pages (paso 3.3) |
+
 ## v0.3.5 · [Release #51](https://github.com/juananmgz/cuadrocorrocalle/pull/51)
 
 Primeros pasos de la fase 3 (3.1 y 3.2), publicados antes de cerrarla; la v0.4.0 llegará al cerrar la fase 3.

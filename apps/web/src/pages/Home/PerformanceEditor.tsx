@@ -15,7 +15,7 @@ import { StageMeasures } from '../../components/StageMeasures/StageMeasures';
 import { FROM_TABLET, useMediaQuery } from '../../hooks';
 import { StageTools } from '../../components/StageTools/StageTools';
 import { useApp } from '../../components/AppLayout/appContext';
-import { useMeasuresOn } from '../../stage/stagePrefs';
+import { animateMeasures, useMeasuresOn } from '../../stage/stagePrefs';
 import { CreatePerformanceCard, type PerformanceFormHandle } from './CreatePerformanceCard';
 import styles from './PerformanceEditor.module.scss';
 
@@ -222,7 +222,11 @@ export function PerformanceEditor({
             onSaved={setPerformance}
             onStageChange={onStageChange}
             onStageSizeChange={setShownStage}
-            onStageOpen={setStageOpen}
+            // Opening or closing "Escenario" draws or undraws the measures, as "Medidas" does.
+            onStageOpen={(open) => {
+              animateMeasures();
+              setStageOpen(open);
+            }}
             onMissingChange={setMissing}
             handleRef={formRef}
             // While summarizing the form is hidden, so its title is too.
@@ -239,7 +243,7 @@ export function PerformanceEditor({
           shown={measuresOn || (stageOpen && !summarizing && view === 'settings')}
         />
       )}
-      {wide && <StageTools />}
+      {wide && <StageTools measuresLocked={stageOpen && !summarizing && view === 'settings'} />}
       {performance && (
         <div className={styles.view} hidden={summarizing || view !== 'pieces'}>
           <div className={styles.pieces}>
