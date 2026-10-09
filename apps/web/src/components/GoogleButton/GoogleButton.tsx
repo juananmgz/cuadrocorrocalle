@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { authClient, authErrorMessage } from '../../auth/authClient';
 import styles from './GoogleButton.module.scss';
@@ -14,6 +14,16 @@ interface GoogleButtonProps {
 /** "Continuar con Google" following Google's branding guidelines (white button, colour logo). */
 export function GoogleButton({ callbackURL, newUserCallbackURL, onError }: GoogleButtonProps) {
   const [pending, setPending] = useState(false);
+
+  // Coming back from Google with the back button restores this page as it was left (bfcache):
+  // the button must be ready again, not stuck on "Abriendo Google…".
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setPending(false);
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
 
   const signIn = async () => {
     setPending(true);

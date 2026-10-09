@@ -17,3 +17,11 @@ Paso 1.14 (caso OA-09). Página `/cuenta`, desde el menú de usuario.
 | DELETE | `/api/cuentas/yo` | Borra la cuenta con `{ password }` o `{ confirmName }` (el correo). 403 con `WRONG_PASSWORD` o `WRONG_NAME`; 429 tras 5 intentos fallidos |
 
 Nombre, correo y contraseña van por las rutas de Better Auth (`/api/auth/update-user`, `/api/auth/change-email`, `/api/auth/change-password`).
+
+## Entrar y crear cuenta
+
+«Entrar» va en dos pasos en todas las pantallas: primero «Continuar con Google» o el correo con «Continuar» (y «¿Aún no tienes cuenta? Crea una»); después, el correo elegido con «Cambiar», la contraseña, «¿Has olvidado la contraseña?» y «Entrar».
+
+«Crear cuenta» (`/registro`) solo tiene el formulario (nombre, correo y contraseña), sin «Continuar con Google»: quien entra con Google por primera vez desde «Entrar» ya crea su cuenta.
+
+Al pulsar «Continuar con Google» el botón dice «Abriendo Google…» y se desactiva; si se vuelve atrás desde Google, el navegador restaura la página (bfcache) y el botón vuelve a estar listo (evento `pageshow`).
