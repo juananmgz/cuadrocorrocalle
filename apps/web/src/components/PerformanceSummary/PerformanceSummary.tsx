@@ -4,7 +4,7 @@ import {
   PIECE_TYPE_LABELS,
   SPOKEN_TAGS,
 } from '@cuadrocorrocalle/shared';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useCallUp } from '../../callUps/callUpApi';
 import { usePeople } from '../../people/peopleApi';
@@ -24,6 +24,7 @@ import {
 import type { StageSize } from '../../stage/placement';
 import { CycleControls } from '../CycleControls/CycleControls';
 import { useCycleKeys } from '../CycleControls/useCycleKeys';
+import { pieceJustShown, turnElapsed } from '../PiecePreview/carryOn';
 import { PiecePreview, PREVIEW_FADE } from '../PiecePreview/PiecePreview';
 import { Button } from '../ui/Button/Button';
 import { Card } from '../ui/Card/Card';
@@ -122,7 +123,8 @@ export function PerformanceSummary({
   const staged = order.filter((piece) => !isSpoken(piece.type));
 
   // Clicking a piece previews what it has on the stage, as saved; "Editar" opens it.
-  const [previewKey, setPreviewKey] = useState<string | null>(null);
+  // It starts on the piece the home page was showing, if it comes from there.
+  const [previewKey, setPreviewKey] = useState<string | null>(() => pieceJustShown(performance.id));
   // A piece clicked stays on the stage (the carousel waits) until it is clicked again.
   const [pickedKey, setPickedKey] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
@@ -140,13 +142,33 @@ export function PerformanceSummary({
   const nextKey = preview ? staged[(staged.indexOf(preview) + 1) % staged.length]?.key : undefined;
   // Its fade out is part of its turn, so the next one comes in right on time.
   const [ending, setEnding] = useState(false);
+  // Coming from the home page, the first turn carries on from the second it had reached there.
+  const [carried] = useState(() =>
+    previewKey
+      ? {
+          key: previewKey,
+          endsAt:
+            window.performance.now() +
+            PIECE_SECONDS * 1000 -
+            turnElapsed(`${performance.id}:${previewKey}`),
+        }
+      : null,
+  );
+  const carriedTurn = useRef(carried);
   useEffect(() => {
     if (!active || !wide || !nextKey || staged.length < 2 || pickedKey || paused) return;
-    const fade = window.setTimeout(() => setEnding(true), PIECE_SECONDS * 1000 - PREVIEW_FADE);
+    const first = carriedTurn.current?.key === preview?.key ? carriedTurn.current : null;
+    // Once that second has gone by (e.g. the summary was not on show), a turn starts afresh.
+    const left =
+      first && first.endsAt > window.performance.now()
+        ? first.endsAt - window.performance.now()
+        : PIECE_SECONDS * 1000;
+    const fade = window.setTimeout(() => setEnding(true), Math.max(0, left - PREVIEW_FADE));
     const next = window.setTimeout(() => {
+      carriedTurn.current = null;
       setPreviewKey(nextKey);
       setEnding(false);
-    }, PIECE_SECONDS * 1000);
+    }, left);
     return () => {
       window.clearTimeout(fade);
       window.clearTimeout(next);
@@ -156,11 +178,13 @@ export function PerformanceSummary({
   const go = (by: number) => {
     if (!preview || !staged.length) return;
     const at = (staged.indexOf(preview) + by + staged.length) % staged.length;
+    carriedTurn.current = null;
     setPickedKey(null);
     setEnding(false);
     setPreviewKey(staged[at]!.key);
   };
   const togglePause = () => {
+    carriedTurn.current = null;
     setPickedKey(null);
     setEnding(false);
     setPaused((value) => !value);
@@ -320,6 +344,7 @@ export function PerformanceSummary({
                       aria-pressed={piece.key === pickedKey}
                       onClick={() => {
                         const picked = piece.key === pickedKey ? null : piece.key;
+                        carriedTurn.current = null;
                         setPickedKey(picked);
                         if (picked) setPreviewKey(picked);
                         setEnding(false);
@@ -410,7 +435,7 @@ export function PerformanceSummary({
 
       {active && wide && preview && stage && (
         <PiecePreview
-          fadeKey={preview.key}
+          fadeKey={`${performance.id}:${preview.key}`}
           fadingOut={ending}
           groupId={performance.groupId}
           performanceId={performance.id}

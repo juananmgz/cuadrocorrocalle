@@ -25,7 +25,7 @@ flowchart TD
   AW --> UI["components/ui: componentes sobre Radix (radix-ui), cada uno con su SCSS<br>Button, TextField, Select, Dialog, Menu, Tabs, Toast (información, éxito, peligro, error),<br>Card, PersonChip, ColorPicker (20 colores de persona), RequiredMark («(*)» de campo obligatorio)<br>iconos: siempre de Lucide (lucide-react), línea de 2 px"]
   AW --> TB["components/TopBar: logo CuadroCorroCalle; en tablet y PC recuadro del grupo (GroupBox) y menú de usuario,<br>en móvil menú hamburguesa (components/SideMenu): usuario, grupo, Mi grupo, Ajustes y Mi cuenta<br>components/AppLayout: marco de las páginas con sesión (barra, cuadrícula y grupo activo)<br>página /componentes (carga diferida)"]
   AW --> TH["src/theme: preferencia de tema guardada en el dispositivo<br>script en index.html que la aplica antes de pintar"]
-  AW --> GR["src/groups: grupo activo (7 días), API de grupos, colores de cuadrícula<br>components/GroupChooser: diálogo «Elegir grupo»"]
+  AW --> GR["src/groups: grupo activo (7 días), API de grupos, colores de cuadrícula<br>pages/Groups: páginas «Elegir grupo» (/grupos) y «Modificar grupos» (/grupos/editar)<br>components/GroupForms: formularios de grupo y color"]
   AW --> AU["src/auth: cliente de Better Auth y RequireAuth<br>páginas /registro, /entrar, /recuperar y /restablecer; con sesión /inicio (próxima actuación), /actuaciones y /actuaciones/:id, /grupo (Mi grupo), /ajustes (tema y cookies) y /cuenta (datos y cerrar sesión)"]
   AW --> CO["src/consent y components/CookieBanner: aviso de cookies<br>src/analytics: carga de GA4 tras aceptar"]
   AW --> EP[".env.production: VITE_GA_MEASUREMENT_ID (público)"]

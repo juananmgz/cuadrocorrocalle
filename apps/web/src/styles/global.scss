@@ -3,6 +3,9 @@
 :root {
   @include tokens.tiza-base;
   @include tokens.tiza-light;
+
+  // How wide a scrollbar is; main.tsx measures it in this browser.
+  --scrollbar-size: 0px;
 }
 
 @media (prefers-color-scheme: dark) {

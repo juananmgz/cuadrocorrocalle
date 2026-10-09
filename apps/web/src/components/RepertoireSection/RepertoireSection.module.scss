@@ -77,11 +77,6 @@
   .name {
     font-size: 0.875rem;
   }
-
-  .duration {
-    font-size: 0.8125rem;
-    color: var(--ink-soft);
-  }
 }
 
 // «(off)», «(mic)»: where the others have their number, in grey italics.
@@ -125,7 +120,7 @@
   display: grid;
   place-items: center;
   align-self: stretch;
-  width: 44px;
+  width: 36px;
   font-size: 1.25rem;
   color: var(--ink-soft);
   touch-action: none;
@@ -143,11 +138,12 @@
   }
 }
 
-// Its number, or «(off)» in a spoken piece, centred in a column of its own.
+// Its number, or «(off)» in a spoken piece, centred in a column of its own, close to the handle.
 .number,
 .spokenTag {
   flex: none;
   width: 2em;
+  margin-left: calc(-1 * var(--space-3));
   text-align: center;
 }
 
@@ -160,6 +156,7 @@
   display: grid;
   gap: var(--space-1);
   justify-items: start;
+  width: 100%;
   min-width: 0;
   padding: var(--space-2) 0;
   font: inherit;
@@ -213,11 +210,13 @@
   color: var(--danger);
 }
 
+// Type, people and the rest from the left; the duration at the right end.
 .meta {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-2);
   align-items: center;
+  justify-self: stretch;
 }
 
 .type,
@@ -232,8 +231,12 @@
   border-style: dashed;
 }
 
+// The same in every row, spoken or not: small and grey, at the right end.
 .duration {
+  margin-left: auto;
+  font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
 }
 
 // A strip at the right of the row that opens the fields.
@@ -443,10 +446,16 @@
   }
 }
 
-// Its content shrinks with the column instead of pushing it wider.
+// Its content shrinks with the column instead of pushing it wider. When it scrolls, the bar
+// takes its room from the card's right padding, not from the pieces.
 .repertoireCard {
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
+
+  @include mixins.from-tablet {
+    scrollbar-gutter: stable;
+    padding-right: max(0px, calc(var(--space-4) - var(--scrollbar-size)));
+  }
 }
 
 .emptyList {

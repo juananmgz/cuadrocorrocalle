@@ -302,8 +302,11 @@
   padding: 0 var(--space-3) var(--space-3);
 
   @include mixins.from-tablet {
-    padding: 0 var(--space-4) var(--space-4);
-    overflow: hidden auto;
+    @include mixins.scroll-y(var(--space-4));
+
+    padding-top: 0;
+    padding-bottom: var(--space-4);
+    padding-left: var(--space-4);
   }
 }
 

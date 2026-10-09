@@ -369,9 +369,10 @@
 // The scrolling part takes the remaining height.
 .scroll {
   @include mixins.from-desktop {
+    @include mixins.scroll-y;
+
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
   }
 }
 

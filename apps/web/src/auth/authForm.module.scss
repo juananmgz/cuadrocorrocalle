@@ -44,3 +44,29 @@
     background: var(--line);
   }
 }
+
+// The email already given, in the second step of signing in on phones and tablets.
+.chosenEmail {
+  display: flex;
+  margin: 0;
+  gap: var(--space-2);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.emailText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.linkButton {
+  flex: none;
+  padding: 0;
+  font: inherit;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}

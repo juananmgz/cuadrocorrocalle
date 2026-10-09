@@ -183,7 +183,6 @@ export function Home() {
           performanceId={onShow.performance.id}
           piece={listPiece}
           stage={showStage}
-          perspective
           fadingOut={ending}
         />
       )}

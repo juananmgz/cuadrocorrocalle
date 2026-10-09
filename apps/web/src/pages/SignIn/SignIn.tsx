@@ -24,17 +24,26 @@ export function SignIn() {
     return code ? authErrorMessage({ code }) : undefined;
   });
   const [pending, setPending] = useState(false);
+  const [email, setEmail] = useState('');
+  // Two steps on every screen: the email (or Google) first, then the password.
+  const [emailDone, setEmailDone] = useState(false);
+  const askPassword = emailDone;
+  const askEmail = !emailDone;
 
   if (session) return <Navigate to={returnTo} replace />;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!askPassword) {
+      setEmailDone(true);
+      return;
+    }
     const form = new FormData(event.currentTarget);
 
     setPending(true);
     setError(undefined);
     const { error: signInError } = await authClient.signIn.email({
-      email: String(form.get('email')).trim(),
+      email: email.trim(),
       password: String(form.get('password')),
       rememberMe: true,
     });
@@ -48,39 +57,84 @@ export function SignIn() {
     <AuthLayout
       title="Entrar"
       footer={
-        <>
-          ¿Aún no tienes cuenta? <Link to="/registro">Crea una</Link>
-        </>
+        askEmail && (
+          <>
+            ¿Aún no tienes cuenta? <Link to="/registro">Crea una</Link>
+          </>
+        )
       }
     >
-      <GoogleButton callbackURL={returnTo} newUserCallbackURL="/empezar" onError={setError} />
-      <p className={styles.divider}>o con tu correo</p>
+      {askEmail && (
+        <>
+          <GoogleButton callbackURL={returnTo} newUserCallbackURL="/empezar" onError={setError} />
+          <p className={styles.divider}>o con tu correo</p>
+        </>
+      )}
       <form className={styles.form} onSubmit={submit}>
-        <TextField
-          label="Correo electrónico"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-        />
-        <TextField
-          label="Contraseña"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-        />
-        <Link to="/recuperar" className={styles.secondaryLink}>
-          ¿Has olvidado la contraseña?
-        </Link>
+        {askEmail ? (
+          <TextField
+            label="Correo electrónico"
+            name="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+        ) : (
+          <p className={styles.chosenEmail}>
+            {/* Kept in the form so password managers know whose password this is. */}
+            <input
+              type="email"
+              name="email"
+              autoComplete="username"
+              value={email}
+              readOnly
+              hidden
+            />
+            <span className={styles.emailText}>{email.trim()}</span>
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={() => {
+                setEmailDone(false);
+                setError(undefined);
+              }}
+            >
+              Cambiar
+            </button>
+          </p>
+        )}
+        {askPassword && (
+          <>
+            <TextField
+              label="Contraseña"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              // Straight to the password once the email is given.
+              autoFocus
+              required
+            />
+            <Link to="/recuperar" className={styles.secondaryLink}>
+              ¿Has olvidado la contraseña?
+            </Link>
+          </>
+        )}
         {error && (
           <p className={styles.error} role="alert">
             {error}
           </p>
         )}
-        <Button type="submit" variant="primary" disabled={pending}>
-          {pending ? 'Entrando…' : 'Entrar'}
-        </Button>
+        {askPassword ? (
+          <Button type="submit" variant="primary" disabled={pending}>
+            {pending ? 'Entrando…' : 'Entrar'}
+          </Button>
+        ) : (
+          <Button type="submit" variant="primary">
+            Continuar
+          </Button>
+        )}
       </form>
     </AuthLayout>
   );

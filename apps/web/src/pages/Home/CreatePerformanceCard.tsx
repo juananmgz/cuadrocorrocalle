@@ -698,7 +698,7 @@ export function CreatePerformanceCard({
                 autoComplete="off"
                 value={stage.edgeDistance}
                 onChange={update('edgeDistance', cleanDecimal)}
-                hint="De 0,25 a 2 m, de 0,25 en 0,25"
+                hint="De 0,25 m a 2 m"
               />
             </div>
             {/* Where the musicians play, kept for them in every piece. */}

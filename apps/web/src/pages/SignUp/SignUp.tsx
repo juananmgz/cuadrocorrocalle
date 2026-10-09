@@ -9,7 +9,6 @@ import {
 } from '../../auth/authClient';
 import styles from '../../auth/authForm.module.scss';
 import { AuthLayout } from '../../components/AuthLayout/AuthLayout';
-import { GoogleButton } from '../../components/GoogleButton/GoogleButton';
 import { Button } from '../../components/ui/Button/Button';
 import { TextField } from '../../components/ui/TextField/TextField';
 
@@ -49,8 +48,6 @@ export function SignUp() {
         </>
       }
     >
-      <GoogleButton callbackURL="/inicio" newUserCallbackURL="/empezar" onError={setError} />
-      <p className={styles.divider}>o con tu correo</p>
       <form className={styles.form} onSubmit={submit}>
         <TextField label="Nombre" name="name" autoComplete="name" required />
         <TextField
