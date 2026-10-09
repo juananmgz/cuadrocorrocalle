@@ -83,3 +83,81 @@ test('picks one figure, or several, with a box, a click or Shift + click', () =>
   drawBox({ x: 900, y: 700 }, { x: 900, y: 700 });
   expect(result.current.layer.groupIds!.size).toBe(0);
 });
+
+test('copies several figures with Ctrl+C and pastes them beside, as they stand, with Ctrl+V', () => {
+  const { result, onChange } = setup();
+  // A box round both pairs.
+  drawBox({ x: 300, y: 360 }, { x: 700, y: 440 });
+  expect(result.current.layer.groupIds!.size).toBe(2);
+
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true }));
+  });
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true }));
+  });
+
+  const pasted = onChange.mock.lastCall![0].figures as { id: string; x: number; y: number }[];
+  expect(pasted).toHaveLength(4);
+  const [a, b, copyA, copyB] = pasted;
+  expect([a!.id, b!.id]).toEqual(['a', 'b']);
+  // Moved together: the copies keep the 4 m between them.
+  expect(copyB!.x - copyA!.x).toBe(4);
+  expect(copyA!.y - a!.y).toBe(copyB!.y - b!.y);
+  expect(copyA!.x !== a!.x || copyA!.y !== a!.y).toBe(true);
+});
+
+test('pastes into another piece with the people who are not there yet; the rest leave holes', () => {
+  const onChange = vi.fn();
+  const person = (personId: string, figureId: string, slot: number) => ({
+    personId,
+    roles: ['dance' as const],
+    x: 0,
+    y: 0,
+    figureId,
+    slot,
+  });
+  const usePiece = (content: {
+    participants: ReturnType<typeof person>[];
+    figures: ReturnType<typeof pair>[];
+  }) =>
+    useStageEditing({
+      content,
+      pieceType: 'dance',
+      stage,
+      view,
+      people: new Map(),
+      groupId: 'g1',
+      figureDefaults: {},
+      onChange,
+    });
+  const first = {
+    participants: [person('ana', 'a', 0), person('luis', 'a', 1)],
+    figures: [pair('a', -2)],
+  };
+  // The next piece has Luis already, in a pair of its own on the right.
+  const second = { participants: [person('luis', 'z', 0)], figures: [pair('z', 3)] };
+  const { result, rerender } = renderHook((content) => usePiece(content), {
+    wrapper,
+    initialProps: first,
+  });
+
+  drawBox({ x: 300, y: 360 }, { x: 380, y: 440 });
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true }));
+  });
+  rerender(second);
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', ctrlKey: true }));
+  });
+
+  const pasted = onChange.mock.lastCall![0];
+  const copy = pasted.figures.find((figure: { id: string }) => figure.id !== 'z');
+  // Where it was in the first piece, as there is room.
+  expect(copy).toMatchObject({ kind: 'pair', x: -2, y: 0 });
+  expect(pasted.participants).toEqual([
+    expect.objectContaining({ personId: 'luis', figureId: 'z' }),
+    expect.objectContaining({ personId: 'ana', figureId: copy.id, slot: 0 }),
+  ]);
+  expect(result.current).toBeTruthy();
+});
